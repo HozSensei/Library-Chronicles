@@ -377,8 +377,7 @@ export const useImportStore = defineStore('import', {
         );
         if (results.length) {
           try {
-            const { useLibraryStore } = await import('./library.js');
-            useLibraryStore().invalidate();
+              useLibraryStore().invalidate();
           } catch {
             /* ignore */
           }
@@ -417,8 +416,7 @@ export const useImportStore = defineStore('import', {
         this.selectedPaths = [];
         if (results.length) {
           try {
-            const { useLibraryStore } = await import('./library.js');
-            useLibraryStore().invalidate();
+              useLibraryStore().invalidate();
           } catch {
             /* ignore */
           }
