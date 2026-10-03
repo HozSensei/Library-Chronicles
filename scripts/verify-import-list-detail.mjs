@@ -1,5 +1,5 @@
 /**
- * Garde-fous UX Import liste → fiche détail + bindings X/Y + pastilles metaSource.
+ * Garde-fous UX Import : liste → fiche Infos/Recherche + bindings A/X/Y/B + pastilles.
  */
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -13,10 +13,17 @@ import { GamepadButtons } from '../src/shared/gamepad-codes.js';
 import {
   IMPORT_DETAIL_ACTIONS,
   IMPORT_DETAIL_FIELDS,
+  IMPORT_DETAIL_TABS,
+  IMPORT_INFOS_FIELDS,
   IMPORT_LIST_ACTIONS,
-  clampDetailFieldFocus,
+  IMPORT_SEARCH_FIELDS,
+  clampInfosFieldFocus,
+  clampSearchFieldFocus,
   importFieldDomId,
+  normalizeImportDetailTab,
   normalizeImportFocusZone,
+  resolveImportBackAction,
+  resolveImportConfirmAction,
 } from '../src/shared/import-focus.js';
 import {
   META_SOURCE,
@@ -50,6 +57,10 @@ const gamepad = readFileSync(
   join(root, 'src/renderer/src/composables/useGamepad.js'),
   'utf8',
 );
+const focusSrc = readFileSync(
+  join(root, 'src/shared/import-focus.js'),
+  'utf8',
+);
 
 const bindings = resolveKeyBindings(null);
 assert(
@@ -81,13 +92,137 @@ assert(
   'défaut Y = import-all',
 );
 
-assert(IMPORT_DETAIL_FIELDS.SEARCH === 8, 'SEARCH index');
+assert(IMPORT_DETAIL_TABS.INFOS === 'infos', 'tab infos');
+assert(IMPORT_DETAIL_TABS.SEARCH === 'search', 'tab search');
+assert(IMPORT_INFOS_FIELDS.SYNOPSIS === 5, 'SYNOPSIS index');
+assert(IMPORT_SEARCH_FIELDS.RUN === 2, 'RUN search index');
+assert(IMPORT_DETAIL_FIELDS.SEARCH === 8, 'alias SEARCH index');
 assert(IMPORT_DETAIL_ACTIONS.COMMIT === 0, 'COMMIT index');
 assert(IMPORT_LIST_ACTIONS.BACK === 1, 'BACK liste');
-assert(clampDetailFieldFocus(99) === IMPORT_DETAIL_FIELDS.MAX, 'clamp field');
-assert(importFieldDomId(IMPORT_DETAIL_FIELDS.QUERY) === 'query', 'dom id query');
+assert(clampInfosFieldFocus(99) === IMPORT_INFOS_FIELDS.MAX, 'clamp infos');
+assert(clampSearchFieldFocus(99) === IMPORT_SEARCH_FIELDS.MAX, 'clamp search');
+assert(
+  importFieldDomId(IMPORT_SEARCH_FIELDS.QUERY, 'search') === 'query',
+  'dom id query',
+);
+assert(
+  importFieldDomId(IMPORT_INFOS_FIELDS.TITLE, 'infos') === 'title',
+  'dom id title',
+);
 assert(normalizeImportFocusZone('results') === 'results', 'zone results');
 assert(normalizeImportFocusZone('nope') === 'list', 'zone fallback');
+assert(normalizeImportDetailTab('search') === 'search', 'tab normalize');
+assert(normalizeImportDetailTab(null) === 'infos', 'tab fallback infos');
+
+// Guards A — ne ferme / n’importe pas hors CTA
+assert(
+  resolveImportConfirmAction({ isDetail: false, zone: 'list' }) ===
+    'open-detail',
+  'liste A → open-detail',
+);
+assert(
+  resolveImportConfirmAction({
+    isDetail: true,
+    detailTab: 'infos',
+    zone: 'fields',
+    focusIndex: 0,
+  }) === 'edit-field',
+  'Infos A champ → edit-field (pas close)',
+);
+assert(
+  resolveImportConfirmAction({
+    isDetail: true,
+    detailTab: 'infos',
+    zone: 'actions',
+    focusIndex: IMPORT_DETAIL_ACTIONS.COMMIT,
+  }) === 'commit-one',
+  'Infos A CTA Importer → commit-one',
+);
+assert(
+  resolveImportConfirmAction({
+    isDetail: true,
+    detailTab: 'infos',
+    zone: 'actions',
+    focusIndex: IMPORT_DETAIL_ACTIONS.BACK,
+  }) === 'close-detail',
+  'Infos A CTA Retour → close-detail',
+);
+assert(
+  resolveImportConfirmAction({
+    isDetail: true,
+    detailTab: 'search',
+    zone: 'results',
+    focusIndex: 0,
+    resultCount: 3,
+  }) === 'apply-result',
+  'Recherche A résultat → apply-result',
+);
+assert(
+  resolveImportConfirmAction({
+    isDetail: true,
+    detailTab: 'search',
+    zone: 'results',
+    focusIndex: 0,
+    resultCount: 0,
+  }) === 'noop',
+  'Recherche A sans résultat → noop',
+);
+assert(
+  resolveImportConfirmAction({
+    isDetail: true,
+    detailTab: 'search',
+    zone: 'fields',
+    focusIndex: IMPORT_SEARCH_FIELDS.RUN,
+  }) === 'run-search',
+  'Recherche A Lancer → run-search',
+);
+assert(
+  resolveImportConfirmAction({
+    isDetail: true,
+    detailTab: 'infos',
+    zone: 'list',
+    focusIndex: 0,
+  }) === 'noop',
+  'zone list en fiche → noop (pas close)',
+);
+
+// Guards B
+assert(
+  resolveImportBackAction({ isDetail: false }) === 'library',
+  'liste B → library',
+);
+assert(
+  resolveImportBackAction({
+    isDetail: true,
+    detailTab: 'search',
+    zone: 'fields',
+  }) === 'to-infos',
+  'Recherche B champs → Infos',
+);
+assert(
+  resolveImportBackAction({
+    isDetail: true,
+    detailTab: 'search',
+    zone: 'results',
+  }) === 'to-infos',
+  'Recherche B résultats → Infos',
+);
+assert(
+  resolveImportBackAction({
+    isDetail: true,
+    detailTab: 'infos',
+    zone: 'fields',
+  }) === 'to-list',
+  'Infos B → liste',
+);
+assert(
+  resolveImportBackAction({
+    isDetail: true,
+    detailTab: 'search',
+    zone: 'actions',
+  }) === 'to-list',
+  'Recherche B sur footer → liste',
+);
 
 // metaSource helpers
 assert(META_SOURCE.SELECTED === 'selected', 'META_SOURCE.selected');
@@ -135,6 +270,8 @@ assert(metaSourceLabel('selected').includes('API'), 'label selected');
 assert(metaSourceLabel('empty').includes('Aucune'), 'label empty');
 
 assert(store.includes("viewMode: 'list'"), 'store viewMode');
+assert(store.includes("detailTab: 'infos'"), 'store detailTab');
+assert(store.includes('setDetailTab'), 'store setDetailTab');
 assert(store.includes('searchQuery'), 'store searchQuery');
 assert(store.includes('async openDetail'), 'store openDetail');
 assert(store.includes('closeDetail'), 'store closeDetail');
@@ -147,7 +284,7 @@ assert(store.includes('selectedMeta'), 'store selectedMeta');
 assert(store.includes('resolveItemMetadata'), 'store resolveItemMetadata');
 assert(store.includes('META_SOURCE.SELECTED'), 'store flag selected');
 
-assert(view.includes('Détail / méta'), 'hint A détail');
+assert(view.includes('ouvrir fiche'), 'hint A ouvrir fiche');
 assert(view.includes('Importer ce tome'), 'hint X importer ce tome');
 assert(view.includes('Tout importer'), 'hint Y tout importer');
 assert(view.includes("key: 'X'"), 'hint key X');
@@ -156,8 +293,13 @@ assert(view.includes('import__dot--detected'), 'pastille bleu/détecté');
 assert(view.includes('import__dot--empty'), 'pastille rouge/vide');
 assert(view.includes('import__dot--selected'), 'pastille vert/sélection');
 assert(view.includes('Retour liste'), 'retour liste');
-assert(view.includes('Mots-clés recherche'), 'champ query');
+assert(view.includes('Mots-clés'), 'champ query');
 assert(view.includes('data-import-field="query"'), 'data-field query');
+assert(view.includes('Source API'), 'select source API');
+assert(view.includes('Lancer recherche'), 'bouton lancer recherche');
+assert(view.includes('import__tabs'), 'onglets fiche');
+assert(view.includes('Infos'), 'onglet Infos');
+assert(view.includes('Recherche'), 'onglet Recherche');
 assert(view.includes('shell-scroll'), 'shell-scroll');
 assert(!view.includes('import__pick'), 'plus de multi-select checkbox');
 assert(!view.includes('Importer sélection'), 'plus Importer sélection');
@@ -170,8 +312,14 @@ assert(gamepad.includes('imp.commitAll'), 'gamepad Y → commitAll liste');
 assert(gamepad.includes('imp.isDetail'), 'branche détail');
 assert(gamepad.includes('imp.enrich()'), 'recherche API détail');
 assert(gamepad.includes('applyEnrichCursor'), 'appliquer résultat');
+assert(gamepad.includes('resolveImportConfirmAction'), 'guards confirm A');
+assert(gamepad.includes('resolveImportBackAction'), 'guards back B');
+assert(gamepad.includes('IMPORT_DETAIL_TABS'), 'onglets manette');
 assert(gamepad.includes('focusTextInputForEdit'), 'clavier virtuel champs');
 assert(!gamepad.includes('footerMax = 4'), 'plus footer 5 boutons');
+
+assert(focusSrc.includes('resolveImportConfirmAction'), 'focus resolve A');
+assert(focusSrc.includes('n’importe/ne ferme PAS'), 'doc bindings Infos');
 
 if (failed) {
   console.error(`\n${failed} échec(s)`);

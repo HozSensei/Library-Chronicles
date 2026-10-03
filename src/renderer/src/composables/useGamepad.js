@@ -34,12 +34,17 @@ import {
 } from '../../../shared/series-focus.js';
 import {
   IMPORT_DETAIL_ACTIONS,
-  IMPORT_DETAIL_FIELDS,
+  IMPORT_DETAIL_TABS,
+  IMPORT_INFOS_FIELDS,
   IMPORT_LIST_ACTIONS,
+  IMPORT_SEARCH_FIELDS,
   clampDetailActionFocus,
-  clampDetailFieldFocus,
+  clampInfosFieldFocus,
   clampListActionFocus,
+  clampSearchFieldFocus,
   importFieldDomId,
+  resolveImportBackAction,
+  resolveImportConfirmAction,
 } from '../../../shared/import-focus.js';
 import { createStickMenuNav } from '../../../shared/stick-menu-nav.js';
 import {
@@ -612,24 +617,74 @@ function createLoop(ctx) {
     }
 
     if (route === 'import') {
-      // ——— Fiche détail import (méta + search API) ———
+      // ——— Fiche détail : onglets Infos / Recherche ———
       if (imp.isDetail) {
-        if (action === 'back') {
-          vibe('light');
+        const resultCount = imp.enrichResults.length;
+        const zone = ui.importFocusZone;
+        const tab = imp.detailTab === 'search'
+          ? IMPORT_DETAIL_TABS.SEARCH
+          : IMPORT_DETAIL_TABS.INFOS;
+        const fieldMax =
+          tab === IMPORT_DETAIL_TABS.SEARCH
+            ? IMPORT_SEARCH_FIELDS.MAX
+            : IMPORT_INFOS_FIELDS.MAX;
+        const clampField =
+          tab === IMPORT_DETAIL_TABS.SEARCH
+            ? clampSearchFieldFocus
+            : clampInfosFieldFocus;
+        const lastFieldBeforeResults =
+          tab === IMPORT_DETAIL_TABS.SEARCH
+            ? IMPORT_SEARCH_FIELDS.RUN
+            : IMPORT_INFOS_FIELDS.SYNOPSIS;
+
+        const goToInfos = () => {
+          imp.setDetailTab(IMPORT_DETAIL_TABS.INFOS);
+          ui.setImportFocusZone('fields');
+          ui.setImportFocus(IMPORT_INFOS_FIELDS.TITLE);
+          afterFocusMove();
+        };
+
+        const goToSearch = () => {
+          imp.setDetailTab(IMPORT_DETAIL_TABS.SEARCH);
+          ui.setImportFocusZone('fields');
+          ui.setImportFocus(IMPORT_SEARCH_FIELDS.QUERY);
+          afterFocusMove();
+        };
+
+        const closeToList = () => {
           imp.closeDetail();
           ui.setImportFocusZone('list');
           ui.setImportFocus(0);
           afterFocusMove();
+        };
+
+        // B : Recherche (champs/résultats) → Infos ; sinon → liste
+        if (action === 'back') {
+          vibe('light');
+          const back = resolveImportBackAction({
+            isDetail: true,
+            detailTab: tab,
+            zone,
+          });
+          if (back === 'to-infos') goToInfos();
+          else closeToList();
           return;
         }
 
-        const resultCount = imp.enrichResults.length;
-        const zone = ui.importFocusZone;
-        const onProvider =
-          zone === 'fields' &&
-          ui.importFocusIndex === IMPORT_DETAIL_FIELDS.PROVIDER;
+        // LT / RT : bascule Infos ↔ Recherche
+        if (action === 'tab-prev' || action === 'tab-next') {
+          if (tab === IMPORT_DETAIL_TABS.SEARCH) goToInfos();
+          else goToSearch();
+          vibe('light');
+          return;
+        }
 
-        // Sur provider : ←→ cycle les providers (sans changer de focus)
+        const onProvider =
+          tab === IMPORT_DETAIL_TABS.SEARCH &&
+          zone === 'fields' &&
+          ui.importFocusIndex === IMPORT_SEARCH_FIELDS.PROVIDER;
+
+        // Sur provider : ←→ cycle les sources API
         if (onProvider && (action === 'cursor-left' || action === 'cursor-right')) {
           void imp.cycleProvider(action === 'cursor-left' ? -1 : 1);
           afterFocusMove();
@@ -643,13 +698,13 @@ function createLoop(ctx) {
           if (zone === 'actions') {
             if (ui.importFocusIndex > 0) {
               ui.setImportFocus(clampDetailActionFocus(ui.importFocusIndex - 1));
-            } else if (resultCount > 0) {
+            } else if (tab === IMPORT_DETAIL_TABS.SEARCH && resultCount > 0) {
               ui.setImportFocusZone('results');
               ui.setImportFocus(resultCount - 1);
               imp.enrichResultCursor = resultCount - 1;
             } else {
               ui.setImportFocusZone('fields');
-              ui.setImportFocus(IMPORT_DETAIL_FIELDS.SEARCH);
+              ui.setImportFocus(lastFieldBeforeResults);
             }
           } else if (zone === 'results') {
             if (ui.importFocusIndex > 0) {
@@ -658,20 +713,20 @@ function createLoop(ctx) {
               imp.enrichResultCursor = next;
             } else {
               ui.setImportFocusZone('fields');
-              ui.setImportFocus(IMPORT_DETAIL_FIELDS.SEARCH);
+              ui.setImportFocus(IMPORT_SEARCH_FIELDS.RUN);
             }
           } else {
             ui.setImportFocusZone('fields');
-            ui.setImportFocus(clampDetailFieldFocus(ui.importFocusIndex - 1));
+            ui.setImportFocus(clampField(ui.importFocusIndex - 1));
           }
           afterFocusMove();
         }
 
         if (goNext) {
           if (zone === 'fields') {
-            if (ui.importFocusIndex < IMPORT_DETAIL_FIELDS.MAX) {
-              ui.setImportFocus(clampDetailFieldFocus(ui.importFocusIndex + 1));
-            } else if (resultCount > 0) {
+            if (ui.importFocusIndex < fieldMax) {
+              ui.setImportFocus(clampField(ui.importFocusIndex + 1));
+            } else if (tab === IMPORT_DETAIL_TABS.SEARCH && resultCount > 0) {
               ui.setImportFocusZone('results');
               ui.setImportFocus(0);
               imp.enrichResultCursor = 0;
@@ -697,79 +752,83 @@ function createLoop(ctx) {
           afterFocusMove();
         }
 
+        // A : guards CTA vs champ vs résultat (pas de fermeture / import hors CTA)
         if (action === 'confirm') {
-          if (zone === 'actions') {
-            if (ui.importFocusIndex === IMPORT_DETAIL_ACTIONS.COMMIT) {
+          const intent = resolveImportConfirmAction({
+            isDetail: true,
+            detailTab: tab,
+            zone,
+            focusIndex: ui.importFocusIndex,
+            resultCount,
+          });
+
+          if (intent === 'commit-one') {
+            if (imp.selected && !imp.committing) {
               vibe('confirm');
               void (async () => {
                 await imp.commitSelected({ copyToLibrary: true });
-                imp.closeDetail();
-                ui.setImportFocusZone('list');
-                ui.setImportFocus(0);
-                afterFocusMove();
+                closeToList();
               })();
-            } else {
-              vibe('light');
-              imp.closeDetail();
-              ui.setImportFocusZone('list');
-              ui.setImportFocus(0);
-              afterFocusMove();
             }
-          } else if (zone === 'results') {
+          } else if (intent === 'close-detail') {
+            vibe('light');
+            closeToList();
+          } else if (intent === 'apply-result') {
             vibe('confirm');
             imp.enrichResultCursor = ui.importFocusIndex;
             imp.applyEnrichCursor();
             afterFocusMove();
-          } else {
-            const idx = clampDetailFieldFocus(ui.importFocusIndex);
-            if (idx === IMPORT_DETAIL_FIELDS.SEARCH) {
-              void (async () => {
-                await imp.enrich();
-                if (imp.enrichResults.length) {
-                  ui.setImportFocusZone('results');
-                  ui.setImportFocus(0);
-                  imp.enrichResultCursor = 0;
-                }
-                afterFocusMove();
-              })();
-            } else if (idx === IMPORT_DETAIL_FIELDS.PROVIDER) {
-              document
-                .querySelector('.import [data-import-field="provider"] select')
-                ?.focus?.();
-              vibe('light');
-            } else {
-              const id = importFieldDomId(idx);
-              const el = document.querySelector(
-                `.import [data-import-field="${id}"] input, .import [data-import-field="${id}"] textarea`,
-              );
-              void focusTextInputForEdit(el);
-              vibe('light');
-            }
+          } else if (intent === 'run-search') {
+            void (async () => {
+              await imp.enrich();
+              if (imp.enrichResults.length) {
+                ui.setImportFocusZone('results');
+                ui.setImportFocus(0);
+                imp.enrichResultCursor = 0;
+              }
+              afterFocusMove();
+            })();
+          } else if (intent === 'focus-provider') {
+            document
+              .querySelector('.import [data-import-field="provider"] select')
+              ?.focus?.();
+            vibe('light');
+          } else if (intent === 'edit-query' || intent === 'edit-field') {
+            const id = importFieldDomId(ui.importFocusIndex, tab);
+            const el = document.querySelector(
+              `.import [data-import-field="${id}"] input, .import [data-import-field="${id}"] textarea`,
+            );
+            void focusTextInputForEdit(el);
+            vibe('light');
           }
+          // noop : A ne ferme / n’importe pas
         }
 
-        // X sur fiche = importer ce tome (méta sélectionnées ou défaut / draft)
+        // X sur fiche = importer ce tome
         if (action === 'import-one') {
           if (imp.selected && !imp.committing) {
             vibe('confirm');
             void (async () => {
               await imp.commitSelected({ copyToLibrary: true });
-              imp.closeDetail();
-              ui.setImportFocusZone('list');
-              ui.setImportFocus(0);
-              afterFocusMove();
+              closeToList();
             })();
           }
         }
 
-        // Y sur fiche = lancer la recherche API (mots-clés)
+        // Y : Recherche → relancer search ; Infos → onglet Recherche + search
         if (action === 'import-all' || action === 'enrich') {
           void (async () => {
+            if (tab !== IMPORT_DETAIL_TABS.SEARCH) {
+              imp.setDetailTab(IMPORT_DETAIL_TABS.SEARCH);
+            }
             await imp.enrich();
             if (imp.enrichResults.length) {
               ui.setImportFocusZone('results');
               ui.setImportFocus(0);
               imp.enrichResultCursor = 0;
+            } else {
+              ui.setImportFocusZone('fields');
+              ui.setImportFocus(IMPORT_SEARCH_FIELDS.RUN);
             }
             afterFocusMove();
           })();
@@ -825,21 +884,24 @@ function createLoop(ctx) {
         afterFocusMove();
       }
       if (action === 'confirm') {
-        if (ui.importFocusZone === 'actions') {
-          if (ui.importFocusIndex === IMPORT_LIST_ACTIONS.RESCAN) {
-            void imp.scan();
-          } else {
-            vibe('light');
-            router.push({ name: 'library' });
-          }
-        } else {
-          // Liste : A = ouvrir fiche détail (pas import immédiat)
+        const intent = resolveImportConfirmAction({
+          isDetail: false,
+          zone: ui.importFocusZone,
+          focusIndex: ui.importFocusIndex,
+        });
+        if (intent === 'list-rescan') {
+          void imp.scan();
+        } else if (intent === 'list-back') {
+          vibe('light');
+          router.push({ name: 'library' });
+        } else if (intent === 'open-detail') {
+          // Liste : A = ouvrir fiche (onglet Infos) — pas d’import immédiat
           vibe('confirm');
           void (async () => {
             const ok = await imp.openDetail();
             if (ok) {
               ui.setImportFocusZone('fields');
-              ui.setImportFocus(IMPORT_DETAIL_FIELDS.TITLE);
+              ui.setImportFocus(IMPORT_INFOS_FIELDS.TITLE);
               afterFocusMove();
             }
           })();

@@ -7,8 +7,10 @@ import { useUiStore } from '../stores/ui';
 import { scheduleScrollFocusedIntoView } from '../../../shared/focus-scroll.js';
 import {
   IMPORT_DETAIL_ACTIONS,
-  IMPORT_DETAIL_FIELDS,
+  IMPORT_DETAIL_TABS,
+  IMPORT_INFOS_FIELDS,
   IMPORT_LIST_ACTIONS,
+  IMPORT_SEARCH_FIELDS,
   importFieldDomId,
 } from '../../../shared/import-focus.js';
 import { metaSourceLabel } from '../../../shared/import-meta.js';
@@ -20,28 +22,40 @@ const ui = useUiStore();
 
 const listHints = [
   { key: '↑↓', label: 'fichier' },
-  { key: 'A', label: 'Détail / méta' },
+  { key: 'A', label: 'ouvrir fiche' },
   { key: 'X', label: 'Importer ce tome' },
   { key: 'Y', label: 'Tout importer' },
   { key: 'B', label: 'retour biblio' },
 ];
 
-const detailHints = [
-  { key: '↑↓', label: 'champ / résultat' },
-  { key: 'A', label: 'éditer / choisir' },
+const infosHints = [
+  { key: '↑↓', label: 'champ' },
+  { key: 'LT/RT', label: 'onglet' },
+  { key: 'A', label: 'éditer / CTA' },
   { key: 'X', label: 'Importer ce tome' },
-  { key: 'Y', label: 'rechercher' },
   { key: 'B', label: 'retour liste' },
 ];
 
-const hints = computed(() => (imp.isDetail ? detailHints : listHints));
+const searchHints = [
+  { key: '↑↓', label: 'champ / résultat' },
+  { key: 'LT/RT', label: 'onglet' },
+  { key: 'A', label: 'appliquer / éditer' },
+  { key: 'Y', label: 'lancer recherche' },
+  { key: 'B', label: 'retour Infos' },
+];
+
+const hints = computed(() => {
+  if (!imp.isDetail) return listHints;
+  return imp.isSearchTab ? searchHints : infosHints;
+});
 
 const statusLabel = computed(() => {
   if (imp.loading) return 'Scan…';
   if (imp.committing) return 'Import en cours…';
   if (imp.isDetail) {
     const name = imp.selected?.detected?.title || imp.selected?.name || 'Tome';
-    return `Fiche import · ${name}`;
+    const tab = imp.isSearchTab ? 'Recherche' : 'Infos';
+    return `Fiche import · ${name} · ${tab}`;
   }
   if (!imp.items.length) return 'Aucun fichier dans le dossier import';
   return `${imp.items.length} fichier(s)`;
@@ -66,6 +80,7 @@ watch(
   () => [
     imp.cursor,
     imp.viewMode,
+    imp.detailTab,
     imp.enrichResultCursor,
     ui.importFocusIndex,
     ui.importFocusZone,
@@ -77,7 +92,7 @@ async function openDetailAt(index) {
   const ok = await imp.openDetail(index);
   if (!ok) return;
   ui.setImportFocusZone('fields');
-  ui.setImportFocus(IMPORT_DETAIL_FIELDS.TITLE);
+  ui.setImportFocus(IMPORT_INFOS_FIELDS.TITLE);
   nextTick(() => scheduleScrollFocusedIntoView('.import'));
 }
 
@@ -85,6 +100,21 @@ function backToList() {
   imp.closeDetail();
   ui.setImportFocusZone('list');
   ui.setImportFocus(0);
+}
+
+function switchTab(tab) {
+  const next =
+    tab === IMPORT_DETAIL_TABS.SEARCH
+      ? IMPORT_DETAIL_TABS.SEARCH
+      : IMPORT_DETAIL_TABS.INFOS;
+  imp.setDetailTab(next);
+  ui.setImportFocusZone('fields');
+  ui.setImportFocus(
+    next === IMPORT_DETAIL_TABS.SEARCH
+      ? IMPORT_SEARCH_FIELDS.QUERY
+      : IMPORT_INFOS_FIELDS.TITLE,
+  );
+  nextTick(() => scheduleScrollFocusedIntoView('.import'));
 }
 
 async function doImportAll() {
@@ -104,7 +134,11 @@ async function doSearch() {
     ui.setImportFocusZone('results');
     ui.setImportFocus(0);
     imp.enrichResultCursor = 0;
+  } else {
+    ui.setImportFocusZone('fields');
+    ui.setImportFocus(IMPORT_SEARCH_FIELDS.RUN);
   }
+  nextTick(() => scheduleScrollFocusedIntoView('.import'));
 }
 
 function activateListFooter(id) {
@@ -153,13 +187,14 @@ function fieldFocused(index) {
 function resultFocused(index) {
   return (
     imp.isDetail &&
+    imp.isSearchTab &&
     ui.importFocusZone === 'results' &&
     (ui.importFocusIndex === index || imp.enrichResultCursor === index)
   );
 }
 
-async function focusFieldInput(fieldIndex) {
-  const id = importFieldDomId(fieldIndex);
+async function focusFieldInput(fieldIndex, tab) {
+  const id = importFieldDomId(fieldIndex, tab);
   const el = document.querySelector(
     `.import [data-import-field="${id}"] input, .import [data-import-field="${id}"] textarea, .import [data-import-field="${id}"]`,
   );
@@ -175,19 +210,26 @@ async function focusFieldInput(fieldIndex) {
   await focusTextInputForEdit(el);
 }
 
-function onFieldActivate(fieldIndex) {
+function onInfosFieldActivate(fieldIndex) {
   ui.setImportFocusZone('fields');
   ui.setImportFocus(fieldIndex);
-  if (fieldIndex === IMPORT_DETAIL_FIELDS.SEARCH) {
+  return focusFieldInput(fieldIndex, IMPORT_DETAIL_TABS.INFOS);
+}
+
+function onSearchFieldActivate(fieldIndex) {
+  ui.setImportFocusZone('fields');
+  ui.setImportFocus(fieldIndex);
+  if (fieldIndex === IMPORT_SEARCH_FIELDS.RUN) {
     return doSearch();
   }
-  if (fieldIndex === IMPORT_DETAIL_FIELDS.PROVIDER) {
+  if (fieldIndex === IMPORT_SEARCH_FIELDS.PROVIDER) {
     return;
   }
-  return focusFieldInput(fieldIndex);
+  return focusFieldInput(fieldIndex, IMPORT_DETAIL_TABS.SEARCH);
 }
 
 function onResultChoose(index) {
+  if (!imp.enrichResults[index]) return;
   imp.enrichResultCursor = index;
   ui.setImportFocusZone('results');
   ui.setImportFocus(index);
@@ -289,209 +331,245 @@ function dotLabel(item) {
     </div>
 
     <!-- FICHE DÉTAIL -->
-    <div v-else class="import__scroll shell-scroll">
-      <div class="import__scroll-inner">
-        <div class="import__detail" aria-label="Métadonnées d’import">
-          <div class="import__detail-top">
-            <div class="import__cover">
-              <img
-                v-if="imp.coverPreview"
-                :src="imp.coverPreview"
-                alt=""
-              />
-              <div v-else class="import__cover-ph">Aperçu</div>
-            </div>
+    <template v-else>
+      <nav class="import__tabs" aria-label="Onglets fiche import">
+        <button
+          type="button"
+          class="import__tab"
+          :class="{ 'is-active': imp.isInfosTab }"
+          @click="switchTab(IMPORT_DETAIL_TABS.INFOS)"
+        >
+          Infos
+        </button>
+        <button
+          type="button"
+          class="import__tab"
+          :class="{ 'is-active': imp.isSearchTab }"
+          @click="switchTab(IMPORT_DETAIL_TABS.SEARCH)"
+        >
+          Recherche
+        </button>
+      </nav>
 
-            <div class="import__fields">
-              <div
-                class="field"
-                data-import-field="title"
-                :class="{ 'is-focused': fieldFocused(IMPORT_DETAIL_FIELDS.TITLE) }"
-                @click="onFieldActivate(IMPORT_DETAIL_FIELDS.TITLE)"
-              >
-                <label>Titre</label>
-                <input
-                  v-model="imp.draft.title"
-                  type="text"
-                  inputmode="text"
-                  autocomplete="off"
-                />
-              </div>
-              <div
-                class="field"
-                data-import-field="series"
-                :class="{ 'is-focused': fieldFocused(IMPORT_DETAIL_FIELDS.SERIES) }"
-                @click="onFieldActivate(IMPORT_DETAIL_FIELDS.SERIES)"
-              >
-                <label>Série</label>
-                <input
-                  v-model="imp.draft.series"
-                  type="text"
-                  inputmode="text"
-                  autocomplete="off"
-                />
-              </div>
-              <div class="import__fields-row">
-                <div
-                  class="field"
-                  data-import-field="volume"
-                  :class="{ 'is-focused': fieldFocused(IMPORT_DETAIL_FIELDS.VOLUME) }"
-                  @click="onFieldActivate(IMPORT_DETAIL_FIELDS.VOLUME)"
-                >
-                  <label>Tome</label>
-                  <input
-                    v-model.number="imp.draft.volume"
-                    type="number"
-                    min="0"
-                    inputmode="numeric"
-                  />
-                </div>
-                <div
-                  class="field"
-                  data-import-field="year"
-                  :class="{ 'is-focused': fieldFocused(IMPORT_DETAIL_FIELDS.YEAR) }"
-                  @click="onFieldActivate(IMPORT_DETAIL_FIELDS.YEAR)"
-                >
-                  <label>Année</label>
-                  <input
-                    v-model.number="imp.draft.year"
-                    type="number"
-                    min="1900"
-                    inputmode="numeric"
-                  />
-                </div>
-              </div>
-              <div
-                class="field"
-                data-import-field="author"
-                :class="{ 'is-focused': fieldFocused(IMPORT_DETAIL_FIELDS.AUTHOR) }"
-                @click="onFieldActivate(IMPORT_DETAIL_FIELDS.AUTHOR)"
-              >
-                <label>Auteur</label>
-                <input
-                  v-model="imp.draft.author"
-                  type="text"
-                  inputmode="text"
-                  autocomplete="off"
-                />
-              </div>
-              <div
-                class="field"
-                data-import-field="synopsis"
-                :class="{ 'is-focused': fieldFocused(IMPORT_DETAIL_FIELDS.SYNOPSIS) }"
-                @click="onFieldActivate(IMPORT_DETAIL_FIELDS.SYNOPSIS)"
-              >
-                <label>Synopsis</label>
-                <textarea
-                  v-model="imp.draft.description"
-                  rows="3"
-                  class="import__textarea"
-                  inputmode="text"
-                />
-              </div>
-            </div>
-          </div>
-
-          <div class="import__search-block">
-            <div
-              class="field"
-              data-import-field="provider"
-              :class="{ 'is-focused': fieldFocused(IMPORT_DETAIL_FIELDS.PROVIDER) }"
-              @click="ui.setImportFocusZone('fields'); ui.setImportFocus(IMPORT_DETAIL_FIELDS.PROVIDER)"
-            >
-              <label>Provider métadonnées</label>
-              <select
-                class="import__select"
-                :value="imp.activeProvider"
-                @change="imp.setProvider($event.target.value)"
-              >
-                <option v-for="p in imp.providers" :key="p.id" :value="p.id">
-                  {{ p.label }} — {{ p.freeLabel }}
-                </option>
-              </select>
-              <p
-                v-if="imp.selectedProviderMeta?.helpText"
-                class="import__help"
-              >
-                {{ imp.selectedProviderMeta.helpText }}
-                <button
-                  v-if="imp.selectedProviderMeta.helpUrl"
-                  type="button"
-                  class="link-btn"
-                  @click="imp.openProviderHelp(imp.selectedProviderMeta)"
-                >
-                  {{ imp.selectedProviderMeta.helpLinkLabel || 'Documentation' }}
-                </button>
-              </p>
-            </div>
-
-            <div
-              class="field"
-              data-import-field="query"
-              :class="{ 'is-focused': fieldFocused(IMPORT_DETAIL_FIELDS.QUERY) }"
-              @click="onFieldActivate(IMPORT_DETAIL_FIELDS.QUERY)"
-            >
-              <label>Mots-clés recherche</label>
-              <input
-                :value="imp.searchQuery"
-                type="text"
-                inputmode="search"
-                autocomplete="off"
-                placeholder="Titre, série…"
-                @input="imp.setSearchQuery($event.target.value)"
-              />
-            </div>
-
-            <button
-              type="button"
-              class="import__search-btn"
-              data-import-field="search"
-              :class="{ 'is-focused': fieldFocused(IMPORT_DETAIL_FIELDS.SEARCH) }"
-              :disabled="imp.enrichLoading || !imp.selected"
-              @click="onFieldActivate(IMPORT_DETAIL_FIELDS.SEARCH)"
-            >
-              <span class="import__search-btn-label">
-                {{ imp.enrichLoading ? 'Recherche…' : 'Rechercher' }}
-              </span>
-              <span class="import__search-btn-sub">{{ searchSubtitle }}</span>
-            </button>
-          </div>
-
-          <p
-            v-if="imp.enrichWarning || imp.enrichError"
-            class="import__alert"
+      <div class="import__scroll shell-scroll">
+        <div class="import__scroll-inner">
+          <!-- ONGLET INFOS -->
+          <div
+            v-if="imp.isInfosTab"
+            class="import__detail"
+            aria-label="Métadonnées d’import"
           >
-            {{ imp.enrichError || imp.enrichWarning }}
-          </p>
+            <div class="import__detail-top">
+              <div class="import__cover">
+                <img
+                  v-if="imp.coverPreview"
+                  :src="imp.coverPreview"
+                  alt=""
+                />
+                <div v-else class="import__cover-ph">Aperçu</div>
+              </div>
 
-          <div v-if="imp.enrichResults.length" class="import__enrich">
-            <p class="import__enrich-label">
-              Résultats
-              <template v-if="imp.enrichProvider"> · {{ imp.enrichProvider }}</template>
-              <span class="import__enrich-hint"> · A pour appliquer</span>
-            </p>
-            <button
-              v-for="(r, rIndex) in imp.enrichResults"
-              :key="r.id || `${r.source}-${rIndex}`"
-              type="button"
-              class="import__enrich-item"
-              :class="{ 'is-focused': resultFocused(rIndex) }"
-              @click="onResultChoose(rIndex)"
+              <div class="import__fields">
+                <div
+                  class="field"
+                  data-import-field="title"
+                  :class="{ 'is-focused': fieldFocused(IMPORT_INFOS_FIELDS.TITLE) }"
+                  @click="onInfosFieldActivate(IMPORT_INFOS_FIELDS.TITLE)"
+                >
+                  <label>Titre</label>
+                  <input
+                    v-model="imp.draft.title"
+                    type="text"
+                    inputmode="text"
+                    autocomplete="off"
+                  />
+                </div>
+                <div
+                  class="field"
+                  data-import-field="series"
+                  :class="{ 'is-focused': fieldFocused(IMPORT_INFOS_FIELDS.SERIES) }"
+                  @click="onInfosFieldActivate(IMPORT_INFOS_FIELDS.SERIES)"
+                >
+                  <label>Série</label>
+                  <input
+                    v-model="imp.draft.series"
+                    type="text"
+                    inputmode="text"
+                    autocomplete="off"
+                  />
+                </div>
+                <div class="import__fields-row">
+                  <div
+                    class="field"
+                    data-import-field="volume"
+                    :class="{ 'is-focused': fieldFocused(IMPORT_INFOS_FIELDS.VOLUME) }"
+                    @click="onInfosFieldActivate(IMPORT_INFOS_FIELDS.VOLUME)"
+                  >
+                    <label>Tome</label>
+                    <input
+                      v-model.number="imp.draft.volume"
+                      type="number"
+                      min="0"
+                      inputmode="numeric"
+                    />
+                  </div>
+                  <div
+                    class="field"
+                    data-import-field="year"
+                    :class="{ 'is-focused': fieldFocused(IMPORT_INFOS_FIELDS.YEAR) }"
+                    @click="onInfosFieldActivate(IMPORT_INFOS_FIELDS.YEAR)"
+                  >
+                    <label>Année</label>
+                    <input
+                      v-model.number="imp.draft.year"
+                      type="number"
+                      min="1900"
+                      inputmode="numeric"
+                    />
+                  </div>
+                </div>
+                <div
+                  class="field"
+                  data-import-field="author"
+                  :class="{ 'is-focused': fieldFocused(IMPORT_INFOS_FIELDS.AUTHOR) }"
+                  @click="onInfosFieldActivate(IMPORT_INFOS_FIELDS.AUTHOR)"
+                >
+                  <label>Auteur</label>
+                  <input
+                    v-model="imp.draft.author"
+                    type="text"
+                    inputmode="text"
+                    autocomplete="off"
+                  />
+                </div>
+                <div
+                  class="field"
+                  data-import-field="synopsis"
+                  :class="{ 'is-focused': fieldFocused(IMPORT_INFOS_FIELDS.SYNOPSIS) }"
+                  @click="onInfosFieldActivate(IMPORT_INFOS_FIELDS.SYNOPSIS)"
+                >
+                  <label>Synopsis</label>
+                  <textarea
+                    v-model="imp.draft.description"
+                    rows="3"
+                    class="import__textarea"
+                    inputmode="text"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ONGLET RECHERCHE -->
+          <div
+            v-else
+            class="import__detail"
+            aria-label="Recherche métadonnées"
+          >
+            <div class="import__search-block">
+              <div
+                class="field"
+                data-import-field="query"
+                :class="{ 'is-focused': fieldFocused(IMPORT_SEARCH_FIELDS.QUERY) }"
+                @click="onSearchFieldActivate(IMPORT_SEARCH_FIELDS.QUERY)"
+              >
+                <label>Mots-clés</label>
+                <input
+                  :value="imp.searchQuery"
+                  type="text"
+                  inputmode="search"
+                  autocomplete="off"
+                  placeholder="Titre, série…"
+                  @input="imp.setSearchQuery($event.target.value)"
+                />
+              </div>
+
+              <div
+                class="field"
+                data-import-field="provider"
+                :class="{ 'is-focused': fieldFocused(IMPORT_SEARCH_FIELDS.PROVIDER) }"
+                @click="
+                  ui.setImportFocusZone('fields');
+                  ui.setImportFocus(IMPORT_SEARCH_FIELDS.PROVIDER);
+                "
+              >
+                <label>Source API</label>
+                <select
+                  class="import__select"
+                  :value="imp.activeProvider"
+                  @change="imp.setProvider($event.target.value)"
+                >
+                  <option v-for="p in imp.providers" :key="p.id" :value="p.id">
+                    {{ p.label }} — {{ p.freeLabel }}
+                  </option>
+                </select>
+                <p
+                  v-if="imp.selectedProviderMeta?.helpText"
+                  class="import__help"
+                >
+                  {{ imp.selectedProviderMeta.helpText }}
+                  <button
+                    v-if="imp.selectedProviderMeta.helpUrl"
+                    type="button"
+                    class="link-btn"
+                    @click="imp.openProviderHelp(imp.selectedProviderMeta)"
+                  >
+                    {{ imp.selectedProviderMeta.helpLinkLabel || 'Documentation' }}
+                  </button>
+                </p>
+              </div>
+
+              <button
+                type="button"
+                class="import__search-btn"
+                data-import-field="search"
+                :class="{ 'is-focused': fieldFocused(IMPORT_SEARCH_FIELDS.RUN) }"
+                :disabled="imp.enrichLoading || !imp.selected"
+                @click="onSearchFieldActivate(IMPORT_SEARCH_FIELDS.RUN)"
+              >
+                <span class="import__search-btn-label">
+                  {{ imp.enrichLoading ? 'Recherche…' : 'Lancer recherche' }}
+                </span>
+                <span class="import__search-btn-sub">{{ searchSubtitle }}</span>
+              </button>
+            </div>
+
+            <p
+              v-if="imp.enrichWarning || imp.enrichError"
+              class="import__alert"
             >
-              <strong>{{ r.title }}</strong>
-              <span>
-                {{ r.source }} · conf. {{ Math.round((r.confidence || 0) * 100) }}%
-                <template v-if="r.author"> · {{ r.author }}</template>
-                <template v-if="r.year"> · {{ r.year }}</template>
-              </span>
-              <span v-if="r.description" class="import__enrich-desc">
-                {{ r.description }}
-              </span>
-            </button>
+              {{ imp.enrichError || imp.enrichWarning }}
+            </p>
+
+            <div v-if="imp.enrichResults.length" class="import__enrich">
+              <p class="import__enrich-label">
+                Résultats
+                <template v-if="imp.enrichProvider"> · {{ imp.enrichProvider }}</template>
+                <span class="import__enrich-hint"> · A pour appliquer</span>
+              </p>
+              <button
+                v-for="(r, rIndex) in imp.enrichResults"
+                :key="r.id || `${r.source}-${rIndex}`"
+                type="button"
+                class="import__enrich-item"
+                :class="{ 'is-focused': resultFocused(rIndex) }"
+                @click="onResultChoose(rIndex)"
+              >
+                <strong>{{ r.title }}</strong>
+                <span>
+                  {{ r.source }} · conf. {{ Math.round((r.confidence || 0) * 100) }}%
+                  <template v-if="r.author"> · {{ r.author }}</template>
+                  <template v-if="r.year"> · {{ r.year }}</template>
+                </span>
+                <span v-if="r.description" class="import__enrich-desc">
+                  {{ r.description }}
+                </span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </template>
 
     <footer class="import__foot">
       <!-- Liste : footer compact (hints Y/A/B dans le header) -->
@@ -577,6 +655,7 @@ function dotLabel(item) {
 }
 
 .import__head,
+.import__tabs,
 .import__scroll,
 .import__foot {
   position: relative;
@@ -626,6 +705,44 @@ function dotLabel(item) {
 
 .import__hints {
   flex-shrink: 0;
+}
+
+.import__tabs {
+  flex-shrink: 0;
+  display: flex;
+  gap: 0.4rem;
+  padding: 0 clamp(1rem, 2.5vw, 2.5rem) 0.55rem;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.import__tab {
+  appearance: none;
+  padding: 0.4rem 0.95rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--paper-dim);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    border-color 160ms var(--ease-soft),
+    background 160ms var(--ease-soft),
+    color 160ms var(--ease-soft);
+}
+
+.import__tab.is-active {
+  border-color: color-mix(in srgb, var(--brass) 55%, var(--border));
+  background: color-mix(in srgb, var(--brass) 14%, transparent);
+  color: var(--paper);
+}
+
+.import__tab:focus-visible {
+  outline: none;
+  border-color: var(--brass-bright);
+  box-shadow: 0 0 0 3px var(--focus-glow);
 }
 
 .import__scroll {
@@ -815,8 +932,6 @@ function dotLabel(item) {
   display: flex;
   flex-direction: column;
   gap: 0.65rem;
-  padding-top: 0.25rem;
-  border-top: 1px solid var(--border);
 }
 
 .field {
@@ -1085,6 +1200,7 @@ function dotLabel(item) {
   .import__row,
   .import__action,
   .import__enrich-item,
+  .import__tab,
   .field {
     transition: none;
   }
