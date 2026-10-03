@@ -71,19 +71,19 @@ export function remapStick(orientation, physicalX, physicalY) {
 
 /**
  * Action lecture associée à une direction logique D-Pad.
- * Brief produit (repère écran) :
- *   ↑ / ↓  → zoom ±
- *   ← / →  → pages
+ * Spec UX Steam OS (repère écran portrait) :
+ *   ← / →  → zoom ±
+ *   ↑ / ↓  → pages
  */
 export function readingActionForLogicalDpad(dir) {
   switch (dir) {
-    case LogicalDir.UP:
-      return 'zoom-in';
-    case LogicalDir.DOWN:
-      return 'zoom-out';
-    case LogicalDir.LEFT:
-      return 'page-prev';
     case LogicalDir.RIGHT:
+      return 'zoom-in';
+    case LogicalDir.LEFT:
+      return 'zoom-out';
+    case LogicalDir.UP:
+      return 'page-prev';
+    case LogicalDir.DOWN:
       return 'page-next';
     default:
       return null;

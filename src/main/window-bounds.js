@@ -1,6 +1,6 @@
 /**
- * Tailles de fenêtre selon l’orientation app.
- * portrait-ccw : cible Ally verticale · landscape : usage classique desktop.
+ * Tailles de fenêtre selon l’orientation session.
+ * landscape (défaut UI) · portrait-ccw (mode lecture Ally verticale).
  */
 
 export const PORTRAIT_BOUNDS = Object.freeze({
@@ -21,7 +21,8 @@ export const LANDSCAPE_BOUNDS = Object.freeze({
  * @param {string | undefined | null} orientation
  */
 export function boundsForOrientation(orientation) {
-  return orientation === 'landscape' ? LANDSCAPE_BOUNDS : PORTRAIT_BOUNDS;
+  // Défaut produit = landscape (menus). Portrait uniquement en lecture.
+  return orientation === 'portrait-ccw' ? PORTRAIT_BOUNDS : LANDSCAPE_BOUNDS;
 }
 
 /**

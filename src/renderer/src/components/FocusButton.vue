@@ -31,7 +31,7 @@ defineEmits(['select']);
   column-gap: 0.75rem;
   align-items: center;
   width: 100%;
-  padding: 1.1rem 1.25rem;
+  padding: 1rem 1.2rem;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: linear-gradient(135deg, var(--surface-strong), var(--surface));
@@ -49,8 +49,8 @@ defineEmits(['select']);
   grid-row: 1;
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 1.2rem;
-  letter-spacing: 0.02em;
+  font-size: 1.1rem;
+  letter-spacing: 0.01em;
 }
 
 .focus-btn__sub {
@@ -58,13 +58,13 @@ defineEmits(['select']);
   grid-row: 2;
   margin-top: 0.2rem;
   color: var(--paper-dim);
-  font-size: 0.88rem;
+  font-size: 0.85rem;
 }
 
 .focus-btn__chev {
   grid-column: 2;
   grid-row: 1 / span 2;
-  font-size: 1.6rem;
+  font-size: 1.5rem;
   color: var(--brass);
   opacity: 0.55;
   transition: opacity 160ms var(--ease-soft), transform 160ms var(--ease-soft);
@@ -76,13 +76,13 @@ defineEmits(['select']);
   border-color: var(--brass-bright);
   box-shadow:
     0 0 0 3px var(--focus-glow),
-    0 12px 32px rgba(0, 0, 0, 0.35);
-  transform: translate3d(4px, 0, 0) scale(1.015);
+    0 10px 28px rgba(0, 0, 0, 0.35);
+  transform: translate3d(3px, 0, 0) scale(1.01);
   background: var(--surface-strong);
 }
 
 .focus-btn.is-focused .focus-btn__chev {
   opacity: 1;
-  transform: translate3d(4px, 0, 0);
+  transform: translate3d(3px, 0, 0);
 }
 </style>

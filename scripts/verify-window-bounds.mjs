@@ -1,5 +1,6 @@
 /**
  * Vérifie les tailles fenêtre portrait / landscape.
+ * Défaut produit = landscape (menus) ; portrait = mode lecture.
  */
 import {
   PORTRAIT_BOUNDS,
@@ -22,7 +23,8 @@ assert(PORTRAIT_BOUNDS.width === 1080 && PORTRAIT_BOUNDS.height === 1920, 'portr
 assert(LANDSCAPE_BOUNDS.width === 1920 && LANDSCAPE_BOUNDS.height === 1080, 'landscape 1920×1080');
 assert(boundsForOrientation('landscape') === LANDSCAPE_BOUNDS, 'bounds landscape');
 assert(boundsForOrientation('portrait-ccw') === PORTRAIT_BOUNDS, 'bounds portrait-ccw');
-assert(boundsForOrientation(undefined) === PORTRAIT_BOUNDS, 'bounds défaut portrait');
+assert(boundsForOrientation(undefined) === LANDSCAPE_BOUNDS, 'bounds défaut landscape');
+assert(boundsForOrientation(null) === LANDSCAPE_BOUNDS, 'bounds null → landscape');
 assert(LANDSCAPE_BOUNDS.minWidth >= 960, 'min landscape largeur');
 assert(PORTRAIT_BOUNDS.minHeight >= 960, 'min portrait hauteur');
 

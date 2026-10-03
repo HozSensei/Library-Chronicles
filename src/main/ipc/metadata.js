@@ -26,11 +26,21 @@ export function registerMetadataIpc() {
     detectMetadata(filePath),
   );
 
-  ipcMain.handle(IpcChannels.METADATA_SEARCH, async (_e, { query, provider } = {}) => ({
-    results: await searchMetadata(query, { provider }),
-    providers: listProviders(),
-    activeProvider: getActiveProviderId(),
-  }));
+  ipcMain.handle(IpcChannels.METADATA_SEARCH, async (_e, { query, provider } = {}) => {
+    const payload = await searchMetadata(query, { provider });
+    // Compat : searchMetadata renvoie désormais { results, provider, warning }
+    const results = Array.isArray(payload) ? payload : payload.results || [];
+    const warning = Array.isArray(payload) ? null : payload.warning || null;
+    const usedProvider = Array.isArray(payload)
+      ? getActiveProviderId()
+      : payload.provider || getActiveProviderId();
+    return {
+      results,
+      warning,
+      providers: listProviders(),
+      activeProvider: usedProvider,
+    };
+  });
 
   ipcMain.handle(IpcChannels.METADATA_LIST_PROVIDERS, async () => ({
     providers: listProviders(),

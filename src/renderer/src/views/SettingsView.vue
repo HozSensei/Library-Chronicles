@@ -81,10 +81,6 @@ async function toggleHaptics() {
   await ui.setHapticsEnabled(!ui.hapticsEnabled);
 }
 
-async function setOrientation(orientation) {
-  await ui.setOrientation(orientation);
-}
-
 const hapticsSubtitle = computed(() => {
   if (!ui.hapticsEnabled) return 'Désactivé';
   if (!ui.hapticsAvailable) return 'Activé · matériel non détecté (no-op)';
@@ -158,7 +154,10 @@ const listeningLabel = computed(() => {
     <header>
       <p class="brand">Vertical Deck Reader</p>
       <h1>Paramètres</h1>
-      <p class="lead">Thème, profils locaux, orientation, haptics, remapping manette, providers métadonnées.</p>
+      <p class="lead">
+        Thème, profils, haptics, remapping manette, providers métadonnées.
+        Orientation automatique : paysage (menus) → portrait (lecture).
+      </p>
     </header>
 
     <nav class="tabs" aria-label="Sections">
@@ -185,20 +184,13 @@ const listeningLabel = computed(() => {
         </FocusButton>
         <FocusButton
           :focused="ui.settingsFocusIndex === 1"
-          :subtitle="ui.orientation === 'portrait-ccw' ? 'Actif · remap 90°' : ''"
-          @select="setOrientation('portrait-ccw')"
+          subtitle="Menus paysage · lecture portrait (auto)"
+          @select="() => {}"
         >
-          Portrait Ally (vertical)
+          Orientation automatique
         </FocusButton>
         <FocusButton
           :focused="ui.settingsFocusIndex === 2"
-          :subtitle="ui.orientation === 'landscape' ? 'Actif · 1920×1080' : ''"
-          @select="setOrientation('landscape')"
-        >
-          Landscape classique
-        </FocusButton>
-        <FocusButton
-          :focused="ui.settingsFocusIndex === 3"
           :subtitle="hapticsSubtitle"
           @select="toggleHaptics"
         >
@@ -242,7 +234,7 @@ const listeningLabel = computed(() => {
         <p v-if="listeningLabel" class="listen">{{ listeningLabel }}</p>
         <div class="ctx">
           <button
-            v-for="c in ['reader', 'library', 'boot', 'profiles', 'import', 'settings']"
+            v-for="c in ['reader', 'library', 'book', 'boot', 'profiles', 'import', 'settings']"
             :key="c"
             type="button"
             class="chip"

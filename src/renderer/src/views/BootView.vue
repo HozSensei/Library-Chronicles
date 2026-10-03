@@ -82,7 +82,7 @@ function select(index) {
       <p class="boot__mark">Vertical Deck Reader</p>
       <h1 class="boot__headline">La planche, à la verticale.</h1>
       <p class="boot__lead">
-        Lecture BD & manga pensée manette — portrait Ally ou landscape classique.
+        Lecture BD & manga pensée manette — menus en paysage, lecture en portrait.
       </p>
     </header>
 

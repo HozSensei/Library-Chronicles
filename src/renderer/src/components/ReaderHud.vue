@@ -1,7 +1,9 @@
 <script setup>
+import { useRouter } from 'vue-router';
 import { useReaderStore } from '../stores/reader';
 import { useUiStore } from '../stores/ui';
 
+const router = useRouter();
 const reader = useReaderStore();
 const ui = useUiStore();
 
@@ -9,6 +11,12 @@ function nudge(key, delta) {
   const cur = reader[key];
   const next = Math.round((cur + delta) * 100) / 100;
   reader.setFilters({ [key]: next });
+}
+
+async function quitReading() {
+  await reader.close();
+  await ui.exitReaderMode();
+  router.push({ name: 'library' });
 }
 </script>
 
@@ -61,6 +69,7 @@ function nudge(key, delta) {
     </div>
 
     <div v-if="reader.hudPanel === 'main'" class="hud__panel">
+      <p class="hud__pause-title">Pause lecture</p>
       <div class="hud__meta">
         <span>
           {{ reader.direction.toUpperCase() }}
@@ -75,6 +84,12 @@ function nudge(key, delta) {
         </span>
       </div>
       <div class="hud__actions">
+        <button type="button" class="btn-primary" @click="quitReading">
+          Quitter la lecture
+        </button>
+        <button type="button" class="ghost" @click="reader.toggleDirection()">
+          Sens {{ reader.direction.toUpperCase() }}
+        </button>
         <button type="button" class="ghost" @click="reader.toggleWebtoon()">
           {{ reader.webtoonMode ? 'Quitter webtoon' : 'Mode webtoon' }}
         </button>
@@ -90,7 +105,7 @@ function nudge(key, delta) {
           Tome suivant
         </button>
       </div>
-      <p class="hud__hint">Y masquer · X signet · Select webtoon · LB fit width</p>
+      <p class="hud__hint">Select pause · ←→ zoom · ↑↓ pages · X signet · B quitter</p>
     </div>
 
     <div v-else-if="reader.hudPanel === 'filters'" class="hud__panel">

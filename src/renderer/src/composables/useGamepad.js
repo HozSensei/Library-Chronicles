@@ -30,7 +30,7 @@ let sharedLoop = null;
 
 /**
  * Boucle Gamepad unique.
- * Pipeline : entrée physique → remap portrait → mapping utilisateur → action.
+ * Contexte `ui` (landscape, identity) vs `reader` (portrait remap + bindings lecture).
  */
 export function useGamepad() {
   const router = useRouter();
@@ -70,7 +70,7 @@ function createLoop(ctx) {
   let padIndex = null;
   let handlers = ctx;
   /** @type {string} */
-  let orientation = DeviceOrientation.PORTRAIT_CCW;
+  let orientation = DeviceOrientation.LANDSCAPE;
   let lastStickNav = 0;
   /** @type {Gamepad | null} */
   let currentPad = null;
@@ -86,17 +86,18 @@ function createLoop(ctx) {
     pulseHaptic(currentPad, kind, { enabled: true });
   }
 
-  async function refreshOrientation() {
-    try {
-      const config = await window.vdr.getConfig();
-      orientation =
-        config.orientation === DeviceOrientation.LANDSCAPE
-          ? DeviceOrientation.LANDSCAPE
-          : DeviceOrientation.PORTRAIT_CCW;
-      handlers.ui.orientation = orientation;
-    } catch {
-      orientation = DeviceOrientation.PORTRAIT_CCW;
-    }
+  /**
+   * Orientation manette dérivée du contexte session :
+   * lecteur → portrait-ccw ; tout le reste → landscape (identity).
+   */
+  function refreshOrientation() {
+    const { ui } = handlers;
+    orientation =
+      ui.routeName === 'reader' || ui.inputContext === 'reader'
+        ? DeviceOrientation.PORTRAIT_CCW
+        : DeviceOrientation.LANDSCAPE;
+    ui.orientation = orientation;
+    return orientation;
   }
 
   function start() {
@@ -135,6 +136,7 @@ function createLoop(ctx) {
   function bindingContext(route) {
     if (route === 'boot') return 'boot';
     if (route === 'library') return 'library';
+    if (route === 'book') return 'book';
     if (route === 'reader') return 'reader';
     if (route === 'setup') return 'setup';
     if (route === 'import') return 'import';
@@ -154,7 +156,6 @@ function createLoop(ctx) {
     const { router, ui, reader, library, imp } = handlers;
     const route = ui.routeName;
 
-    // Mode écoute remapping
     if (ui.listeningForBind && payload?.bindingKey) {
       ui.applyCapturedBind(payload.bindingKey);
       vibe('confirm');
@@ -184,7 +185,7 @@ function createLoop(ctx) {
     }
 
     if (route === 'boot') {
-      const max = 3;
+      const max = Math.max(0, document.querySelectorAll('.boot__nav .focus-btn').length - 1);
       if (action === 'cursor-up') {
         ui.setBootFocus(Math.max(0, ui.bootFocusIndex - 1));
         vibe('nav');
@@ -254,28 +255,22 @@ function createLoop(ctx) {
       }
       if (action === 'toggle-series') library.toggleViewMode();
       if (action === 'open-book' || action === 'confirm') {
-        if (library.focusZone === 'hero' && library.heroMode === 'empty') {
+        if (!library.books.length) {
           router.push({ name: 'import' });
-          return;
-        }
-        if (library.focusZone === 'hero' && library.heroMode === 'invite' && !library.heroBook) {
-          if (library.viewMode === 'series') {
-            if (!library.focusSeries(0)) library.focusGrid(0);
-          } else if (!library.focusRecent(0)) library.focusGrid(0);
           return;
         }
         if (library.focusZone === 'series') {
           library.nextUnreadForSelected().then((book) => {
-            if (book?.filePath) {
-              router.push({ name: 'reader', query: { path: book.filePath } });
+            if (book?.id) {
+              router.push({ name: 'book', params: { id: String(book.id) } });
             }
           });
           return;
         }
         const book = library.selected;
-        if (book) {
+        if (book?.id) {
           vibe('confirm');
-          router.push({ name: 'reader', query: { path: book.filePath } });
+          router.push({ name: 'book', params: { id: String(book.id) } });
         }
       }
       if (action === 'import') {
@@ -296,8 +291,7 @@ function createLoop(ctx) {
       }
       if (action === 'scroll' && payload) {
         const now = performance.now();
-        const stickDelay = library.focusZone === 'recent' ? 140 : 180;
-        if (now - lastStickNav < stickDelay) return;
+        if (now - lastStickNav < 160) return;
         if (Math.abs(payload.y) < 0.45 && Math.abs(payload.x) < 0.45) return;
         lastStickNav = now;
         if (Math.abs(payload.y) >= Math.abs(payload.x)) {
@@ -306,6 +300,33 @@ function createLoop(ctx) {
           library.moveCatalog(payload.x > 0 ? 1 : -1, 0);
         }
         vibe('nav');
+      }
+      return;
+    }
+
+    if (route === 'book') {
+      if (action === 'back') {
+        vibe('light');
+        router.push({ name: 'library' });
+      }
+      if (action === 'cursor-left' || action === 'cursor-up') {
+        ui.setBookFocus(Math.max(0, ui.bookFocusIndex - 1));
+        vibe('nav');
+      }
+      if (action === 'cursor-right' || action === 'cursor-down') {
+        ui.setBookFocus(Math.min(2, ui.bookFocusIndex + 1));
+        vibe('nav');
+      }
+      if (action === 'open-book' || action === 'confirm') {
+        vibe('confirm');
+        const el = document.querySelectorAll('.book-detail .focus-btn')[ui.bookFocusIndex];
+        el?.click();
+      }
+      if (action === 'settings') {
+        router.push({ name: 'settings' });
+      }
+      if (action === 'import') {
+        router.push({ name: 'import' });
       }
       return;
     }
@@ -393,13 +414,20 @@ function createLoop(ctx) {
       }
       return;
     }
+
     if (route === 'reader') {
       if (action === 'close-book' || action === 'back') {
         vibe('light');
-        reader.close().then(() => router.push({ name: 'library' }));
+        reader.close().then(async () => {
+          await ui.exitReaderMode();
+          router.push({ name: 'library' });
+        });
         return;
       }
-      if (action === 'toggle-overlay') reader.toggleHud();
+      if (action === 'toggle-pause' || action === 'toggle-overlay') {
+        reader.toggleHud();
+        if (action === 'toggle-pause') reader.setHudPanel('main');
+      }
       if (action === 'toggle-direction') {
         vibe('confirm');
         reader.toggleDirection();
@@ -476,7 +504,8 @@ function createLoop(ctx) {
     const { ui } = handlers;
     currentPad = pad;
 
-    // Pulse léger au changement de page / route (une fois)
+    refreshOrientation();
+
     if (lastRouteForHaptic !== ui.routeName) {
       if (lastRouteForHaptic != null) vibe('light');
       lastRouteForHaptic = ui.routeName;
@@ -490,9 +519,10 @@ function createLoop(ctx) {
       const short = pad.id.length > 36 ? `${pad.id.slice(0, 36)}…` : pad.id;
       const hapticOk = hasHaptics(pad);
       ui.setHapticsAvailable(hapticOk);
+      const modeLabel = orientation === DeviceOrientation.PORTRAIT_CCW ? 'lecture' : 'menus';
       ui.setGamepadStatus({
         connected: true,
-        label: `${short} · ${orientation}${hapticOk && ui.hapticsEnabled ? ' · rumble' : ''}`,
+        label: `${short} · ${modeLabel}${hapticOk && ui.hapticsEnabled ? ' · rumble' : ''}`,
       });
 
       const rawX = applyDeadzone(pad.axes[0] || 0);
@@ -503,7 +533,6 @@ function createLoop(ctx) {
         dispatch(stickAction, stick);
       }
 
-      // Boutons (hors D-Pad) — mapping utilisateur
       const buttonIndices = [
         BUTTON.A,
         BUTTON.B,
