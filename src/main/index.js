@@ -73,16 +73,25 @@ function notifyOrientation(orientation) {
 
 /**
  * Mode session UI (landscape) vs lecture (portrait).
- * Persiste l’orientation pour cohérence au prochain démarrage hors lecteur.
+ * Menus = toujours landscape ; portrait uniquement en reader.
+ * Au boot on force landscape — on ne persiste portrait que pendant la lecture
+ * pour éviter un redémarrage menus encore en portrait-ccw.
  */
 function applySessionMode(mode) {
-  const orientation = mode === 'reader' ? 'portrait-ccw' : 'landscape';
+  const isReader = mode === 'reader';
+  const orientation = isReader ? 'portrait-ccw' : 'landscape';
   const prev = getConfig();
+  // Hors lecteur : persister landscape même si déjà landscape (répare stale portrait)
   const next =
-    prev.orientation === orientation ? prev : setConfig({ orientation });
+    prev.orientation === orientation && isReader
+      ? prev
+      : setConfig({ orientation });
   applyWindowOrientation(mainWindow, orientation);
   notifyOrientation(orientation);
-  return { mode: mode === 'reader' ? 'reader' : 'ui', orientation: next.orientation };
+  return {
+    mode: isReader ? 'reader' : 'ui',
+    orientation: next.orientation || orientation,
+  };
 }
 
 function registerAppIpc() {
@@ -121,10 +130,10 @@ function registerAppIpc() {
 
 app.whenReady().then(() => {
   initDatabase();
-  // Garantit un profil actif dès le démarrage
+  // Profil actif optionnel (écran « Qui lit ? » peut être vide)
   getActiveProfileId();
-  // Choix profil à chaque lancement (après setup)
-  setConfig({ profileSelected: false });
+  // Choix profil à chaque lancement
+  setConfig({ profileSelected: false, orientation: 'landscape' });
 
   // Menus toujours landscape au boot ; `--portrait` force lecture (dev).
   if (process.argv.includes('--portrait')) {

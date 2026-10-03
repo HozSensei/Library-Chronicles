@@ -2,74 +2,96 @@
 import { computed, nextTick, onMounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import ControlHint from '../components/ControlHint.vue';
-import FocusButton from '../components/FocusButton.vue';
 import LazyCover from '../components/LazyCover.vue';
 import { useLibraryStore } from '../stores/library';
 import { useUiStore } from '../stores/ui';
+import { useProfilesStore } from '../stores/profiles';
+import { clearProfileSelected } from '../router';
 
 const router = useRouter();
 const library = useLibraryStore();
 const ui = useUiStore();
+const profiles = useProfilesStore();
 
 const hints = [
-  { key: 'A', label: 'fiche' },
+  { key: 'A', label: 'ouvrir' },
   { key: 'X', label: 'import' },
-  { key: 'Select', label: 'séries' },
+  { key: 'Select', label: 'onglet' },
   { key: 'Start', label: 'réglages' },
-  { key: 'B', label: 'retour' },
+  { key: 'B', label: 'accueil' },
 ];
 
-const filterLabel = computed(() => {
-  const map = {
-    all: 'Tous',
-    reading: 'En cours',
-    unread: 'Non lus',
-    finished: 'Terminés',
+const navItems = [
+  { id: 'board', label: 'Bibliothèque' },
+  { id: 'recent', label: 'Récents' },
+  { id: 'series', label: 'Séries' },
+];
+
+const activeHero = computed(
+  () => library.heroSlides[library.heroIndex] || library.heroBook,
+);
+
+const heroMeta = computed(() => {
+  const b = activeHero.value;
+  if (!b) return null;
+  const progress =
+    b.pageTotal > 0
+      ? Math.round(((b.pageCurrent + 1) / b.pageTotal) * 100)
+      : null;
+  return {
+    year: b.year || null,
+    series: b.series,
+    volume: b.volume,
+    progress,
+    status:
+      b.status === 'reading'
+        ? 'En cours'
+        : b.status === 'finished'
+          ? 'Terminé'
+          : 'Non lu',
+    format: (b.format || '').toUpperCase(),
   };
-  return map[library.filter] || 'Tous';
 });
 
-const viewLabel = computed(() =>
-  library.viewMode === 'series' ? 'Séries' : 'Livres',
-);
-const gridCols = computed(() => library.columns);
-const showGrid = computed(
-  () => library.viewMode === 'books' && library.filtered.length > 0,
-);
-const showSeries = computed(
-  () => library.viewMode === 'series' && library.seriesList.length > 0,
-);
-
-onMounted(() => {
-  ui.exitReaderMode();
-  library.refresh().then(() => {
-    library.focusGrid(0);
-    scrollFocusIntoView();
-  });
+onMounted(async () => {
+  await ui.exitReaderMode();
+  await profiles.refresh();
+  await library.refresh();
+  library.focusHero(0);
+  nextTick(scrollFocusIntoView);
 });
 
 watch(
-  () => [library.focusZone, library.cursor, library.seriesCursor],
+  () => [library.focusZone, library.cursor, library.recentCursor, library.readingCursor, library.heroIndex],
   () => nextTick(scrollFocusIntoView),
 );
 
 function scrollFocusIntoView() {
-  const el = document.querySelector('.library .is-focused');
+  const el = document.querySelector('.catalog .is-focused');
   el?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
 }
 
-function openBook(book, index) {
-  if (!book?.id) return;
-  library.focusGrid(index);
+function openBook(book) {
+  if (!book?.id) {
+    router.push({ name: 'import' });
+    return;
+  }
   router.push({ name: 'book', params: { id: String(book.id) } });
 }
 
-async function openSeriesGroup(index) {
-  library.focusSeries(index);
-  const book = await library.nextUnreadForSelected();
-  if (book?.id) {
-    router.push({ name: 'book', params: { id: String(book.id) } });
+function openSelected() {
+  if (library.focusZone === 'series') {
+    library.nextUnreadForSelected().then((book) => {
+      if (book?.id) openBook(book);
+    });
+    return;
   }
+  const book = library.selected;
+  if (!book) {
+    if (library.isEmpty) router.push({ name: 'import' });
+    return;
+  }
+  openBook(book);
 }
 
 function statusBadge(status) {
@@ -77,83 +99,304 @@ function statusBadge(status) {
   if (status === 'finished') return 'Terminé';
   return 'Non lu';
 }
+
+function switchProfile() {
+  clearProfileSelected();
+  router.push({ name: 'profiles', query: { manage: '1' } });
+}
+
+function scrollRail(refEl, dir) {
+  const el = typeof refEl === 'string' ? document.querySelector(refEl) : refEl;
+  if (!el) return;
+  el.scrollBy({ left: dir * 320, behavior: 'smooth' });
+}
 </script>
 
 <template>
-  <section class="library relative h-full" aria-label="Bibliothèque Vertical Deck Reader">
-    <div
-      class="pointer-events-none absolute inset-0"
-      aria-hidden="true"
-      style="
-        background:
-          radial-gradient(ellipse 70% 40% at 10% 0%, var(--wash-a), transparent 55%),
-          radial-gradient(ellipse 50% 35% at 100% 80%, var(--wash-b), transparent 50%),
-          var(--ink-950);
-      "
-    />
+  <section class="catalog relative h-full overflow-hidden" aria-label="Catalogue Vertical Deck Reader">
+    <div class="catalog__bg pointer-events-none absolute inset-0" aria-hidden="true" />
 
     <div class="relative z-10 flex h-full flex-col">
-      <header class="flex items-end justify-between gap-4 px-8 pt-8 pb-4 sm:px-10">
-        <div>
-          <p class="m-0 text-sm font-semibold tracking-wide text-[var(--brass)]">
-            Vertical Deck Reader
-          </p>
-          <h1 class="m-0 mt-1 font-[family-name:var(--font-display)] text-3xl font-bold tracking-tight">
-            Bibliothèque
-          </h1>
-        </div>
-        <div class="flex flex-wrap gap-2">
-          <button type="button" class="ghost" @click="library.scan()">Scanner</button>
-          <button type="button" class="ghost" @click="library.cycleFilter(1)">{{ filterLabel }}</button>
-          <button type="button" class="ghost" @click="library.toggleViewMode()">{{ viewLabel }}</button>
-          <button type="button" class="ghost" @click="router.push({ name: 'import' })">Import</button>
+      <!-- Header Movie Gather style -->
+      <header class="catalog__header">
+        <p class="catalog__logo">Vertical Deck Reader</p>
+
+        <nav class="catalog__nav" aria-label="Sections">
+          <button
+            v-for="item in navItems"
+            :key="item.id"
+            type="button"
+            class="catalog__nav-link"
+            :class="{ 'is-active': library.catalogTab === item.id }"
+            @click="library.setCatalogTab(item.id)"
+          >
+            {{ item.label }}
+          </button>
+        </nav>
+
+        <div class="catalog__tools">
+          <button type="button" class="ghost catalog__tool" @click="library.scan()">
+            Scanner
+          </button>
+          <button type="button" class="ghost catalog__tool" @click="router.push({ name: 'import' })">
+            Import
+          </button>
+          <button
+            type="button"
+            class="catalog__profile"
+            :title="library.profileName || 'Profil'"
+            @click="switchProfile"
+          >
+            <span
+              class="catalog__avatar"
+              :style="{ background: profiles.activeProfile?.color || 'var(--brass)' }"
+            >
+              {{ (library.profileName || '?').slice(0, 1).toUpperCase() }}
+            </span>
+            <span class="catalog__profile-name">{{ library.profileName || 'Profil' }}</span>
+          </button>
         </div>
       </header>
 
-      <div class="library__scroll min-h-0 flex-1 overflow-auto px-8 pb-4 sm:px-10">
-        <!-- Vide -->
-        <div
-          v-if="!library.loading && library.isEmpty"
-          class="flex h-full min-h-[20rem] flex-col items-center justify-center gap-4 text-center"
-        >
-          <p class="m-0 font-[family-name:var(--font-display)] text-2xl font-bold">Aucun livre</p>
-          <p class="m-0 max-w-md text-[var(--paper-dim)]">
-            Importe un CBZ, CBR ou PDF pour commencer ta collection.
-          </p>
-          <div class="w-full max-w-xs">
-            <FocusButton
-              :focused="true"
-              subtitle="A · Ouvrir l’import"
-              @select="router.push({ name: 'import' })"
+      <div class="catalog__scroll min-h-0 flex-1 overflow-auto">
+        <!-- BOARD -->
+        <template v-if="library.catalogTab === 'board'">
+          <!-- Hero + En cours -->
+          <div class="catalog__hero-row">
+            <button
+              type="button"
+              class="hero"
+              :class="{
+                'is-focused': library.focusZone === 'hero',
+                'hero--empty': library.isEmpty,
+              }"
+              @click="library.focusHero(); openSelected()"
             >
-              Importer
-            </FocusButton>
+              <div class="hero__media" aria-hidden="true">
+                <LazyCover
+                  v-if="activeHero"
+                  :book-id="activeHero.id"
+                  :alt="activeHero.title"
+                  :format="activeHero.format"
+                  eager
+                />
+                <div v-else class="hero__void" />
+                <div class="hero__veil" />
+              </div>
+
+              <div v-if="library.heroSlides.length > 1" class="hero__dots">
+                <span
+                  v-for="(s, i) in library.heroSlides"
+                  :key="s.id"
+                  class="hero__dot"
+                  :class="{ 'is-on': i === library.heroIndex }"
+                />
+              </div>
+
+              <div class="hero__body">
+                <p v-if="heroMeta?.year" class="hero__year">{{ heroMeta.year }}</p>
+                <h1 class="hero__title">
+                  <template v-if="activeHero">{{ activeHero.title }}</template>
+                  <template v-else>Aucun tome encore</template>
+                </h1>
+                <p class="hero__lead">
+                  <template v-if="activeHero && heroMeta">
+                    {{ heroMeta.status }}
+                    <template v-if="heroMeta.series"> · {{ heroMeta.series }}</template>
+                    <template v-if="heroMeta.volume != null"> · T{{ heroMeta.volume }}</template>
+                    <template v-if="heroMeta.progress != null"> · {{ heroMeta.progress }}%</template>
+                  </template>
+                  <template v-else>
+                    Importe un CBZ, CBR ou PDF pour démarrer ta collection.
+                  </template>
+                </p>
+                <span class="hero__play" aria-hidden="true">▶</span>
+              </div>
+            </button>
+
+            <aside class="watching" aria-label="En cours">
+              <h2 class="watching__title">En cours</h2>
+              <div v-if="!library.readingBooks.length" class="watching__empty">
+                Aucune lecture en cours.
+              </div>
+              <button
+                v-for="(book, index) in library.readingBooks"
+                :key="'w-' + book.id"
+                type="button"
+                class="watching__item"
+                :class="{
+                  'is-focused':
+                    library.focusZone === 'watching' && index === library.readingCursor,
+                }"
+                @click="library.focusWatching(index); openBook(book)"
+              >
+                <div class="watching__thumb">
+                  <LazyCover :book-id="book.id" :alt="book.title" :format="book.format" />
+                  <span class="watching__play">▶</span>
+                </div>
+                <div class="watching__meta">
+                  <p class="watching__name">{{ book.title }}</p>
+                  <p class="watching__sub">
+                    <template v-if="book.pageTotal">
+                      p. {{ book.pageCurrent + 1 }}/{{ book.pageTotal }}
+                    </template>
+                    <template v-else>{{ statusBadge(book.status) }}</template>
+                    <template v-if="book.series"> · {{ book.series }}</template>
+                  </p>
+                </div>
+              </button>
+            </aside>
           </div>
-        </div>
 
-        <div v-else-if="library.loading" class="grid gap-4" :style="{ gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))` }">
-          <div
-            v-for="n in 12"
-            :key="n"
-            class="aspect-[2/3] animate-pulse rounded-[var(--radius-sm)] bg-[var(--ink-800)]"
-          />
-        </div>
-
-        <template v-else>
-          <section v-if="library.viewMode === 'series'" aria-label="Séries">
-            <div v-if="!showSeries" class="py-16 text-center text-[var(--paper-dim)]">
-              Aucune série détectée.
+          <!-- Filtres pills -->
+          <section class="filters" aria-label="Filtres">
+            <h2 class="section-label">Filtrer</h2>
+            <div class="filters__row">
+              <button
+                v-for="(f, index) in library.filters"
+                :key="f.id"
+                type="button"
+                class="pill"
+                :class="{
+                  'is-active': library.filter === f.id,
+                  'is-focused':
+                    library.focusZone === 'filters' && library.filterIndex === index,
+                }"
+                @click="library.setFilter(f.id); library.focusZone = 'filters'"
+              >
+                {{ f.label }}
+              </button>
             </div>
-            <div v-else class="grid gap-3">
+          </section>
+
+          <!-- Empty -->
+          <div v-if="library.isEmpty && !library.loading" class="catalog__empty">
+            <p class="catalog__empty-title">Bibliothèque vide</p>
+            <button type="button" class="catalog__cta" @click="router.push({ name: 'import' })">
+              Importer
+            </button>
+          </div>
+
+          <template v-else>
+            <!-- Trending rail -->
+            <section class="rail-section" aria-label="Tendances">
+              <div class="rail-head">
+                <h2>Tendances</h2>
+                <div class="rail-arrows">
+                  <button type="button" class="rail-arrow" aria-label="Précédent" @click="scrollRail('.rail--trending', -1)">‹</button>
+                  <button type="button" class="rail-arrow" aria-label="Suivant" @click="scrollRail('.rail--trending', 1)">›</button>
+                </div>
+              </div>
+              <div class="rail rail--trending" role="list">
+                <button
+                  v-for="(book, index) in library.trendingBooks"
+                  :key="'t-' + book.id"
+                  type="button"
+                  class="poster"
+                  :class="{
+                    'is-focused':
+                      library.focusZone === 'trending' && index === library.cursor,
+                  }"
+                  role="listitem"
+                  @click="library.focusTrending(index); openBook(book)"
+                >
+                  <div class="poster__art">
+                    <LazyCover :book-id="book.id" :alt="book.title" :format="book.format" />
+                  </div>
+                  <span class="poster__title">{{ book.title }}</span>
+                  <span class="poster__meta">
+                    {{ statusBadge(book.status) }}
+                    <template v-if="book.series"> · {{ book.series }}</template>
+                  </span>
+                </button>
+              </div>
+            </section>
+
+            <!-- New / Récents rail -->
+            <section v-if="library.recentBooks.length" class="rail-section" aria-label="Nouveautés">
+              <div class="rail-head">
+                <h2>Nouveautés</h2>
+                <div class="rail-arrows">
+                  <button type="button" class="rail-arrow" aria-label="Précédent" @click="scrollRail('.rail--recent', -1)">‹</button>
+                  <button type="button" class="rail-arrow" aria-label="Suivant" @click="scrollRail('.rail--recent', 1)">›</button>
+                </div>
+              </div>
+              <div class="rail rail--recent" role="list">
+                <button
+                  v-for="(book, index) in library.recentBooks"
+                  :key="'r-' + book.id"
+                  type="button"
+                  class="poster"
+                  :class="{
+                    'is-focused':
+                      library.focusZone === 'recent' && index === library.recentCursor,
+                  }"
+                  role="listitem"
+                  @click="library.focusRecent(index); openBook(book)"
+                >
+                  <div class="poster__art">
+                    <LazyCover :book-id="book.id" :alt="book.title" :format="book.format" />
+                  </div>
+                  <span class="poster__title">{{ book.title }}</span>
+                  <span class="poster__meta">{{ statusBadge(book.status) }}</span>
+                </button>
+              </div>
+            </section>
+          </template>
+        </template>
+
+        <!-- RECENTS tab -->
+        <template v-else-if="library.catalogTab === 'recent'">
+          <section class="rail-section pad-top" aria-label="Récents">
+            <div class="rail-head">
+              <h2>Ajouts récents</h2>
+            </div>
+            <div v-if="!library.recentBooks.length" class="catalog__empty">
+              <p class="catalog__empty-title">Pas encore d’ajouts</p>
+            </div>
+            <div v-else class="rail rail--wrap" role="list">
+              <button
+                v-for="(book, index) in library.recentBooks"
+                :key="'rr-' + book.id"
+                type="button"
+                class="poster"
+                :class="{
+                  'is-focused':
+                    library.focusZone === 'recent' && index === library.recentCursor,
+                }"
+                @click="library.focusRecent(index); openBook(book)"
+              >
+                <div class="poster__art">
+                  <LazyCover :book-id="book.id" :alt="book.title" :format="book.format" />
+                </div>
+                <span class="poster__title">{{ book.title }}</span>
+              </button>
+            </div>
+          </section>
+        </template>
+
+        <!-- SERIES tab -->
+        <template v-else>
+          <section class="series-panel pad-top" aria-label="Séries">
+            <div class="rail-head">
+              <h2>Séries</h2>
+            </div>
+            <div v-if="!library.seriesList.length" class="catalog__empty">
+              <p class="catalog__empty-title">Aucune série détectée</p>
+            </div>
+            <div v-else class="series-list">
               <button
                 v-for="(group, index) in library.seriesList"
                 :key="group.seriesId"
                 type="button"
-                class="series-row flex items-center gap-4 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] p-3 text-left"
-                :class="{ 'is-focused': library.focusZone === 'series' && index === library.seriesCursor }"
-                @click="openSeriesGroup(index)"
+                class="series-row"
+                :class="{
+                  'is-focused':
+                    library.focusZone === 'series' && index === library.seriesCursor,
+                }"
+                @click="library.focusSeries(index); library.nextUnreadForSelected().then((b) => b && openBook(b))"
               >
-                <div class="h-24 w-16 overflow-hidden rounded bg-[var(--ink-800)]">
+                <div class="series-row__cover">
                   <LazyCover
                     v-if="group.coverBookId"
                     :book-id="group.coverBookId"
@@ -161,62 +404,20 @@ function statusBadge(status) {
                     eager
                   />
                 </div>
-                <div class="min-w-0">
-                  <p class="m-0 truncate font-[family-name:var(--font-display)] text-lg font-bold">
-                    {{ group.series }}
-                  </p>
-                  <p class="m-0 mt-1 text-sm text-[var(--paper-dim)]">
-                    {{ group.finishedCount }}/{{ group.volumeCount }} · {{ statusBadge(group.status) }}
+                <div>
+                  <p class="series-row__name">{{ group.series }}</p>
+                  <p class="series-row__meta">
+                    {{ group.finishedCount }}/{{ group.volumeCount }} ·
+                    {{ statusBadge(group.status) }}
                   </p>
                 </div>
-              </button>
-            </div>
-          </section>
-
-          <section v-else aria-label="Grille livres">
-            <div v-if="!showGrid" class="py-16 text-center text-[var(--paper-dim)]">
-              Aucun tome pour ce filtre.
-            </div>
-            <div
-              v-else
-              class="library__grid grid gap-4"
-              :style="{ gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))` }"
-            >
-              <button
-                v-for="(book, index) in library.filtered"
-                :key="book.id"
-                type="button"
-                class="tile group appearance-none border-0 bg-transparent p-0 text-left text-inherit"
-                :class="{ 'is-focused': library.focusZone === 'grid' && index === library.cursor }"
-                @click="openBook(book, index)"
-              >
-                <div
-                  class="tile__cover relative aspect-[2/3] overflow-hidden rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--ink-800)] transition-transform duration-150"
-                >
-                  <LazyCover
-                    :book-id="book.id"
-                    :alt="book.title"
-                    :format="book.format"
-                  />
-                  <span
-                    class="absolute bottom-2 left-2 rounded bg-black/70 px-2 py-0.5 text-[0.65rem] text-white"
-                  >
-                    {{ statusBadge(book.status) }}
-                  </span>
-                </div>
-                <span class="mt-2 block truncate text-sm font-semibold">{{ book.title }}</span>
-                <span v-if="book.series" class="block truncate text-xs text-[var(--brass)]">
-                  {{ book.series }}
-                  <template v-if="book.volume != null"> · T{{ book.volume }}</template>
-                </span>
               </button>
             </div>
           </section>
         </template>
       </div>
 
-      <footer class="flex flex-col items-center gap-2 px-8 pb-6 pt-2">
-        <button type="button" class="ghost" @click="router.push({ name: 'boot' })">Retour</button>
+      <footer class="catalog__footer">
         <ControlHint :items="hints" />
       </footer>
     </div>
@@ -224,21 +425,563 @@ function statusBadge(status) {
 </template>
 
 <style scoped>
-.tile.is-focused .tile__cover,
-.series-row.is-focused {
-  box-shadow: 0 0 0 3px var(--focus-glow);
-  border-color: var(--brass-bright);
-  transform: translate3d(0, -2px, 0) scale(1.02);
+.catalog__bg {
+  background:
+    radial-gradient(ellipse 70% 45% at 15% 0%, var(--wash-a), transparent 55%),
+    radial-gradient(ellipse 50% 40% at 95% 70%, var(--wash-b), transparent 50%),
+    var(--ink-950);
 }
 
-.tile.is-focused span:first-of-type {
-  color: var(--brass-bright);
+.catalog__header {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 1.1rem 2rem 0.75rem;
+}
+
+.catalog__logo {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.15rem;
+  letter-spacing: -0.02em;
+  color: var(--paper);
+  white-space: nowrap;
+}
+
+.catalog__nav {
+  display: flex;
+  justify-content: center;
+  gap: 1.75rem;
+}
+
+.catalog__nav-link {
+  appearance: none;
+  background: none;
+  border: none;
+  color: var(--paper-dim);
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.92rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.35rem 0;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+}
+
+.catalog__nav-link.is-active {
+  color: var(--paper);
+  border-bottom-color: var(--paper);
+}
+
+.catalog__tools {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.catalog__tool {
+  font-size: 0.8rem;
+}
+
+.catalog__profile {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  appearance: none;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--ink-800) 70%, transparent);
+  color: var(--paper);
+  border-radius: 999px;
+  padding: 0.25rem 0.75rem 0.25rem 0.3rem;
+  cursor: pointer;
+  font: inherit;
+}
+
+.catalog__avatar {
+  width: 1.85rem;
+  height: 1.85rem;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  font-size: 0.85rem;
+  color: #0e1419;
+}
+
+.catalog__profile-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  max-width: 8rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.catalog__scroll {
+  padding: 0.5rem 2rem 1.5rem;
+}
+
+.catalog__hero-row {
+  display: grid;
+  grid-template-columns: 1fr minmax(220px, 280px);
+  gap: 1.1rem;
+  min-height: 280px;
+}
+
+.hero {
+  position: relative;
+  appearance: none;
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  overflow: hidden;
+  min-height: 280px;
+  padding: 0;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+  background: var(--ink-800);
+}
+
+.hero.is-focused {
+  box-shadow: 0 0 0 3px var(--focus-glow);
+  border-color: var(--brass-bright);
+}
+
+.hero__media {
+  position: absolute;
+  inset: 0;
+}
+
+.hero__media :deep(img),
+.hero__void {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.hero__void {
+  background:
+    linear-gradient(135deg, var(--ink-700), var(--ink-900));
+}
+
+.hero__veil {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, rgba(8, 12, 16, 0.92) 0%, rgba(8, 12, 16, 0.35) 55%, rgba(8, 12, 16, 0.2) 100%),
+    linear-gradient(0deg, rgba(8, 12, 16, 0.85) 0%, transparent 45%);
+}
+
+.hero__dots {
+  position: absolute;
+  top: 1rem;
+  left: 1.1rem;
+  display: flex;
+  gap: 0.35rem;
+  z-index: 2;
+}
+
+.hero__dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--paper) 35%, transparent);
+}
+
+.hero__dot.is-on {
+  background: var(--paper);
+}
+
+.hero__body {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
+  padding: 1.4rem 1.5rem 1.35rem;
+  max-width: 70%;
+}
+
+.hero__year {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--paper-dim);
+}
+
+.hero__title {
+  margin: 0.2rem 0 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.6rem, 3vw, 2.35rem);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+}
+
+.hero__lead {
+  margin: 0.55rem 0 0;
+  color: var(--paper-dim);
+  font-size: 0.92rem;
+}
+
+.hero__play {
+  position: absolute;
+  right: 1.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3.4rem;
+  height: 3.4rem;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--paper) 18%, transparent);
+  backdrop-filter: blur(8px);
+  font-size: 1rem;
+  color: var(--paper);
+}
+
+.watching {
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  background: color-mix(in srgb, var(--ink-900) 88%, transparent);
+  padding: 1rem 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  overflow: auto;
+  max-height: 320px;
+}
+
+.watching__title {
+  margin: 0 0 0.35rem;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.watching__empty {
+  color: var(--paper-dim);
+  font-size: 0.85rem;
+  padding: 0.5rem 0.25rem;
+}
+
+.watching__item {
+  display: grid;
+  grid-template-columns: 64px 1fr;
+  gap: 0.65rem;
+  align-items: center;
+  appearance: none;
+  border: 1px solid transparent;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  padding: 0.35rem;
+  border-radius: 12px;
+  cursor: pointer;
+  font: inherit;
+}
+
+.watching__item.is-focused {
+  border-color: var(--brass-bright);
+  background: color-mix(in srgb, var(--brass) 12%, transparent);
+  box-shadow: 0 0 0 2px var(--focus-glow);
+}
+
+.watching__thumb {
+  position: relative;
+  width: 64px;
+  height: 40px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--ink-800);
+}
+
+.watching__thumb :deep(img) {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.watching__play {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.35);
+  font-size: 0.7rem;
+}
+
+.watching__name {
+  margin: 0;
+  font-weight: 700;
+  font-size: 0.88rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.watching__sub {
+  margin: 0.15rem 0 0;
+  font-size: 0.72rem;
+  color: var(--paper-dim);
+}
+
+.filters {
+  margin-top: 1.35rem;
+}
+
+.section-label,
+.rail-head h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.filters__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-top: 0.75rem;
+}
+
+.pill {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--paper);
+  border-radius: 999px;
+  padding: 0.55rem 1rem;
+  font: inherit;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+
+.pill.is-active,
+.pill.is-focused {
+  border-color: var(--brass-bright);
+  background: color-mix(in srgb, var(--brass) 14%, transparent);
+}
+
+.pill.is-focused {
+  box-shadow: 0 0 0 2px var(--focus-glow);
+}
+
+.rail-section {
+  margin-top: 1.5rem;
+}
+
+.pad-top {
+  padding-top: 0.5rem;
+}
+
+.rail-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.85rem;
+}
+
+.rail-arrows {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.rail-arrow {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--ink-800) 80%, transparent);
+  color: var(--paper);
+  cursor: pointer;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.rail {
+  display: flex;
+  gap: 1rem;
+  overflow-x: auto;
+  padding-bottom: 0.5rem;
+  scroll-snap-type: x mandatory;
+}
+
+.rail--wrap {
+  flex-wrap: wrap;
+  overflow: visible;
+}
+
+.poster {
+  flex: 0 0 140px;
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  scroll-snap-align: start;
+}
+
+.poster__art {
+  position: relative;
+  aspect-ratio: 2 / 3;
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--ink-800);
+  border: 1px solid var(--border);
+  transition: transform 160ms var(--ease-soft), box-shadow 160ms var(--ease-soft);
+}
+
+.poster__art :deep(img) {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.poster.is-focused .poster__art {
+  transform: translateY(-3px) scale(1.03);
+  box-shadow: 0 0 0 3px var(--focus-glow);
+  border-color: var(--brass-bright);
+}
+
+.poster__title {
+  display: block;
+  margin-top: 0.55rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.poster__meta {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.72rem;
+  color: var(--paper-dim);
+}
+
+.catalog__empty {
+  display: grid;
+  place-items: center;
+  gap: 1rem;
+  min-height: 12rem;
+  text-align: center;
+  padding: 2rem;
+}
+
+.catalog__empty-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.catalog__cta {
+  appearance: none;
+  border: 1px solid var(--brass);
+  background: color-mix(in srgb, var(--brass) 18%, transparent);
+  color: var(--paper);
+  border-radius: 14px;
+  padding: 0.85rem 1.6rem;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.series-list {
+  display: grid;
+  gap: 0.65rem;
 }
 
 .series-row {
-  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  appearance: none;
+  border: 1px solid var(--border);
+  background: var(--surface);
   color: inherit;
+  text-align: left;
+  border-radius: 14px;
+  padding: 0.75rem;
+  cursor: pointer;
   font: inherit;
-  transition: box-shadow 160ms var(--ease-soft), border-color 160ms var(--ease-soft);
+}
+
+.series-row.is-focused {
+  border-color: var(--brass-bright);
+  box-shadow: 0 0 0 3px var(--focus-glow);
+}
+
+.series-row__cover {
+  position: relative;
+  width: 48px;
+  height: 72px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--ink-800);
+  flex-shrink: 0;
+}
+
+.series-row__cover :deep(img) {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.series-row__name {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+.series-row__meta {
+  margin: 0.25rem 0 0;
+  color: var(--paper-dim);
+  font-size: 0.85rem;
+}
+
+.catalog__footer {
+  display: flex;
+  justify-content: center;
+  padding: 0.5rem 1rem 1rem;
+}
+
+@media (max-width: 960px) {
+  .catalog__header {
+    grid-template-columns: 1fr;
+    justify-items: start;
+  }
+
+  .catalog__nav {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  .catalog__hero-row {
+    grid-template-columns: 1fr;
+  }
+
+  .watching {
+    max-height: none;
+  }
+
+  .hero__body {
+    max-width: 90%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .poster__art {
+    transition: none;
+  }
 }
 </style>

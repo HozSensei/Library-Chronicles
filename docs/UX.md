@@ -25,25 +25,27 @@ L’app appelle `setSessionMode('reader'|'ui')` à l’entrée / sortie du lecte
 
 ## Écrans
 
-1. **Setup** — wizard aéré (dossiers, thème, langue) — pas d’orientation
-2. **Profils** — choix du profil local
+1. **Profils** — premier écran (ronds + bouton **+**), même à zéro profil
+2. **Setup** — wizard **par profil** (dossiers, thème, langue) — pas d’orientation
 3. **Boot** — marque + actions (Continuer / Bibliothèque / Import / Paramètres)
 4. **Import** — liste rows + check « déjà importé » + enrichissement métadonnées
-5. **Bibliothèque** — grille Steam OS (covers focusables) ; vide = message + bouton Importer
-6. **Fiche livre** — cover gauche · détails droite · synopsis pleine largeur · Lire / Retour / Options
+5. **Bibliothèque** — catalogue TV (héro large, sidebar En cours, pills, rails posters verticaux)
+6. **Fiche livre** — cover gauche · détails droite · synopsis · Lire / Retour / Options
 7. **Lecteur** — portrait, menu pause (Select) : quitter, signets, filtres, webtoon, sens
 8. **Paramètres** — thème, profils, haptics, remap, API (orientation info seule)
+
+## Profils locaux
+
+- Plusieurs profils (nom + couleur / initiale)
+- **Bibliothèque isolée** : `libraryRoot` / `importRoot` / livres DB scoped `profileId`
+- Progression, signets, prefs lecture **par profil**
+- Pas de sync cloud
+- Reset : `npm run reset:library` · `npm run reset:app -- --all`
 
 ## Thèmes
 
 Tokens CSS `data-theme="dark|light"` — direction Steam (encre bleutée + accent cyan).  
-Persistance via config `theme`.
-
-## Profils locaux
-
-- Plusieurs profils (nom + couleur)
-- Progression, signets, prefs lecture **par profil**
-- Pas de sync cloud
+Persistance via prefs profil + miroir config `theme`.
 
 ## Principes
 

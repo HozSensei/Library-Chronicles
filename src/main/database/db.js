@@ -16,13 +16,15 @@ CREATE TABLE IF NOT EXISTS profiles (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL,
   color TEXT NOT NULL DEFAULT '#c4a35a',
+  avatar_path TEXT,
   created_at TEXT DEFAULT (datetime('now')),
   updated_at TEXT DEFAULT (datetime('now'))
 );
 
 CREATE TABLE IF NOT EXISTS books (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  file_path TEXT NOT NULL UNIQUE,
+  profile_id INTEGER NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  file_path TEXT NOT NULL,
   title TEXT NOT NULL,
   series TEXT,
   series_id TEXT,
@@ -35,7 +37,8 @@ CREATE TABLE IF NOT EXISTS books (
   status TEXT DEFAULT 'unread' CHECK (status IN ('unread', 'reading', 'finished')),
   metadata_json TEXT,
   created_at TEXT DEFAULT (datetime('now')),
-  updated_at TEXT DEFAULT (datetime('now'))
+  updated_at TEXT DEFAULT (datetime('now')),
+  UNIQUE(profile_id, file_path)
 );
 
 CREATE TABLE IF NOT EXISTS reading_progress (
@@ -65,10 +68,16 @@ CREATE TABLE IF NOT EXISTS profile_prefs (
   brightness REAL DEFAULT 1,
   contrast REAL DEFAULT 1,
   sepia REAL DEFAULT 0,
+  library_root TEXT,
+  import_root TEXT,
+  theme TEXT DEFAULT 'dark',
+  language TEXT DEFAULT 'fr',
+  setup_completed INTEGER DEFAULT 0,
   updated_at TEXT DEFAULT (datetime('now'))
 );
 
 CREATE INDEX IF NOT EXISTS idx_books_series_id ON books(series_id);
+CREATE INDEX IF NOT EXISTS idx_books_profile ON books(profile_id);
 CREATE INDEX IF NOT EXISTS idx_bookmarks_book ON bookmarks(profile_id, book_id);
 `;
 
@@ -102,10 +111,10 @@ function loadJsonStore() {
     if (parsed.progress && !parsed.profiles?.length) {
       migrateLegacyJsonProgress(parsed);
     }
-    ensureDefaultProfileJson();
+    migrateJsonBooksProfileId();
+    // Ne plus forcer un profil par défaut — écran profils peut être vide (+)
   } catch {
     jsonStore = emptyJsonStore();
-    ensureDefaultProfileJson();
   }
 }
 
@@ -134,6 +143,25 @@ function migrateLegacyJsonProgress(parsed) {
   if (!jsonStore.prefs) jsonStore.prefs = {};
 }
 
+/** Assigne profile_id aux livres JSON legacy (biblio globale → profil 1). */
+function migrateJsonBooksProfileId() {
+  let changed = false;
+  const fallbackPid = jsonStore.profiles[0]?.id ?? 1;
+  for (const book of jsonStore.books) {
+    if (book.profile_id == null) {
+      book.profile_id = fallbackPid;
+      changed = true;
+    }
+  }
+  for (const [pid, prefs] of Object.entries(jsonStore.prefs || {})) {
+    if (prefs.setup_completed === undefined) {
+      prefs.setup_completed = 1;
+      changed = true;
+    }
+  }
+  if (changed) saveJsonStore();
+}
+
 function ensureDefaultProfileJson() {
   if (!jsonStore.profiles.length) {
     jsonStore.profiles.push({
@@ -159,6 +187,11 @@ function defaultPrefsRow(profileId) {
     brightness: 1,
     contrast: 1,
     sepia: 0,
+    library_root: null,
+    import_root: null,
+    theme: 'dark',
+    language: 'fr',
+    setup_completed: 0,
     updated_at: new Date().toISOString(),
   };
 }
@@ -179,7 +212,8 @@ export function initDatabase() {
     instance.pragma('foreign_keys = ON');
     instance.exec(SCHEMA);
     migrateSqlite(instance);
-    ensureDefaultProfileSqlite(instance);
+    // Profils optionnels : l’écran « Qui lit ? » gère la création (+)
+    ensureProfilePrefsSqlite(instance);
     db = instance;
     mode = 'sqlite';
     console.info('[VDR] SQLite prêt →', file);
@@ -222,8 +256,23 @@ function migrateSqlite(instance) {
   addBook('status', "status TEXT DEFAULT 'unread'");
   addBook('metadata_json', 'metadata_json TEXT');
 
+  // avatar_path sur profiles
+  const profileCols = instance
+    .prepare('PRAGMA table_info(profiles)')
+    .all()
+    .map((c) => c.name);
+  if (!profileCols.includes('avatar_path')) {
+    instance.exec('ALTER TABLE profiles ADD COLUMN avatar_path TEXT');
+  }
+
   // Migration ancienne reading_progress (PK book_id seul) → composite
   migrateLegacyProgressTable(instance);
+
+  // profile_id sur books (biblio isolée par profil)
+  migrateBooksProfileId(instance);
+
+  // Colonnes prefs profil (dossiers / thème / setup)
+  migrateProfilePrefsColumns(instance);
 
   // Remplir series_id manquants
   const missing = instance
@@ -237,6 +286,82 @@ function migrateSqlite(instance) {
       upd.run(seriesIdFromName(row.series), row.id);
     }
   }
+}
+
+function migrateBooksProfileId(instance) {
+  const cols = instance
+    .prepare('PRAGMA table_info(books)')
+    .all()
+    .map((c) => c.name);
+  if (cols.includes('profile_id')) return;
+
+  // Ancienne table sans profile_id : reconstruire avec UNIQUE(profile_id, file_path)
+  ensureProfilePrefsSqlite(instance);
+  let profile = instance.prepare('SELECT id FROM profiles ORDER BY id LIMIT 1').get();
+  if (!profile) {
+    const info = instance
+      .prepare(`INSERT INTO profiles (name, color) VALUES ('Lecteur', '#c4a35a')`)
+      .run();
+    instance
+      .prepare(`INSERT OR IGNORE INTO profile_prefs (profile_id) VALUES (?)`)
+      .run(info.lastInsertRowid);
+    profile = { id: Number(info.lastInsertRowid) };
+  }
+  const pid = profile.id;
+
+  instance.exec(`
+    CREATE TABLE books_v2 (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      profile_id INTEGER NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+      file_path TEXT NOT NULL,
+      title TEXT NOT NULL,
+      series TEXT,
+      series_id TEXT,
+      volume INTEGER,
+      author TEXT,
+      year INTEGER,
+      format TEXT,
+      cover_path TEXT,
+      page_total INTEGER DEFAULT 0,
+      status TEXT DEFAULT 'unread',
+      metadata_json TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(profile_id, file_path)
+    );
+  `);
+  instance
+    .prepare(
+      `INSERT INTO books_v2 (
+        id, profile_id, file_path, title, series, series_id, volume, author, year,
+        format, cover_path, page_total, status, metadata_json, created_at, updated_at
+      )
+      SELECT id, ?, file_path, title, series, series_id, volume, author, year,
+        format, cover_path, page_total, status, metadata_json, created_at, updated_at
+      FROM books`,
+    )
+    .run(pid);
+  instance.exec(`
+    DROP TABLE books;
+    ALTER TABLE books_v2 RENAME TO books;
+    CREATE INDEX IF NOT EXISTS idx_books_series_id ON books(series_id);
+    CREATE INDEX IF NOT EXISTS idx_books_profile ON books(profile_id);
+  `);
+}
+
+function migrateProfilePrefsColumns(instance) {
+  const cols = instance
+    .prepare('PRAGMA table_info(profile_prefs)')
+    .all()
+    .map((c) => c.name);
+  const add = (name, ddl) => {
+    if (!cols.includes(name)) instance.exec(`ALTER TABLE profile_prefs ADD COLUMN ${ddl}`);
+  };
+  add('library_root', 'library_root TEXT');
+  add('import_root', 'import_root TEXT');
+  add('theme', "theme TEXT DEFAULT 'dark'");
+  add('language', "language TEXT DEFAULT 'fr'");
+  add('setup_completed', 'setup_completed INTEGER DEFAULT 0');
 }
 
 function migrateLegacyProgressTable(instance) {
@@ -257,7 +382,7 @@ function migrateLegacyProgressTable(instance) {
     );
   `);
 
-  ensureDefaultProfileSqlite(instance);
+  ensureProfilePrefsSqlite(instance);
   const profile = instance.prepare('SELECT id FROM profiles ORDER BY id LIMIT 1').get();
   const pid = profile?.id || 1;
 
@@ -274,6 +399,15 @@ function migrateLegacyProgressTable(instance) {
   `);
 }
 
+function ensureProfilePrefsSqlite(instance) {
+  const profiles = instance.prepare('SELECT id FROM profiles').all();
+  const ins = instance.prepare(
+    `INSERT OR IGNORE INTO profile_prefs (profile_id) VALUES (?)`,
+  );
+  for (const p of profiles) ins.run(p.id);
+}
+
+/** @deprecated Conservé pour migrations legacy uniquement. */
 function ensureDefaultProfileSqlite(instance) {
   const count = instance.prepare('SELECT COUNT(*) AS c FROM profiles').get().c;
   if (count === 0) {
@@ -281,16 +415,10 @@ function ensureDefaultProfileSqlite(instance) {
       .prepare(`INSERT INTO profiles (name, color) VALUES ('Lecteur', '#c4a35a')`)
       .run();
     instance
-      .prepare(
-        `INSERT OR IGNORE INTO profile_prefs (profile_id) VALUES (?)`,
-      )
+      .prepare(`INSERT OR IGNORE INTO profile_prefs (profile_id) VALUES (?)`)
       .run(info.lastInsertRowid);
   } else {
-    const profiles = instance.prepare('SELECT id FROM profiles').all();
-    const ins = instance.prepare(
-      `INSERT OR IGNORE INTO profile_prefs (profile_id) VALUES (?)`,
-    );
-    for (const p of profiles) ins.run(p.id);
+    ensureProfilePrefsSqlite(instance);
   }
 }
 

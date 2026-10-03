@@ -10,13 +10,21 @@ import {
   setActiveProfileId,
   getProfilePrefs,
   setProfilePrefs,
+  getDefaultPathsForProfile,
   AVATAR_COLORS,
 } from '../database/profiles.js';
-import { setConfig } from '../config.js';
+import { syncWatchersFromConfig } from '../library/watcher.js';
 
 export function registerProfilesIpc() {
   ipcMain.handle(IpcChannels.PROFILES_LIST, () => ({
-    profiles: listProfiles(),
+    profiles: listProfiles().map((p) => {
+      const prefs = getProfilePrefs(p.id);
+      return {
+        ...p,
+        setupCompleted: prefs.setupCompleted,
+        initial: (p.name || '?').slice(0, 1).toUpperCase(),
+      };
+    }),
     activeProfileId: getActiveProfileId(),
     colors: AVATAR_COLORS,
   }));
@@ -29,11 +37,25 @@ export function registerProfilesIpc() {
     updateProfile(id, patch || {}),
   );
 
-  ipcMain.handle(IpcChannels.PROFILES_DELETE, (_e, id) => deleteProfile(id));
+  ipcMain.handle(IpcChannels.PROFILES_DELETE, (_e, id) => {
+    const result = deleteProfile(id);
+    try {
+      syncWatchersFromConfig();
+    } catch {
+      // ignore
+    }
+    return result;
+  });
 
   ipcMain.handle(IpcChannels.PROFILES_SET_ACTIVE, (_e, id) => {
     const result = setActiveProfileId(id);
-    if (result.ok) setConfig({ profileSelected: true });
+    if (result.ok) {
+      try {
+        syncWatchersFromConfig();
+      } catch {
+        // ignore
+      }
+    }
     return result;
   });
 
@@ -46,7 +68,18 @@ export function registerProfilesIpc() {
     getProfilePrefs(profileId ?? null),
   );
 
-  ipcMain.handle(IpcChannels.PROFILES_SET_PREFS, (_e, { patch, profileId }) =>
-    setProfilePrefs(patch || {}, profileId ?? null),
-  );
+  ipcMain.handle(IpcChannels.PROFILES_SET_PREFS, (_e, { patch, profileId }) => {
+    const prefs = setProfilePrefs(patch || {}, profileId ?? null);
+    try {
+      syncWatchersFromConfig();
+    } catch {
+      // ignore
+    }
+    return prefs;
+  });
+
+  ipcMain.handle(IpcChannels.PROFILES_DEFAULT_PATHS, (_e, { profileId, name } = {}) => {
+    const id = profileId ?? getActiveProfileId() ?? 0;
+    return getDefaultPathsForProfile(id, name);
+  });
 }

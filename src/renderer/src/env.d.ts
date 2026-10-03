@@ -91,6 +91,10 @@ interface VdrApi {
       patch: Record<string, unknown>,
       profileId?: number | null,
     ) => Promise<Record<string, unknown>>;
+    defaultPaths: (payload?: {
+      profileId?: number;
+      name?: string;
+    }) => Promise<{ libraryRoot: string; importRoot: string; covers: string }>;
   };
   bookmarks: {
     list: (bookId: number, profileId?: number) => Promise<unknown[]>;

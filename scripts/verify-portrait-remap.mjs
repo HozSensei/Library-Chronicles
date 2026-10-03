@@ -6,6 +6,8 @@ import {
   remapDpad,
   remapStick,
   readingActionForLogicalDpad,
+  sessionOrientationForRoute,
+  sessionModeForRoute,
 } from '../src/shared/portrait-remap.js';
 import {
   resolveKeyBindings,
@@ -47,6 +49,32 @@ assert(
   'landscape stick : physique = logique',
 );
 
+// Menus = landscape (identité) — bug critique : jamais portrait hors lecteur
+const menuRoutes = [
+  'boot',
+  'setup',
+  'profiles',
+  'library',
+  'book',
+  'import',
+  'settings',
+  null,
+  undefined,
+  '',
+];
+for (const route of menuRoutes) {
+  assert(
+    sessionOrientationForRoute(route) === DeviceOrientation.LANDSCAPE,
+    `route "${route}" → landscape (menus)`,
+  );
+  assert(sessionModeForRoute(route) === 'ui', `route "${route}" → mode ui`);
+}
+assert(
+  sessionOrientationForRoute('reader') === DeviceOrientation.PORTRAIT_CCW,
+  'route reader → portrait-ccw',
+);
+assert(sessionModeForRoute('reader') === 'reader', 'route reader → mode reader');
+
 // Spec UX : droite = Zoom +, gauche = Zoom − ; haut/bas = pages
 assert(readingActionForLogicalDpad('right') === 'zoom-in', '→ écran = zoom +');
 assert(readingActionForLogicalDpad('left') === 'zoom-out', '← écran = zoom −');
@@ -61,6 +89,14 @@ assert(
 assert(
   actionForBinding(bindings, 'reader', 'dpad:left') === 'zoom-out',
   'binding défaut zoom-out (gauche)',
+);
+assert(
+  actionForBinding(bindings, 'library', 'dpad:up') === 'cursor-up',
+  'biblio dpad:up = cursor-up (post-identity)',
+);
+assert(
+  actionForBinding(bindings, 'setup', 'dpad:left') === 'cursor-left',
+  'setup dpad:left = cursor-left (post-identity)',
 );
 assert(
   actionForBinding(bindings, 'reader', `button:${GamepadButtons.SELECT}`) === 'toggle-pause',

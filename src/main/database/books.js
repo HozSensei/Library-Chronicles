@@ -28,6 +28,7 @@ function mapBookRow(row, progress) {
   const seriesId = row.series_id || seriesIdFromName(series);
   return {
     id: row.id,
+    profileId: row.profile_id ?? null,
     filePath: row.file_path,
     title: row.title,
     series,
@@ -71,10 +72,12 @@ export function upsertBook(meta) {
 
 function upsertSqlite(meta) {
   const db = getDb();
+  const pid = meta.profileId ?? getActiveProfileId();
+  if (pid == null) throw new Error('Aucun profil actif pour upsert');
   const { series, seriesId } = resolveSeriesFields(meta);
   const existing = db
-    .prepare('SELECT id FROM books WHERE file_path = ?')
-    .get(meta.filePath);
+    .prepare('SELECT id FROM books WHERE profile_id = ? AND file_path = ?')
+    .get(pid, meta.filePath);
 
   if (existing) {
     db.prepare(
@@ -110,14 +113,15 @@ function upsertSqlite(meta) {
   const info = db
     .prepare(
       `INSERT INTO books (
-        file_path, title, series, series_id, volume, author, year, format,
+        profile_id, file_path, title, series, series_id, volume, author, year, format,
         cover_path, page_total, metadata_json
       ) VALUES (
-        @filePath, @title, @series, @seriesId, @volume, @author, @year, @format,
+        @profileId, @filePath, @title, @series, @seriesId, @volume, @author, @year, @format,
         @coverPath, @pageTotal, @metadataJson
       )`,
     )
     .run({
+      profileId: pid,
       filePath: meta.filePath,
       title: meta.title,
       series,
@@ -131,7 +135,6 @@ function upsertSqlite(meta) {
       metadataJson: meta.metadata ? JSON.stringify(meta.metadata) : null,
     });
 
-  const pid = getActiveProfileId();
   db.prepare(
     `INSERT OR IGNORE INTO reading_progress (profile_id, book_id, page_current, status)
      VALUES (?, ?, 0, 'unread')`,
@@ -142,10 +145,15 @@ function upsertSqlite(meta) {
 
 function upsertJson(meta) {
   const store = getJsonStore();
+  const pid = meta.profileId ?? getActiveProfileId();
+  if (pid == null) throw new Error('Aucun profil actif pour upsert');
   const { series, seriesId } = resolveSeriesFields(meta);
-  let book = store.books.find((b) => b.file_path === meta.filePath);
+  let book = store.books.find(
+    (b) => b.file_path === meta.filePath && (b.profile_id ?? pid) === pid,
+  );
   if (book) {
     Object.assign(book, {
+      profile_id: pid,
       title: meta.title,
       series: series ?? book.series,
       series_id: seriesId ?? book.series_id,
@@ -163,6 +171,7 @@ function upsertJson(meta) {
   } else {
     book = {
       id: store.nextId++,
+      profile_id: pid,
       file_path: meta.filePath,
       title: meta.title,
       series,
@@ -179,7 +188,6 @@ function upsertJson(meta) {
       updated_at: new Date().toISOString(),
     };
     store.books.push(book);
-    const pid = getActiveProfileId();
     store.progress[progressKey(pid, book.id)] = {
       page_current: 0,
       status: 'unread',
@@ -215,20 +223,30 @@ export function getBookById(id, profileId = null) {
 }
 
 export function getBookByPath(filePath, profileId = null) {
+  const pid = profileId ?? getActiveProfileId();
   const mode = getDbMode();
   if (mode === 'sqlite') {
-    const row = getDb().prepare('SELECT * FROM books WHERE file_path = ?').get(filePath);
+    const row = pid == null
+      ? getDb().prepare('SELECT * FROM books WHERE file_path = ?').get(filePath)
+      : getDb()
+          .prepare('SELECT * FROM books WHERE profile_id = ? AND file_path = ?')
+          .get(pid, filePath);
     if (!row) return null;
     return mapBookRow(row, getProgressFor(row.id, profileId));
   }
   const store = getJsonStore();
-  const row = store.books.find((b) => b.file_path === filePath);
+  const row = store.books.find(
+    (b) =>
+      b.file_path === filePath &&
+      (pid == null || (b.profile_id ?? pid) === pid),
+  );
   if (!row) return null;
   return mapBookRow(row, getProgressFor(row.id, profileId));
 }
 
 export function listBooks(profileId = null) {
   const pid = profileId ?? getActiveProfileId();
+  if (pid == null) return [];
   const mode = getDbMode();
   if (mode === 'sqlite') {
     const db = getDb();
@@ -238,12 +256,13 @@ export function listBooks(profileId = null) {
          FROM books b
          LEFT JOIN reading_progress p
            ON p.book_id = b.id AND p.profile_id = ?
+         WHERE b.profile_id = ?
          ORDER BY
            CASE WHEN p.last_access IS NULL THEN 1 ELSE 0 END,
            p.last_access DESC,
            b.title COLLATE NOCASE ASC`,
       )
-      .all(pid);
+      .all(pid, pid);
     return rows.map((r) =>
       mapBookRow(r, {
         page_current: r.page_current,
@@ -254,6 +273,7 @@ export function listBooks(profileId = null) {
   }
   const store = getJsonStore();
   return store.books
+    .filter((b) => (b.profile_id ?? pid) === pid)
     .map((b) => mapBookRow(b, store.progress[progressKey(pid, b.id)]))
     .sort((a, b) => {
       if (a.lastAccess && b.lastAccess) return b.lastAccess.localeCompare(a.lastAccess);
@@ -439,13 +459,14 @@ export function deleteBook(id) {
 }
 
 /**
- * Retire de la base les livres dont le fichier n’existe plus.
+ * Retire de la base les livres du profil actif dont le fichier n’existe plus.
  * @param {Set<string>|string[]} existingPaths
  */
 export function pruneMissingBooks(existingPaths) {
   const keep = existingPaths instanceof Set ? existingPaths : new Set(existingPaths);
   const removed = [];
-  for (const book of listBooks()) {
+  const pid = getActiveProfileId();
+  for (const book of listBooks(pid)) {
     if (!keep.has(book.filePath)) {
       deleteBook(book.id);
       removed.push(book.filePath);

@@ -21,6 +21,7 @@ import { openBook } from '../extractors/index.js';
 import { ensureCover } from '../library/thumbnails.js';
 import { syncWatchersFromConfig } from '../library/watcher.js';
 import { detectFromFilename } from '../metadata/parse-filename.js';
+import { getActiveProfileId, setProfilePrefs } from '../database/profiles.js';
 
 export function registerLibraryIpc() {
   ipcMain.handle(IpcChannels.LIBRARY_SELECT_ROOT, async () => {
@@ -32,6 +33,8 @@ export function registerLibraryIpc() {
     const root = result.filePaths[0];
     fs.mkdirSync(root, { recursive: true });
     setConfig({ libraryRoot: root });
+    const pid = getActiveProfileId();
+    if (pid != null) setProfilePrefs({ libraryRoot: root }, pid);
     syncWatchersFromConfig();
     return root;
   });
@@ -45,6 +48,8 @@ export function registerLibraryIpc() {
     const root = result.filePaths[0];
     fs.mkdirSync(root, { recursive: true });
     setConfig({ importRoot: root });
+    const pid = getActiveProfileId();
+    if (pid != null) setProfilePrefs({ importRoot: root }, pid);
     syncWatchersFromConfig();
     return root;
   });
@@ -53,6 +58,7 @@ export function registerLibraryIpc() {
     const { libraryRoot } = getConfig();
     if (!libraryRoot) return { found: [], error: 'Aucun dossier racine' };
     const scan = await scanLibraryRoot(libraryRoot);
+    const pid = getActiveProfileId();
 
     // Indexer les nouveaux fichiers (+ détection série/tome depuis le nom)
     for (const file of scan.found) {
@@ -60,7 +66,11 @@ export function registerLibraryIpc() {
         const book = await openBook(file.filePath);
         let coverPath = null;
         try {
-          coverPath = await ensureCover(file.filePath, () => book.getCoverBuffer());
+          coverPath = await ensureCover(
+            file.filePath,
+            () => book.getCoverBuffer(),
+            pid,
+          );
         } catch {
           // ignore cover errors
         }

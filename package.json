@@ -19,6 +19,8 @@
     "test:metadata": "node scripts/verify-metadata.mjs",
     "test:bounds": "node scripts/verify-window-bounds.mjs",
     "test": "npm run test:remap && npm run test:cbz && npm run test:pdf && npm run test:watcher && npm run test:haptics && npm run test:series && npm run test:metadata && npm run test:bounds",
+    "reset:library": "node scripts/reset-library.mjs",
+    "reset:app": "node scripts/reset-library.mjs --setup",
     "rebuild:native": "node scripts/rebuild-native.mjs",
     "postinstall": "node scripts/postinstall.mjs",
     "predist": "npm run rebuild:native",

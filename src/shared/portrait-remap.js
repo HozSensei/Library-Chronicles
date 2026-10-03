@@ -13,22 +13,48 @@
  *
  * Toutes les actions UI/lecteur doivent raisonner en directions *logiques*
  * (repère écran), jamais en indices bruts du D-Pad XInput.
+ *
+ * IMPORTANT — remap portrait UNIQUEMENT en mode lecture.
+ * Menus (setup / profils / biblio / import / fiche / paramètres) = landscape
+ * (identité : Haut=Haut, Gauche=Gauche). Ne jamais dériver du config.orientation
+ * seul : un portrait résiduel après crash laissait les menus remappés.
  */
 
 export const DeviceOrientation = Object.freeze({
-  /** Manette / écran alignés landscape (dev desktop). */
+  /** Manette / écran alignés landscape (menus / défaut). */
   LANDSCAPE: 'landscape',
-  /** Ally tenue en portrait, rotation 90° CCW (défaut produit). */
+  /** Ally tenue en portrait, rotation 90° CCW (lecteur uniquement). */
   PORTRAIT_CCW: 'portrait-ccw',
 });
 
-/** Directions logiques (repère écran portrait). */
+/** Directions logiques (repère écran). */
 export const LogicalDir = Object.freeze({
   UP: 'up',
   DOWN: 'down',
   LEFT: 'left',
   RIGHT: 'right',
 });
+
+/**
+ * Orientation manette dérivée STRICTEMENT de la route.
+ * Seul `reader` active le remap portrait — jamais la config persistée.
+ * @param {string | null | undefined} routeName
+ * @returns {typeof DeviceOrientation[keyof typeof DeviceOrientation]}
+ */
+export function sessionOrientationForRoute(routeName) {
+  return routeName === 'reader'
+    ? DeviceOrientation.PORTRAIT_CCW
+    : DeviceOrientation.LANDSCAPE;
+}
+
+/**
+ * Mode session fenêtre : ui (landscape) | reader (portrait).
+ * @param {string | null | undefined} routeName
+ * @returns {'ui'|'reader'}
+ */
+export function sessionModeForRoute(routeName) {
+  return routeName === 'reader' ? 'reader' : 'ui';
+}
 
 /**
  * Bouton D-Pad physique (index Gamepad API) → direction logique.

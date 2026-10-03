@@ -5,11 +5,15 @@ Implémentation : `portrait-remap.js` → `key-bindings.js` → `useGamepad.js`.
 ## Pipeline d’entrée
 
 1. **Physique** (indices Gamepad API / XInput)
-2. **Remap selon contexte session** :
-   - `ui` (menus) → **landscape** (identité)
+2. **Remap selon la route** (`sessionOrientationForRoute`) :
+   - toute route hors `reader` → **landscape** (identité) — **jamais** `config.orientation`
    - `reader` → **portrait-ccw** (90° CCW)
 3. **Mapping utilisateur** (défauts + overrides)
 4. **Action** selon l’écran
+
+> Bug corrigé : un `config.orientation = portrait-ccw` résiduel (crash en lecture)
+> ou un `inputContext` sticky pouvait laisser les **menus** en remap vertical.
+> Source de vérité = `routeName === 'reader'` uniquement.
 
 ## Orientation automatique
 

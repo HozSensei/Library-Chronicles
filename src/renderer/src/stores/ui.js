@@ -94,12 +94,12 @@ export const useUiStore = defineStore('ui', {
       const config = await window.vdr.getConfig();
       this.setupCompleted = Boolean(config.setupCompleted);
       this.language = config.language || 'fr';
-      // Menus = landscape ; ne pas hériter d’un portrait résiduel hors lecteur
+      // Menus = landscape TOUJOURS au load — portrait uniquement si déjà sur lecteur
+      // (évite le bug : config.orientation portrait-ccw → menus remappés)
       const orientation =
-        config.orientation === 'portrait-ccw' && this.routeName === 'reader'
-          ? 'portrait-ccw'
-          : 'landscape';
+        this.routeName === 'reader' ? 'portrait-ccw' : 'landscape';
       this.applyOrientation(orientation);
+      this.inputContext = this.routeName === 'reader' ? 'reader' : 'ui';
       this.userKeyBindings = config.keyBindings || null;
       this.keyBindings = resolveKeyBindings(this.userKeyBindings);
       this.hapticsEnabled = config.hapticsEnabled !== false;
