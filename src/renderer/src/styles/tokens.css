@@ -166,7 +166,8 @@
 }
 
 :root {
-  --font-display: 'Syne', 'Avenir Next', 'Segoe UI', sans-serif;
+  /* Display = titres UI (headers, fiches, boutons) — pas le body */
+  --font-display: 'Grenze', 'Palatino Linotype', 'Book Antiqua', serif;
   --font-body: 'Figtree', 'Avenir Next', 'Segoe UI', sans-serif;
 
   --radius-sm: 8px;

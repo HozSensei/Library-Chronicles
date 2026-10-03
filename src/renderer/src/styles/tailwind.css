@@ -1,7 +1,7 @@
 @import 'tailwindcss';
 
 @theme {
-  --font-display: 'Syne', 'Avenir Next', 'Segoe UI', sans-serif;
+  --font-display: 'Grenze', 'Palatino Linotype', 'Book Antiqua', serif;
   --font-body: 'Figtree', 'Avenir Next', 'Segoe UI', sans-serif;
 
   --color-ink-950: var(--ink-950);
