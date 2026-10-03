@@ -55,6 +55,17 @@ Stick : `logicalX = physicalY`, `logicalY = physicalX`.
 | RB | Tome suivant non lu |
 | LT / RT | Chapitre ±1 |
 
+## Stick menus (hors lecteur)
+
+Hors route `reader`, le stick gauche se comporte comme le D-Pad :
+
+1. Deadzone analogique (`0.18`) puis seuil discret (`0.45`)
+2. Axe dominant → `up` / `down` / `left` / `right` (landscape : Haut=Haut)
+3. Premier franchissement → pas immédiat ; maintien → délai ~320 ms puis repeat ~120 ms
+4. Action via bindings `dpad:*` → `cursor-*` (+ `scrollIntoView` déjà en place)
+
+En **lecteur**, le stick reste en **pan** analogique (remap portrait) — jamais en focus menu.
+
 ## Mode Bibliothèque (landscape)
 
 | Contrôle | Action |
@@ -77,9 +88,9 @@ Bibliothèque vide : A → Import.
 | A | Valider l’action focus |
 | B | Retour bibliothèque |
 
-## Mode Profils / Setup / Import
+## Mode Profils / Setup / Import / Boot / Paramètres
 
-Inchangé (navigation D-Pad identity en landscape).  
+Navigation D-Pad **et stick** (identité landscape).  
 Import : Y = Enrichir métadonnées.
 
 ## Clavier / souris (dev)
