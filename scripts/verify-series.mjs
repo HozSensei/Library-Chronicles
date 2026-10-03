@@ -7,6 +7,7 @@ import {
   seriesIdFromName,
   groupBooksBySeries,
   findNextUnreadVolume,
+  findAdjacentVolume,
   listRecentSeries,
   findSeriesGroup,
 } from '../src/main/database/series.js';
@@ -78,6 +79,29 @@ const next = findNextUnreadVolume(books, {
   afterBookId: 1,
 });
 assert.equal(next.id, 2);
+
+// Voisins volume ±1 (fin de tome)
+const adjNext = findAdjacentVolume(books, {
+  seriesId: 'one-piece',
+  volume: 2,
+  bookId: 2,
+  delta: 1,
+});
+assert.equal(adjNext.id, 4);
+const adjPrev = findAdjacentVolume(books, {
+  seriesId: 'one-piece',
+  volume: 2,
+  bookId: 2,
+  delta: -1,
+});
+assert.equal(adjPrev.id, 1);
+const adjMissing = findAdjacentVolume(books, {
+  seriesId: 'one-piece',
+  volume: 3,
+  bookId: 4,
+  delta: 1,
+});
+assert.equal(adjMissing, null);
 
 const found = findSeriesGroup(books, 'one-piece');
 assert.ok(found);
