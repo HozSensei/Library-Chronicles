@@ -730,9 +730,9 @@ function createLoop(ctx) {
         reader.stepChapter(1);
       }
       if ((action === 'pan' || action === 'stick') && payload) {
-        // payload = axes logiques (repère écran). Sous rotate(+90°) :
-        // visualPanToLocal — identité visuelle Haut/Bas/Gauche/Droite.
-        // remapStick inchangé (modal pause / menus).
+        // Sous +90° CSS : payload = axes physiques ; visualPanToLocal =
+        // même rotate(+90° CW) que la page. Sinon payload déjà remappé écran.
+        // remapStick inchangé pour modal pause / menus.
         const local = ui.readerCssRotate
           ? visualPanToLocal(payload.x, payload.y)
           : payload;
@@ -813,9 +813,13 @@ function createLoop(ctx) {
               else if (dir === 'right') dispatch('cursor-right', stickPayload);
             }
           } else {
-            // Lecteur : pan analogique avec remap portrait — pas de focus menu.
+            // Lecteur : pan analogique — pas de focus menu.
+            // Sous +90° CSS : axes physiques (identité landscape) ; la rotation
+            // stick = page est faite dans visualPanToLocal. Sinon remap portrait.
             stickMenuNav.reset();
-            const stick = remapStick(orientation, rawX, rawY);
+            const stick = ui.readerCssRotate
+              ? { x: rawX, y: rawY }
+              : remapStick(orientation, rawX, rawY);
             if (stick.x !== 0 || stick.y !== 0) {
               const stickAction = resolveAction('stick:left') || 'pan';
               dispatch(stickAction, stick);

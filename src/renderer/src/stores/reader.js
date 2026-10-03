@@ -393,8 +393,8 @@ export const useReaderStore = defineStore('reader', {
       this.targetScale = 1;
     },
     /**
-     * Pan en repère local du plan lecteur (après visualPanToLocal si +90° CSS).
-     * Sous rotate(90deg) CW : local(+X) → bas écran, local(+Y) → gauche écran.
+     * Pan en repère local du plan lecteur (après visualPanToLocal = +90° CW
+     * si CSS rotate). Sous rotate(90deg) : local(+X)→bas écran, local(+Y)→gauche.
      */
     pan(dx, dy, speed = 14) {
       if (this.webtoonMode) {
