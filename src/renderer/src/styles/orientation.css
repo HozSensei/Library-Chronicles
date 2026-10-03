@@ -2,6 +2,8 @@
  * Layouts selon orientation session.
  * landscape = menus (défaut) · portrait-ccw = lecteur (logique).
  * data-reader-rotate=1 = plan lecteur CSS +90° (stratégie B, fenêtre landscape).
+ *
+ * Menu pause = modal dans `.reader__plane` (même repère tourné que le stage).
  */
 
 [data-orientation='landscape'] {
@@ -15,49 +17,46 @@ body,
   overflow-x: hidden;
 }
 
-/* Lecteur : HUD bas plein largeur dans le plan portrait (natif ou CSS-rotate) */
+/* Modal pause : plein plan portrait (natif ou CSS-rotate +90°) */
 [data-orientation='portrait-ccw'] .hud {
+  inset: 0;
   left: 0;
   right: 0;
+  top: 0;
   bottom: 0;
-  top: auto;
   width: 100%;
   max-width: 100%;
-  max-height: 55%;
-  padding: 1rem 1.25rem 1.35rem;
-  background: linear-gradient(0deg, var(--hud-fade) 60%, transparent);
+  max-height: 100%;
+  padding: 1.25rem;
+  background: transparent;
   box-sizing: border-box;
 }
 
+/* Hors lecteur (ne devrait pas s’afficher) — garde-fou */
 [data-orientation='landscape'] .hud {
-  left: auto;
-  right: 0;
-  width: min(26rem, 38vw);
+  inset: 0;
+  width: 100%;
   max-width: 100%;
   max-height: 100%;
-  padding: 1.25rem 1.35rem 1.5rem;
-  background: linear-gradient(270deg, var(--hud-fade) 55%, transparent);
+  padding: 1.25rem;
+  background: transparent;
   box-sizing: border-box;
 }
 
 .hud__pause-title {
-  margin: 0 0 0.5rem;
+  margin: 0 0 0.15rem;
   font-family: var(--font-display);
   font-weight: 800;
-  font-size: 1.15rem;
+  font-size: 1.2rem;
   color: var(--brass-bright);
   letter-spacing: -0.01em;
 }
 
+[data-orientation='portrait-ccw'] .hud__actions,
 [data-orientation='landscape'] .hud__actions {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-}
-
-[data-orientation='portrait-ccw'] .hud__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
+  grid-template-columns: 1fr;
+  gap: 0.45rem;
 }
 
 [data-orientation='portrait-ccw'] .reader__strip-page {

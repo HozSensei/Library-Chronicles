@@ -34,7 +34,7 @@ L’app appelle `setSessionMode('reader'|'ui')` à l’entrée / sortie du lecte
 4. **Import** — liste rows + check « déjà importé » + enrichissement métadonnées
 5. **Bibliothèque** — catalogue TV (héro large, sidebar En cours, pills, rails posters verticaux)
 6. **Fiche livre** — cover gauche · détails droite · synopsis · Lire / Retour / Options
-7. **Lecteur** — portrait, menu pause (Select) : quitter, signets, filtres, webtoon, sens
+7. **Lecteur** — portrait (+90° CSS), menu pause Select en **modal** (quitter, signets, filtres, webtoon, sens)
 8. **Paramètres** — thème, profils, haptics, remap, API (orientation info seule)
 
 ## Profils locaux

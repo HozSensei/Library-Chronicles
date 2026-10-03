@@ -54,10 +54,18 @@ Pan dans le plan tourné : `local = visualPanToLocal(logical)` (`localX = visual
 | B | Fermer → bibliothèque (restore landscape) |
 | X | Ajouter un signet |
 | Y | HUD onglets |
-| **Select** | **Menu pause** (quitter, webtoon, sens, signets…) |
+| **Select** | **Menu pause** (modal centrée, plan +90°) |
 | LB | Fit Width |
 | RB | Tome suivant non lu |
 | LT / RT | Chapitre ±1 |
+
+### Menu pause ouvert *(même plan tourné que le stage)*
+
+| Contrôle | Action |
+|----------|--------|
+| D-Pad / stick | Focus dans la modal |
+| **A** | Valider (élément focalisé) |
+| **B** / Select / Y | Fermer la modal (pas la lecture) |
 
 ## Stick menus (hors lecteur)
 
@@ -68,7 +76,7 @@ Hors route `reader`, le stick gauche se comporte comme le D-Pad :
 3. Premier franchissement → pas immédiat ; maintien → délai ~320 ms puis repeat ~120 ms
 4. Action via bindings `dpad:*` → `cursor-*` (+ `scrollIntoView` déjà en place)
 
-En **lecteur**, le stick reste en **pan** analogique (remap portrait) — jamais en focus menu.
+En **lecteur**, le stick reste en **pan** analogique (remap portrait) — sauf modal pause (nav focus).
 
 ## Mode Bibliothèque (landscape)
 
