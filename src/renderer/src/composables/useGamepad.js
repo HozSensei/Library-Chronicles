@@ -3,27 +3,15 @@ import { useRouter } from 'vue-router';
 import { useUiStore } from '../stores/ui';
 import { useReaderStore } from '../stores/reader';
 import { useLibraryStore } from '../stores/library';
+import { useImportStore } from '../stores/import';
 import {
   DeviceOrientation,
   remapDpad,
   remapStick,
-  readingActionForLogicalDpad,
-  uiActionForLogicalDpad,
 } from '../../../shared/portrait-remap.js';
+import { actionForBinding, GamepadButtons } from '../../../shared/controls.js';
 
-const BUTTON = {
-  A: 0,
-  B: 1,
-  Y: 3,
-  LT: 6,
-  RT: 7,
-  L3: 10,
-  R3: 11,
-  DPAD_UP: 12,
-  DPAD_DOWN: 13,
-  DPAD_LEFT: 14,
-  DPAD_RIGHT: 15,
-};
+const BUTTON = GamepadButtons;
 
 const PHYSICAL_DPAD = [
   [BUTTON.DPAD_UP, 'up'],
@@ -37,19 +25,20 @@ const DEADZONE = 0.18;
 let sharedLoop = null;
 
 /**
- * Boucle Gamepad unique (singleton) branchée sur les stores Vue / Router.
- * Les directions sont toujours interprétées en repère *écran* (logique).
+ * Boucle Gamepad unique.
+ * Pipeline : entrée physique → remap portrait → mapping utilisateur → action.
  */
 export function useGamepad() {
   const router = useRouter();
   const ui = useUiStore();
   const reader = useReaderStore();
   const library = useLibraryStore();
+  const imp = useImportStore();
 
   if (!sharedLoop) {
-    sharedLoop = createLoop({ router, ui, reader, library });
+    sharedLoop = createLoop({ router, ui, reader, library, imp });
   } else {
-    sharedLoop.bind({ router, ui, reader, library });
+    sharedLoop.bind({ router, ui, reader, library, imp });
   }
 
   function start() {
@@ -60,9 +49,7 @@ export function useGamepad() {
     sharedLoop.stop();
   }
 
-  onScopeDispose(() => {
-    // App.vue gère le cycle de vie principal.
-  });
+  onScopeDispose(() => {});
 
   return { start, stop };
 }
@@ -75,6 +62,7 @@ function createLoop(ctx) {
   let handlers = ctx;
   /** @type {string} */
   let orientation = DeviceOrientation.PORTRAIT_CCW;
+  let lastStickNav = 0;
 
   function bind(next) {
     handlers = next;
@@ -87,6 +75,7 @@ function createLoop(ctx) {
         config.orientation === DeviceOrientation.LANDSCAPE
           ? DeviceOrientation.LANDSCAPE
           : DeviceOrientation.PORTRAIT_CCW;
+      handlers.ui.orientation = orientation;
     } catch {
       orientation = DeviceOrientation.PORTRAIT_CCW;
     }
@@ -125,47 +114,133 @@ function createLoop(ctx) {
     return Boolean(pad.buttons[index]?.pressed) && !prevButtons[index];
   }
 
+  function bindingContext(route) {
+    if (route === 'boot') return 'boot';
+    if (route === 'library') return 'library';
+    if (route === 'reader') return 'reader';
+    if (route === 'setup') return 'setup';
+    if (route === 'import') return 'import';
+    if (route === 'settings') return 'settings';
+    return 'boot';
+  }
+
+  function resolveAction(key) {
+    const { ui } = handlers;
+    const ctxName = bindingContext(ui.routeName);
+    return actionForBinding(ui.keyBindings, ctxName, key);
+  }
+
   function dispatch(action, payload) {
-    const { router, ui, reader, library } = handlers;
+    if (!action) return;
+    const { router, ui, reader, library, imp } = handlers;
     const route = ui.routeName;
 
+    // Mode écoute remapping
+    if (ui.listeningForBind && payload?.bindingKey) {
+      ui.applyCapturedBind(payload.bindingKey);
+      return;
+    }
+
     if (route === 'boot') {
+      const max = 3;
       if (action === 'cursor-up') ui.setBootFocus(Math.max(0, ui.bootFocusIndex - 1));
-      if (action === 'cursor-down') ui.setBootFocus(Math.min(1, ui.bootFocusIndex + 1));
-      if (action === 'a' || action === 'confirm') {
-        if (ui.bootFocusIndex === 0) router.push({ name: 'library' });
-        else router.push({ name: 'reader' });
+      if (action === 'cursor-down') ui.setBootFocus(Math.min(max, ui.bootFocusIndex + 1));
+      if (action === 'confirm' || action === 'open-book') {
+        // BootView gère via index — déclencher navigation soft
+        const el = document.querySelectorAll('.boot__nav .focus-btn')[ui.bootFocusIndex];
+        el?.click();
+      }
+      return;
+    }
+
+    if (route === 'setup') {
+      if (action === 'cursor-up') ui.setSetupFocus(Math.max(0, ui.setupFocusIndex - 1));
+      if (action === 'cursor-down') ui.setSetupFocus(ui.setupFocusIndex + 1);
+      if (action === 'cursor-left' || action === 'back') {
+        document.querySelector('.setup .ghost')?.click();
+      }
+      if (action === 'cursor-right') {
+        // next via focused
+      }
+      if (action === 'confirm') {
+        const focused = document.querySelector('.setup .focus-btn.is-focused');
+        focused?.click();
       }
       return;
     }
 
     if (route === 'library') {
-      if (action === 'b') router.push({ name: 'boot' });
-      if (action === 'cursor-up') library.moveCursor(-1);
-      if (action === 'cursor-down') library.moveCursor(1);
-      if (action === 'cursor-left') library.moveCursor(-1);
-      if (action === 'cursor-right') library.moveCursor(1);
+      if (action === 'back') router.push({ name: 'boot' });
+      if (action === 'cursor-up') library.moveCursorGrid(0, -1);
+      if (action === 'cursor-down') library.moveCursorGrid(0, 1);
+      if (action === 'cursor-left') library.moveCursorGrid(-1, 0);
+      if (action === 'cursor-right') library.moveCursorGrid(1, 0);
+      if (action === 'open-book' || action === 'confirm') {
+        const book = library.selected;
+        if (book) router.push({ name: 'reader', query: { path: book.filePath } });
+      }
+      if (action === 'import') router.push({ name: 'import' });
+      if (action === 'settings') router.push({ name: 'settings' });
+      if (action === 'tab-next') library.cycleFilter(1);
+      if (action === 'tab-prev') library.cycleFilter(-1);
+      if (action === 'scroll' && payload) {
+        const now = performance.now();
+        if (now - lastStickNav < 180) return;
+        if (Math.abs(payload.y) < 0.45 && Math.abs(payload.x) < 0.45) return;
+        lastStickNav = now;
+        if (Math.abs(payload.y) >= Math.abs(payload.x)) {
+          library.moveCursorGrid(0, payload.y > 0 ? 1 : -1);
+        } else {
+          library.moveCursorGrid(payload.x > 0 ? 1 : -1, 0);
+        }
+      }
+      return;
+    }
+
+    if (route === 'import') {
+      if (action === 'back') router.push({ name: 'library' });
+      if (action === 'cursor-up') imp.moveCursor(-1);
+      if (action === 'cursor-down') imp.moveCursor(1);
+      if (action === 'confirm') {
+        imp.commitSelected({ copyToLibrary: true });
+      }
+      if (action === 'enrich') imp.enrich();
+      return;
+    }
+
+    if (route === 'settings') {
+      if (action === 'back') {
+        if (ui.listeningForBind) {
+          ui.stopListening();
+          return;
+        }
+        router.push({ name: 'boot' });
+      }
+      if (action === 'cursor-up') ui.setSettingsFocus(Math.max(0, ui.settingsFocusIndex - 1));
+      if (action === 'cursor-down') ui.setSettingsFocus(ui.settingsFocusIndex + 1);
+      if (action === 'confirm') {
+        const row = document.querySelector('.settings .bind-row.is-focused, .settings .focus-btn.is-focused');
+        row?.click();
+      }
       return;
     }
 
     if (route === 'reader') {
-      if (action === 'b') {
+      if (action === 'close-book' || action === 'back') {
         reader.close().then(() => router.push({ name: 'library' }));
         return;
       }
-      if (action === 'y') reader.toggleHud();
-      if (action === 'a') reader.toggleDirection();
+      if (action === 'toggle-overlay') reader.toggleHud();
+      if (action === 'toggle-direction') reader.toggleDirection();
       if (action === 'toggle-zoom') reader.toggleZoom();
+      if (action === 'fit-width') reader.setFitWidth();
       if (action === 'zoom-in') reader.zoomBy(1);
       if (action === 'zoom-out') reader.zoomBy(-1);
-      if (action === 'page-prev') {
-        reader.stepPage(reader.direction === 'rtl' ? 'next' : 'prev');
-      }
-      if (action === 'page-next') {
-        reader.stepPage(reader.direction === 'rtl' ? 'prev' : 'next');
-      }
-      if (action === 'stick' && payload) {
-        // x/y déjà en repère écran (après remapStick)
+      if (action === 'page-prev') reader.stepPage('prev');
+      if (action === 'page-next') reader.stepPage('next');
+      if (action === 'chapter-prev') reader.stepChapter(-1);
+      if (action === 'chapter-next') reader.stepChapter(1);
+      if ((action === 'pan' || action === 'stick') && payload) {
         reader.pan(payload.x, payload.y);
       }
     }
@@ -173,17 +248,16 @@ function createLoop(ctx) {
 
   function emitLogicalDpad(physical) {
     const logical = remapDpad(orientation, physical);
+    const key = `dpad:${logical}`;
     const { ui } = handlers;
-    const route = ui.routeName;
 
-    if (route === 'reader') {
-      const action = readingActionForLogicalDpad(logical);
-      if (action) dispatch(action);
+    if (ui.listeningForBind) {
+      ui.applyCapturedBind(key);
       return;
     }
 
-    const action = uiActionForLogicalDpad(logical);
-    if (action) dispatch(action);
+    const action = resolveAction(key);
+    dispatch(action);
   }
 
   function tick() {
@@ -197,26 +271,48 @@ function createLoop(ctx) {
       prevButtons = [];
     } else {
       const short = pad.id.length > 36 ? `${pad.id.slice(0, 36)}…` : pad.id;
-      ui.setGamepadStatus({ connected: true, label: `${short} · ${orientation}` });
+      ui.setGamepadStatus({
+        connected: true,
+        label: `${short} · ${orientation}`,
+      });
 
       const rawX = applyDeadzone(pad.axes[0] || 0);
       const rawY = applyDeadzone(pad.axes[1] || 0);
       const stick = remapStick(orientation, rawX, rawY);
       if (stick.x !== 0 || stick.y !== 0) {
-        dispatch('stick', stick);
+        const stickAction = resolveAction('stick:left') || 'pan';
+        dispatch(stickAction, stick);
       }
 
-      if (edge(pad, BUTTON.A)) dispatch('a');
-      if (edge(pad, BUTTON.B)) dispatch('b');
-      if (edge(pad, BUTTON.Y)) dispatch('y');
-      if (edge(pad, BUTTON.L3) || edge(pad, BUTTON.R3)) dispatch('toggle-zoom');
+      // Boutons (hors D-Pad) — mapping utilisateur
+      const buttonIndices = [
+        BUTTON.A,
+        BUTTON.B,
+        BUTTON.X,
+        BUTTON.Y,
+        BUTTON.LB,
+        BUTTON.RB,
+        BUTTON.LT,
+        BUTTON.RT,
+        BUTTON.SELECT,
+        BUTTON.START,
+        BUTTON.L3,
+        BUTTON.R3,
+      ];
+      for (const index of buttonIndices) {
+        if (!edge(pad, index)) continue;
+        const bindingKey = `button:${index}`;
+        if (ui.listeningForBind) {
+          ui.applyCapturedBind(bindingKey);
+          continue;
+        }
+        const action = resolveAction(bindingKey);
+        dispatch(action, { bindingKey });
+      }
 
       for (const [index, physical] of PHYSICAL_DPAD) {
         if (edge(pad, index)) emitLogicalDpad(physical);
       }
-
-      if (edge(pad, BUTTON.LT)) dispatch('lt');
-      if (edge(pad, BUTTON.RT)) dispatch('rt');
 
       prevButtons = pad.buttons.map((b) => Boolean(b?.pressed));
     }
@@ -224,5 +320,5 @@ function createLoop(ctx) {
     rafId = requestAnimationFrame(tick);
   }
 
-  return { start, stop, bind };
+  return { start, stop, bind, refreshOrientation };
 }

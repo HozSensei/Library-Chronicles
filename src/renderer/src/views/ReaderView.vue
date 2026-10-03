@@ -1,22 +1,43 @@
 <script setup>
-import { onMounted } from 'vue';
-import { useRouter } from 'vue-router';
+import { onMounted, onUnmounted, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import ReaderHud from '../components/ReaderHud.vue';
 import { useReaderStore } from '../stores/reader';
 
 const router = useRouter();
+const route = useRoute();
 const reader = useReaderStore();
 
 onMounted(async () => {
+  const filePath = route.query.path;
   try {
+    if (filePath) {
+      await reader.open(String(filePath));
+      return;
+    }
     const config = await window.vdr.getConfig();
     if (config.phase1TestCbz) {
       await reader.open(config.phase1TestCbz);
+    } else if (config.lastOpenedPath) {
+      await reader.open(config.lastOpenedPath);
     }
   } catch (err) {
-    console.warn('[VDR] CBZ test:', err.message);
+    console.warn('[VDR] open:', err.message);
   }
 });
+
+onUnmounted(() => {
+  // Laisser la session ouverte seulement si on navigue ailleurs sans close ?
+  // On ferme pour libérer la mémoire.
+  reader.close();
+});
+
+watch(
+  () => route.query.path,
+  async (path) => {
+    if (path) await reader.open(String(path));
+  },
+);
 
 async function leave() {
   await reader.close();
@@ -26,19 +47,23 @@ async function leave() {
 
 <template>
   <section class="reader" aria-label="Lecteur">
-    <div class="reader__stage">
+    <div class="reader__stage" :data-fit="reader.fitMode">
       <img
         v-if="reader.pageUrl"
         class="reader__page"
         :src="reader.pageUrl"
         alt="Page courante"
         draggable="false"
-        :style="{ transform: reader.transform }"
+        :style="reader.imageStyle"
       />
       <div v-else class="reader__placeholder">
         <p class="reader__brand">Vertical Deck Reader</p>
-        <p>Aucun livre chargé</p>
-        <p class="dim">TODO[Phase 1] — ouvrir un CBZ de test</p>
+        <p v-if="reader.loading">Chargement…</p>
+        <p v-else-if="reader.error">{{ reader.error }}</p>
+        <template v-else>
+          <p>Aucun livre chargé</p>
+          <p class="dim">Ouvre un tome depuis la bibliothèque ou l’import.</p>
+        </template>
         <button type="button" class="ghost" @click="leave">Retour</button>
       </div>
     </div>
@@ -50,7 +75,7 @@ async function leave() {
 .reader {
   position: relative;
   height: 100%;
-  background: #000;
+  background: var(--reader-bg);
 }
 
 .reader__stage {
@@ -62,11 +87,10 @@ async function leave() {
 }
 
 .reader__page {
-  height: 100%;
-  width: auto;
-  max-width: none;
   transform-origin: center center;
   will-change: transform;
+  user-select: none;
+  pointer-events: none;
 }
 
 .reader__placeholder {
@@ -89,16 +113,5 @@ async function leave() {
 .dim {
   color: var(--paper-dim);
   margin: 0;
-}
-
-.ghost {
-  margin-top: 1rem;
-  appearance: none;
-  border: 1px solid rgba(242, 235, 224, 0.2);
-  background: transparent;
-  color: var(--paper-dim);
-  border-radius: 999px;
-  padding: 0.5rem 1.1rem;
-  cursor: pointer;
 }
 </style>

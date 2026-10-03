@@ -32,9 +32,9 @@ defineEmits(['select']);
   align-items: center;
   width: 100%;
   padding: 1.1rem 1.25rem;
-  border: 1px solid rgba(242, 235, 224, 0.12);
+  border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  background: linear-gradient(135deg, rgba(26, 29, 38, 0.92), rgba(18, 20, 26, 0.88));
+  background: linear-gradient(135deg, var(--surface-strong), var(--surface));
   text-align: left;
   cursor: pointer;
   transition:
@@ -78,7 +78,7 @@ defineEmits(['select']);
     0 0 0 3px var(--focus-glow),
     0 12px 32px rgba(0, 0, 0, 0.35);
   transform: translate3d(4px, 0, 0) scale(1.015);
-  background: linear-gradient(135deg, rgba(42, 36, 28, 0.95), rgba(18, 20, 26, 0.95));
+  background: var(--surface-strong);
 }
 
 .focus-btn.is-focused .focus-btn__chev {

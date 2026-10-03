@@ -14,8 +14,14 @@ const reader = useReaderStore();
       <div class="hud__fill" :style="{ width: `${reader.progress}%` }" />
     </div>
     <div class="hud__meta">
-      <span>Sens : {{ reader.direction.toUpperCase() }}</span>
-      <span>Y masquer · B quitter</span>
+      <span>
+        {{ reader.direction.toUpperCase() }}
+        · {{ reader.fitMode }}
+        <template v-if="reader.currentChapter">
+          · {{ reader.currentChapter.name }}
+        </template>
+      </span>
+      <span>Y masquer · B quitter · X fit width</span>
     </div>
   </aside>
 </template>
@@ -28,7 +34,8 @@ const reader = useReaderStore();
   bottom: 0;
   z-index: var(--z-hud);
   padding: 1.25rem 1.35rem 1.6rem;
-  background: linear-gradient(transparent, rgba(11, 12, 15, 0.92) 40%);
+  background: linear-gradient(transparent, var(--hud-fade) 40%);
+  color: #f2ebe0;
   animation: hud-up 220ms var(--ease-out);
 }
 
@@ -65,8 +72,9 @@ const reader = useReaderStore();
   display: flex;
   justify-content: space-between;
   margin-top: 0.7rem;
-  color: var(--paper-dim);
+  color: rgba(242, 235, 224, 0.7);
   font-size: 0.78rem;
+  gap: 0.75rem;
 }
 
 @keyframes hud-up {

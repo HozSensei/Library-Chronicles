@@ -3,11 +3,27 @@
 interface VdrApi {
   getConfig: () => Promise<Record<string, unknown>>;
   setConfig: (patch: Record<string, unknown>) => Promise<Record<string, unknown>>;
+  getDefaultPaths: () => Promise<{ libraryRoot: string; importRoot: string; covers: string }>;
+  pickDirectory: (opts?: { title?: string }) => Promise<string | null>;
   library: {
     selectRoot: () => Promise<string | null>;
+    selectImport: () => Promise<string | null>;
     scan: () => Promise<unknown>;
     list: () => Promise<unknown[]>;
     getCover: (bookId: number) => Promise<string | null>;
+    updateBook: (id: number, patch: Record<string, unknown>) => Promise<unknown>;
+    continue: () => Promise<unknown>;
+  };
+  import: {
+    scan: (importRoot?: string) => Promise<unknown>;
+    commit: (payload: unknown) => Promise<unknown>;
+    previewCover: (filePath: string) => Promise<{ mime: string; data: string } | null>;
+  };
+  metadata: {
+    detect: (filePath: string) => Promise<unknown>;
+    search: (query: string, provider?: string) => Promise<{ results: unknown[] }>;
+    setApiKey: (provider: string, key: string) => Promise<unknown>;
+    hasApiKey: (provider: string) => Promise<{ hasKey: boolean }>;
   };
   reader: {
     open: (filePath: string) => Promise<{
@@ -15,8 +31,12 @@ interface VdrApi {
       format: string;
       pageCount: number;
       filePath: string;
+      chapters?: unknown[];
+      bookId?: number | null;
+      resumePage?: number;
     }>;
     getPage: (index: number) => Promise<{ index: number; mime: string; data: string | null }>;
+    getChapters: () => Promise<unknown[]>;
     close: () => Promise<{ ok: boolean }>;
   };
   progress: {

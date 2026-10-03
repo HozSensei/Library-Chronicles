@@ -21,6 +21,7 @@ body {
   -webkit-user-select: none;
   user-select: none;
   cursor: default;
+  transition: background-color 220ms var(--ease-soft), color 220ms var(--ease-soft);
 }
 
 button {
@@ -31,6 +32,73 @@ button {
 img {
   max-width: 100%;
   display: block;
+}
+
+input,
+select,
+textarea {
+  font: inherit;
+  color: var(--paper);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.55rem 0.75rem;
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: none;
+  border-color: var(--brass-bright);
+  box-shadow: 0 0 0 3px var(--focus-glow);
+}
+
+.ghost {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--paper-dim);
+  border-radius: 999px;
+  padding: 0.45rem 1rem;
+  cursor: pointer;
+}
+
+.ghost:hover,
+.ghost:focus-visible {
+  color: var(--paper);
+  border-color: var(--brass);
+}
+
+.btn-primary {
+  appearance: none;
+  border: 1px solid var(--brass);
+  background: linear-gradient(135deg, rgba(212, 163, 92, 0.22), rgba(154, 107, 47, 0.12));
+  color: var(--paper);
+  border-radius: var(--radius-md);
+  padding: 0.75rem 1.2rem;
+  font-family: var(--font-display);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btn-primary.is-focused,
+.btn-primary:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--focus-glow);
+  border-color: var(--brass-bright);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.field label {
+  font-size: 0.82rem;
+  color: var(--paper-dim);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 /* Transitions de routes */

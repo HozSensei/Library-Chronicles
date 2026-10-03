@@ -1,5 +1,7 @@
-:root {
-  /* Direction visuelle : encre nuit + laiton chaud (atelier BD) */
+/* Tokens — thème sombre (lecteur / console) et clair (bibliothèque / setup) */
+
+:root,
+[data-theme='dark'] {
   --ink-950: #0b0c0f;
   --ink-900: #12141a;
   --ink-800: #1a1d26;
@@ -13,9 +15,41 @@
   --focus-glow: rgba(232, 192, 122, 0.35);
   --danger: #e36a5d;
   --success: #7cb89a;
+  --surface: rgba(18, 20, 26, 0.88);
+  --surface-strong: rgba(26, 29, 38, 0.95);
+  --border: rgba(242, 235, 224, 0.14);
+  --wash-a: rgba(212, 163, 92, 0.22);
+  --wash-b: rgba(154, 107, 47, 0.12);
+  --reader-bg: #000000;
+  --hud-fade: rgba(11, 12, 15, 0.92);
+}
 
-  --font-display: "Syne", "Avenir Next", "Segoe UI", sans-serif;
-  --font-body: "Figtree", "Avenir Next", "Segoe UI", sans-serif;
+[data-theme='light'] {
+  --ink-950: #f3eee4;
+  --ink-900: #ebe4d6;
+  --ink-800: #e0d6c4;
+  --ink-700: #cfc3ad;
+  --paper: #1c1812;
+  --paper-dim: #5a5146;
+  --brass: #8a6a28;
+  --brass-bright: #a67c2a;
+  --brass-deep: #6b5018;
+  --focus: #a67c2a;
+  --focus-glow: rgba(166, 124, 42, 0.28);
+  --danger: #c44b3f;
+  --success: #3f8f6e;
+  --surface: rgba(255, 252, 246, 0.9);
+  --surface-strong: rgba(255, 255, 255, 0.96);
+  --border: rgba(28, 24, 18, 0.12);
+  --wash-a: rgba(166, 124, 42, 0.16);
+  --wash-b: rgba(107, 80, 24, 0.08);
+  --reader-bg: #111111;
+  --hud-fade: rgba(12, 10, 8, 0.9);
+}
+
+:root {
+  --font-display: 'Syne', 'Avenir Next', 'Segoe UI', sans-serif;
+  --font-body: 'Figtree', 'Avenir Next', 'Segoe UI', sans-serif;
 
   --radius-sm: 8px;
   --radius-md: 14px;
@@ -26,4 +60,13 @@
 
   --z-hud: 40;
   --z-overlay: 50;
+  --z-modal: 60;
+}
+
+html {
+  color-scheme: dark;
+}
+
+html[data-theme='light'] {
+  color-scheme: light;
 }

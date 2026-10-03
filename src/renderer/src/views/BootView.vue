@@ -1,39 +1,72 @@
 <script setup>
-import { computed } from 'vue';
+import { computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import FocusButton from '../components/FocusButton.vue';
 import GamepadBadge from '../components/GamepadBadge.vue';
 import ControlHint from '../components/ControlHint.vue';
 import { useUiStore } from '../stores/ui';
+import { useLibraryStore } from '../stores/library';
 
 const router = useRouter();
 const ui = useUiStore();
+const library = useLibraryStore();
 
-const actions = [
-  {
-    id: 'library',
-    label: 'Bibliothèque',
-    subtitle: 'Parcourir tes tomes',
-    to: 'library',
-  },
-  {
-    id: 'reader',
-    label: 'Lecteur test',
-    subtitle: 'Prototype manette · Phase 1',
-    to: 'reader',
-  },
-];
+const actions = computed(() => {
+  const list = [
+    {
+      id: 'library',
+      label: 'Bibliothèque',
+      subtitle: 'Parcourir tes tomes',
+      to: 'library',
+    },
+    {
+      id: 'import',
+      label: 'Import',
+      subtitle: 'Scanner le dossier import',
+      to: 'import',
+    },
+    {
+      id: 'settings',
+      label: 'Paramètres',
+      subtitle: 'Thème · manette · API',
+      to: 'settings',
+    },
+  ];
+  if (library.continueBook) {
+    list.unshift({
+      id: 'continue',
+      label: 'Continuer',
+      subtitle: library.continueBook.title,
+      to: 'reader',
+      filePath: library.continueBook.filePath,
+    });
+  }
+  return list;
+});
 
 const hints = [
-  { key: '↑↓', label: 'naviguer (écran)' },
+  { key: '↑↓', label: 'naviguer' },
   { key: 'A', label: 'valider' },
 ];
 
-const focusedIndex = computed(() => ui.bootFocusIndex);
+const focusedIndex = computed(() =>
+  Math.min(ui.bootFocusIndex, Math.max(0, actions.value.length - 1)),
+);
+
+onMounted(async () => {
+  await library.refresh();
+  ui.setBootFocus(0);
+});
 
 function select(index) {
   ui.setBootFocus(index);
-  router.push({ name: actions[index].to });
+  const action = actions.value[index];
+  if (!action) return;
+  if (action.filePath) {
+    router.push({ name: 'reader', query: { path: action.filePath } });
+    return;
+  }
+  router.push({ name: action.to });
 }
 </script>
 
@@ -71,7 +104,7 @@ function select(index) {
 
     <footer class="boot__footer">
       <ControlHint :items="hints" />
-      <p class="boot__phase">Phase 0 · Squelette Vue</p>
+      <p class="boot__phase">Setup · Import · Lecture</p>
     </footer>
   </section>
 </template>
@@ -97,9 +130,9 @@ function select(index) {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(ellipse 90% 55% at 50% -10%, rgba(212, 163, 92, 0.22), transparent 60%),
-    radial-gradient(ellipse 70% 45% at 80% 90%, rgba(154, 107, 47, 0.12), transparent 55%),
-    linear-gradient(165deg, #141821 0%, var(--ink-950) 48%, #0e1016 100%);
+    radial-gradient(ellipse 90% 55% at 50% -10%, var(--wash-a), transparent 60%),
+    radial-gradient(ellipse 70% 45% at 80% 90%, var(--wash-b), transparent 55%),
+    linear-gradient(165deg, var(--ink-900) 0%, var(--ink-950) 48%, var(--ink-900) 100%);
 }
 
 .boot__grain {
@@ -137,7 +170,7 @@ function select(index) {
 }
 
 .boot__brand {
-  margin-top: min(14vh, 8rem);
+  margin-top: min(10vh, 5.5rem);
   max-width: 22rem;
   animation: rise 700ms var(--ease-out) both;
 }
@@ -170,7 +203,7 @@ function select(index) {
 }
 
 .boot__meta {
-  margin-top: 1.75rem;
+  margin-top: 1.5rem;
   animation: rise 700ms var(--ease-out) 80ms both;
 }
 
@@ -184,7 +217,7 @@ function select(index) {
 }
 
 .boot__footer {
-  margin-top: 1.75rem;
+  margin-top: 1.5rem;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -194,7 +227,8 @@ function select(index) {
 
 .boot__phase {
   margin: 0;
-  color: rgba(201, 192, 178, 0.55);
+  color: var(--paper-dim);
+  opacity: 0.7;
   font-size: 0.75rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
