@@ -9,7 +9,8 @@
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "start": "electron-vite preview",
-    "preview": "electron-vite preview"
+    "preview": "electron-vite preview",
+    "test:remap": "node scripts/verify-portrait-remap.mjs"
   },
   "dependencies": {
     "@fontsource/figtree": "^5.2.5",

@@ -14,6 +14,13 @@ Objectif : une expérience **console-first** irréprochable sur ROG Ally X (port
 
 Pas de framework CSS lourd : design tokens CSS + composants Vue ciblés = contrôle total du feeling console.
 
+## Orientation portrait (critique)
+
+Sur Ally tenue verticalement (90° CCW), le D-Pad / stick physique ne correspondent plus au haut/bas de l’écran.  
+Toute navigation passe par un **remap logique** (`portrait-remap.js`) pour que « haut » signifie toujours le haut de la planche.
+
+Sans ce remap, zoom/pages/menus deviennent inutilisables d’une main.
+
 ## Principes UX
 
 1. **Zéro dépendance souris** — toute action a un équivalent manette ; focus toujours visible.

@@ -25,7 +25,7 @@ const actions = [
 ];
 
 const hints = [
-  { key: '↑↓', label: 'naviguer' },
+  { key: '↑↓', label: 'naviguer (écran)' },
   { key: 'A', label: 'valider' },
 ];
 

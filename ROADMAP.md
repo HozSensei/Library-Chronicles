@@ -33,9 +33,12 @@ Voir aussi [`docs/UX.md`](./docs/UX.md) pour la stratégie front / qualité UX.
 
 ## Mapping manette (référence)
 
-| Contrôle | Mode Lecture | Mode Bibliothèque |
+> **Portrait Ally (90° CCW)** : les directions ci-dessous sont **logiques (écran)**.  
+> Physique ↑ = logique ←, etc. Voir `docs/CONTROLS.md` et `src/shared/portrait-remap.js`.
+
+| Contrôle (écran) | Mode Lecture | Mode Bibliothèque |
 |----------|--------------|-------------------|
-| Joystick Haut | Pan / drag planche | Scroll liste |
+| Stick L | Pan / drag planche | Scroll liste |
 | L3 / R3 | Toggle Fit Height ↔ Zoom 100 % | Valider / sélectionner |
 | D-Pad Haut / Bas | Zoom ±15 % | Curseur |
 | D-Pad Gauche / Droite | Page ±1 | Catégorie |
@@ -57,6 +60,7 @@ Voir aussi [`docs/UX.md`](./docs/UX.md) pour la stratégie front / qualité UX.
 - [x] Ce plan (`ROADMAP.md`)
 - [x] Front **Vue 3 + Vite + Pinia + Vue Router** (`electron-vite`)
 - [x] UI boot console-first (marque, focus manette, motion, tokens)
+- [x] Remap manette portrait 90° CCW (`portrait-remap.js`)
 
 ### Phase 1 — MVP Prototype Gamepad
 

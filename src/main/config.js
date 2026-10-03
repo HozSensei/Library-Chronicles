@@ -7,6 +7,8 @@ const DEFAULTS = {
   lastOpenedPath: null,
   readingDirection: 'ltr',
   defaultFitMode: 'fit-height',
+  /** Ally portrait : 'portrait-ccw' | 'landscape' (dev). */
+  orientation: 'portrait-ccw',
   phase1TestCbz: null,
 };
 

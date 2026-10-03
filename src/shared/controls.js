@@ -1,6 +1,11 @@
 /**
  * Mapping manette ROG Ally X / XInput — référence unique.
+ *
+ * Important : en usage Ally portrait, les directions D-Pad / stick
+ * doivent passer par `portrait-remap.js` (repère écran ≠ boutons physiques).
  */
+
+export { DeviceOrientation, remapDpad, remapStick } from './portrait-remap.js';
 
 export const ReadingMode = Object.freeze({
   FIT_HEIGHT: 'fit-height',

@@ -3,6 +3,13 @@ import { useRouter } from 'vue-router';
 import { useUiStore } from '../stores/ui';
 import { useReaderStore } from '../stores/reader';
 import { useLibraryStore } from '../stores/library';
+import {
+  DeviceOrientation,
+  remapDpad,
+  remapStick,
+  readingActionForLogicalDpad,
+  uiActionForLogicalDpad,
+} from '../../../shared/portrait-remap.js';
 
 const BUTTON = {
   A: 0,
@@ -18,12 +25,20 @@ const BUTTON = {
   DPAD_RIGHT: 15,
 };
 
+const PHYSICAL_DPAD = [
+  [BUTTON.DPAD_UP, 'up'],
+  [BUTTON.DPAD_DOWN, 'down'],
+  [BUTTON.DPAD_LEFT, 'left'],
+  [BUTTON.DPAD_RIGHT, 'right'],
+];
+
 const DEADZONE = 0.18;
 
 let sharedLoop = null;
 
 /**
  * Boucle Gamepad unique (singleton) branchée sur les stores Vue / Router.
+ * Les directions sont toujours interprétées en repère *écran* (logique).
  */
 export function useGamepad() {
   const router = useRouter();
@@ -46,7 +61,6 @@ export function useGamepad() {
   }
 
   onScopeDispose(() => {
-    // Ne stoppe pas la boucle globale si d'autres composants l'utilisent ;
     // App.vue gère le cycle de vie principal.
   });
 
@@ -59,14 +73,29 @@ function createLoop(ctx) {
   let prevButtons = [];
   let padIndex = null;
   let handlers = ctx;
+  /** @type {string} */
+  let orientation = DeviceOrientation.PORTRAIT_CCW;
 
   function bind(next) {
     handlers = next;
   }
 
+  async function refreshOrientation() {
+    try {
+      const config = await window.vdr.getConfig();
+      orientation =
+        config.orientation === DeviceOrientation.LANDSCAPE
+          ? DeviceOrientation.LANDSCAPE
+          : DeviceOrientation.PORTRAIT_CCW;
+    } catch {
+      orientation = DeviceOrientation.PORTRAIT_CCW;
+    }
+  }
+
   function start() {
     if (running) return;
     running = true;
+    refreshOrientation();
     tick();
   }
 
@@ -101,8 +130,8 @@ function createLoop(ctx) {
     const route = ui.routeName;
 
     if (route === 'boot') {
-      if (action === 'dpad-up') ui.setBootFocus(Math.max(0, ui.bootFocusIndex - 1));
-      if (action === 'dpad-down') ui.setBootFocus(Math.min(1, ui.bootFocusIndex + 1));
+      if (action === 'cursor-up') ui.setBootFocus(Math.max(0, ui.bootFocusIndex - 1));
+      if (action === 'cursor-down') ui.setBootFocus(Math.min(1, ui.bootFocusIndex + 1));
       if (action === 'a' || action === 'confirm') {
         if (ui.bootFocusIndex === 0) router.push({ name: 'library' });
         else router.push({ name: 'reader' });
@@ -112,8 +141,10 @@ function createLoop(ctx) {
 
     if (route === 'library') {
       if (action === 'b') router.push({ name: 'boot' });
-      if (action === 'dpad-up') library.moveCursor(-1);
-      if (action === 'dpad-down') library.moveCursor(1);
+      if (action === 'cursor-up') library.moveCursor(-1);
+      if (action === 'cursor-down') library.moveCursor(1);
+      if (action === 'cursor-left') library.moveCursor(-1);
+      if (action === 'cursor-right') library.moveCursor(1);
       return;
     }
 
@@ -125,16 +156,34 @@ function createLoop(ctx) {
       if (action === 'y') reader.toggleHud();
       if (action === 'a') reader.toggleDirection();
       if (action === 'toggle-zoom') reader.toggleZoom();
-      if (action === 'dpad-up') reader.zoomBy(1);
-      if (action === 'dpad-down') reader.zoomBy(-1);
-      if (action === 'dpad-left') {
+      if (action === 'zoom-in') reader.zoomBy(1);
+      if (action === 'zoom-out') reader.zoomBy(-1);
+      if (action === 'page-prev') {
         reader.stepPage(reader.direction === 'rtl' ? 'next' : 'prev');
       }
-      if (action === 'dpad-right') {
+      if (action === 'page-next') {
         reader.stepPage(reader.direction === 'rtl' ? 'prev' : 'next');
       }
-      if (action === 'stick' && payload) reader.pan(payload.x, payload.y);
+      if (action === 'stick' && payload) {
+        // x/y déjà en repère écran (après remapStick)
+        reader.pan(payload.x, payload.y);
+      }
     }
+  }
+
+  function emitLogicalDpad(physical) {
+    const logical = remapDpad(orientation, physical);
+    const { ui } = handlers;
+    const route = ui.routeName;
+
+    if (route === 'reader') {
+      const action = readingActionForLogicalDpad(logical);
+      if (action) dispatch(action);
+      return;
+    }
+
+    const action = uiActionForLogicalDpad(logical);
+    if (action) dispatch(action);
   }
 
   function tick() {
@@ -148,20 +197,24 @@ function createLoop(ctx) {
       prevButtons = [];
     } else {
       const short = pad.id.length > 36 ? `${pad.id.slice(0, 36)}…` : pad.id;
-      ui.setGamepadStatus({ connected: true, label: short });
+      ui.setGamepadStatus({ connected: true, label: `${short} · ${orientation}` });
 
-      const x = applyDeadzone(pad.axes[0] || 0);
-      const y = applyDeadzone(pad.axes[1] || 0);
-      if (x !== 0 || y !== 0) dispatch('stick', { x, y });
+      const rawX = applyDeadzone(pad.axes[0] || 0);
+      const rawY = applyDeadzone(pad.axes[1] || 0);
+      const stick = remapStick(orientation, rawX, rawY);
+      if (stick.x !== 0 || stick.y !== 0) {
+        dispatch('stick', stick);
+      }
 
       if (edge(pad, BUTTON.A)) dispatch('a');
       if (edge(pad, BUTTON.B)) dispatch('b');
       if (edge(pad, BUTTON.Y)) dispatch('y');
       if (edge(pad, BUTTON.L3) || edge(pad, BUTTON.R3)) dispatch('toggle-zoom');
-      if (edge(pad, BUTTON.DPAD_UP)) dispatch('dpad-up');
-      if (edge(pad, BUTTON.DPAD_DOWN)) dispatch('dpad-down');
-      if (edge(pad, BUTTON.DPAD_LEFT)) dispatch('dpad-left');
-      if (edge(pad, BUTTON.DPAD_RIGHT)) dispatch('dpad-right');
+
+      for (const [index, physical] of PHYSICAL_DPAD) {
+        if (edge(pad, index)) emitLogicalDpad(physical);
+      }
+
       if (edge(pad, BUTTON.LT)) dispatch('lt');
       if (edge(pad, BUTTON.RT)) dispatch('rt');
 
