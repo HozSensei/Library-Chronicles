@@ -3,10 +3,12 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import ReaderHud from '../components/ReaderHud.vue';
 import { useReaderStore } from '../stores/reader';
+import { useUiStore } from '../stores/ui';
 
 const router = useRouter();
 const route = useRoute();
 const reader = useReaderStore();
+const ui = useUiStore();
 const stripEl = ref(null);
 
 const stripStyle = computed(() => ({
@@ -15,6 +17,7 @@ const stripStyle = computed(() => ({
 }));
 
 onMounted(async () => {
+  await ui.enterReaderMode();
   const filePath = route.query.path;
   try {
     if (filePath) {
@@ -32,8 +35,9 @@ onMounted(async () => {
   }
 });
 
-onUnmounted(() => {
+onUnmounted(async () => {
   reader.close();
+  await ui.exitReaderMode();
 });
 
 watch(
@@ -55,6 +59,7 @@ watch(
 
 async function leave() {
   await reader.close();
+  await ui.exitReaderMode();
   router.push({ name: 'library' });
 }
 

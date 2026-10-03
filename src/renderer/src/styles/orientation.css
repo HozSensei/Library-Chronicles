@@ -1,40 +1,24 @@
 /**
- * Adaptations layout pour usage landscape (desktop / classique).
- * L’attribut data-orientation est posé sur .app-shell (App.vue).
+ * Layouts selon orientation session.
+ * landscape = menus (défaut) · portrait-ccw = lecteur.
  */
 
 [data-orientation='landscape'] {
-  --pad: 1.35rem;
+  --pad: clamp(1.5rem, 3vw, 2.5rem);
 }
 
-/* —— Bibliothèque —— */
-[data-orientation='landscape'] .hero {
-  min-height: min(38vh, 20rem);
+/* Lecteur : HUD bas plein largeur en portrait */
+[data-orientation='portrait-ccw'] .hud {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  top: auto;
+  width: 100%;
+  max-height: 55%;
+  padding: 1rem 1.25rem 1.35rem;
+  background: linear-gradient(0deg, var(--hud-fade) 60%, transparent);
 }
 
-[data-orientation='landscape'] .hero__content {
-  max-width: 42rem;
-}
-
-[data-orientation='landscape'] .hero__title {
-  max-width: 28ch;
-  font-size: clamp(1.65rem, 3.2vw, 2.35rem);
-}
-
-[data-orientation='landscape'] .library__grid,
-[data-orientation='landscape'] .catalog-skel__grid {
-  gap: 0.9rem;
-}
-
-[data-orientation='landscape'] .rail__item {
-  width: 8.5rem;
-}
-
-[data-orientation='landscape'] .series-card {
-  grid-template-columns: 5.5rem 1fr;
-}
-
-/* —— Lecteur HUD —— */
 [data-orientation='landscape'] .hud {
   left: auto;
   right: 0;
@@ -44,50 +28,25 @@
   background: linear-gradient(270deg, var(--hud-fade) 55%, transparent);
 }
 
+.hud__pause-title {
+  margin: 0 0 0.5rem;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.15rem;
+  color: var(--brass-bright);
+  letter-spacing: -0.01em;
+}
+
 [data-orientation='landscape'] .hud__actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
 }
 
+[data-orientation='portrait-ccw'] .reader__strip-page {
+  width: 100%;
+}
+
 [data-orientation='landscape'] .reader__strip-page {
   max-width: min(52vw, 720px);
   margin-inline: auto;
-}
-
-/* —— Import : liste | fiche côte à côte —— */
-[data-orientation='landscape'] .import__layout {
-  grid-template-rows: none;
-  grid-template-columns: minmax(18rem, 34%) minmax(0, 1fr);
-  gap: 1.25rem;
-}
-
-/* —— Setup / profils —— */
-[data-orientation='landscape'] .setup__body,
-[data-orientation='landscape'] .profiles {
-  max-width: 52rem;
-  margin-inline: auto;
-}
-
-[data-orientation='landscape'] .choice-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.75rem;
-}
-
-[data-orientation='landscape'] .profiles__grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-/* —— Boot —— */
-[data-orientation='landscape'] .boot__nav {
-  max-width: 32rem;
-}
-
-/* —— Paramètres —— */
-[data-orientation='landscape'] .settings .body {
-  max-width: 48rem;
-}
-
-[data-orientation='landscape'] .provider-list {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
 }

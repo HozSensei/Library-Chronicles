@@ -1,19 +1,26 @@
-# Mapping manette — ROG Ally X & landscape
+# Mapping manette — UI landscape & lecture portrait
 
 Implémentation : `portrait-remap.js` → `key-bindings.js` → `useGamepad.js`.
 
 ## Pipeline d’entrée
 
 1. **Physique** (indices Gamepad API / XInput)
-2. **Remap orientation** (`portrait-ccw` ou `landscape`) pour D-Pad / stick
-3. **Mapping utilisateur** (défauts + overrides persistés dans la config)
-4. **Action** dispatchée selon l’écran (boot / profiles / library / reader / …)
+2. **Remap selon contexte session** :
+   - `ui` (menus) → **landscape** (identité)
+   - `reader` → **portrait-ccw** (90° CCW)
+3. **Mapping utilisateur** (défauts + overrides)
+4. **Action** selon l’écran
 
-Le remapping se configure dans **Paramètres → Manette**.
+## Orientation automatique
 
-## Orientation appareil
+| Contexte | Fenêtre | Remap |
+|----------|---------|-------|
+| Menus / setup / biblio / import / fiche | 1920×1080 landscape | Aucun (physique = logique) |
+| Lecteur | 1080×1920 portrait | 90° CCW |
 
-### Portrait Ally (`portrait-ccw`) — défaut produit
+Plus de toggle setup/paramètres. IPC `app:set-session-mode` (`ui` | `reader`).
+
+### Remap portrait (lecteur uniquement)
 
 Ally tenue **en portrait**, tournée de **90° anti-horaire** :
 
@@ -24,67 +31,53 @@ Ally tenue **en portrait**, tournée de **90° anti-horaire** :
 | D-Pad / stick ←   | ↑ haut                   |
 | D-Pad / stick →   | ↓ bas                    |
 
-Stick : `logicalX = physicalY`, `logicalY = physicalX`.  
-Fenêtre Electron : **1080×1920**.
+Stick : `logicalX = physicalY`, `logicalY = physicalX`.
 
-### Landscape classique (`landscape`)
-
-Manette et écran alignés (desktop / usage horizontal) :
-
-| Physique (XInput) | Logique |
-|-------------------|---------|
-| D-Pad / stick ↑↓←→ | **inchangé** (physique = logique) |
-
-Aucun remap 90°. Fenêtre Electron : **1920×1080** (redimensionnable, min 960×540).
-
-### Activer landscape
-
-1. **Setup** (1ʳᵉ fois) — étape Préférences → « Landscape classique »
-2. **Paramètres → Général** — « Landscape classique » / « Portrait Ally »
-3. **CLI** — `npm run dev -- --landscape` (ou `--portrait`)
-4. **Raccourci clavier (dev)** — `Ctrl+Shift+L` pour basculer
-
-La préférence est persistée dans `vdr-config.json` (`orientation`).
-
-## Mode Lecture *(directions = écran, mapping défaut)*
+## Mode Lecture *(directions = écran logique)*
 
 | Contrôle | Action |
 |----------|--------|
-| Stick L | Pan (ou scroll vertical en webtoon) |
+| Stick L | Pan (remap portrait) |
 | L3 / R3 | Toggle Fit Height ↔ Zoom 100 % |
-| D-Pad ↑ / ↓ | Zoom ±15 % (pages ±1 en webtoon) |
-| D-Pad ← / → | Page ±1 (inversé en Manga) |
+| D-Pad **→** | **Zoom +** |
+| D-Pad **←** | **Zoom −** |
+| D-Pad ↑ / ↓ | Page ±1 (inversé en Manga) |
 | A | LTR ↔ RTL |
-| B | Fermer → bibliothèque |
-| X | **Ajouter un signet** |
-| Y | HUD on/off (onglets Lecture / Filtres / Signets) |
-| Select | Mode webtoon on/off |
+| B | Fermer → bibliothèque (restore landscape) |
+| X | Ajouter un signet |
+| Y | HUD onglets |
+| **Select** | **Menu pause** (quitter, webtoon, sens, signets…) |
 | LB | Fit Width |
-| RB | Tome suivant non lu (série) |
-| LT / RT | Chapitre ±1 (ou ±10 pages) |
+| RB | Tome suivant non lu |
+| LT / RT | Chapitre ±1 |
 
-## Mode Bibliothèque
+## Mode Bibliothèque (landscape)
 
 | Contrôle | Action |
 |----------|--------|
-| D-Pad / stick | Curseur grille / séries |
-| A | Ouvrir (ou tome suivant non lu en vue séries) |
+| D-Pad / stick | Curseur grille (6 colonnes) |
+| A | Ouvrir **fiche livre** |
 | B | Retour |
 | X | Import |
-| Select | Basculer vue livres ↔ séries |
+| Select | Vue livres ↔ séries |
 | Start | Paramètres |
 | LT / RT | Filtre statut |
 
-Grille : **3 colonnes** en portrait, **6** en landscape (curseur aligné).
+Bibliothèque vide : A → Import.
 
-## Mode Profils
+## Mode Fiche livre (landscape)
 
 | Contrôle | Action |
 |----------|--------|
-| D-Pad / stick | Curseur profil |
-| A | Choisir |
+| ←→ / ↑↓ | Focus actions (Lire / Retour / Options) |
+| A | Valider l’action focus |
+| B | Retour bibliothèque |
 
-## Clavier / souris (dev sans Ally)
+## Mode Profils / Setup / Import
 
-Toutes les actions UI sont cliquables : boutons toolbar, HUD, signets, sliders filtres, tuiles catalogue.  
-Le focus manette reste visible ; sans pad, naviguer à la souris suffit pour valider les features.
+Inchangé (navigation D-Pad identity en landscape).  
+Import : Y = Enrichir métadonnées.
+
+## Clavier / souris (dev)
+
+Toutes les actions UI sont cliquables. Focus manette visible.

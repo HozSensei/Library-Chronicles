@@ -58,4 +58,5 @@ export const Actions = Object.freeze({
   IMPORT: 'import',
   SETTINGS: 'settings',
   ENRICH: 'enrich',
+  TOGGLE_PAUSE: 'toggle-pause',
 });

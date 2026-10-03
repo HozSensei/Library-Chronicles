@@ -1,8 +1,9 @@
 # Vertical Deck Reader (VDR)
 
-Lecteur de BD, comics et mangas **vertical**, pensé manette pour **ROG Ally X** (portrait) — aussi utilisable en **landscape** classique (desktop).
+Lecteur de BD, comics et mangas pensé manette pour **ROG Ally X**.  
+**Menus en paysage** · **lecture en portrait** (bascule automatique).
 
-**Electron + Vue 3 + Vite + Pinia** — *Library Chronicles*.
+**Electron + Vue 3 + Vite + Pinia + Tailwind** — *Library Chronicles*.
 
 Prérequis : **Node ≥ 22.12.0**. Sécurité deps : [`docs/SECURITY.md`](./docs/SECURITY.md).
 
@@ -11,8 +12,6 @@ Prérequis : **Node ≥ 22.12.0**. Sécurité deps : [`docs/SECURITY.md`](./docs
 ```bash
 npm install
 npm run dev
-# landscape immédiat :
-npm run dev -- --landscape
 ```
 
 Build / tests :
@@ -31,28 +30,29 @@ npm run dist:win
 
 Voir [`docs/PACKAGING.md`](./docs/PACKAGING.md).
 
-Fenêtres cibles : **1080 × 1920** (portrait Ally) ou **1920 × 1080** (landscape).  
-Bascule : Setup / Paramètres / `Ctrl+Shift+L` / flags `--landscape` · `--portrait`.
+Fenêtres : **1920 × 1080** (menus) → **1080 × 1920** à l’ouverture d’un livre, restore au retour.
 
-Au **premier lancement**, un wizard configure dossiers (library / import), langue, thème et orientation. L’app reste bloquée sur le setup tant que `setupCompleted` n’est pas vrai.
+Au **premier lancement**, un wizard configure dossiers (library / import), langue et thème.  
+L’orientation n’est plus un choix utilisateur.
 
 ## Parcours
 
-1. **Setup** — dossiers, thème sombre/clair, orientation (portrait Ally / landscape)
-2. **Import** — déposer des CBZ/CBR/PDF dans le dossier import → review métadonnées → bibliothèque (rafraîchi aussi via watcher FS)
-3. **Bibliothèque** — catalogue héro / récents / grille (3 ou 6 colonnes selon orientation)
-4. **Lecteur** — pan / zoom / pages manette, HUD (Y), Fit Width (X), Manga (A) ; PDF fidèle via Chromium
-5. **Paramètres** — thème, haptics, orientation, remapping, providers métadonnées (clés en userData)
+1. **Setup** — dossiers, thème, langue
+2. **Import** — CBZ/CBR/PDF · check déjà importé · Enrichir (AniList / Open Library / …)
+3. **Bibliothèque** — grille type Steam OS (vide = bouton Importer)
+4. **Fiche livre** — cover · détails · synopsis · Lire
+5. **Lecteur** — portrait, Select = pause, D-Pad ←→ zoom
+6. **Paramètres** — thème, haptics, remap, providers métadonnées
 
 ## Stack
 
 | Couche | Techno |
 |--------|--------|
-| UI | Vue 3 (Composition API) |
+| UI | Vue 3 + Tailwind CSS |
 | Bundler | Vite (`electron-vite`) |
 | État | Pinia |
 | Routes | Vue Router |
-| Manette | `useGamepad` + `portrait-remap` + `key-bindings` |
+| Manette | `useGamepad` (contexte ui / reader) |
 | DB | better-sqlite3 (+ fallback JSON) |
 | PDF | pdfjs-dist + canvas Chromium |
 | Packaging | electron-builder (NSIS + portable) |
@@ -64,8 +64,8 @@ Au **premier lancement**, un wizard configure dossiers (library / import), langu
 | [`ROADMAP.md`](./ROADMAP.md) | Phases & statut |
 | [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) | Main / preload / renderer |
 | [`docs/CONTROLS.md`](./docs/CONTROLS.md) | Mapping manette + remap |
-| [`docs/UX.md`](./docs/UX.md) | Principes UX |
-| [`docs/METADATA.md`](./docs/METADATA.md) | Providers méta (gratuit / clé) |
+| [`docs/UX.md`](./docs/UX.md) | Principes UX Steam OS |
+| [`docs/METADATA.md`](./docs/METADATA.md) | Providers méta |
 | [`docs/NATIVE.md`](./docs/NATIVE.md) | better-sqlite3 / PDF / rebuild |
 | [`docs/PACKAGING.md`](./docs/PACKAGING.md) | Build Windows |
 
@@ -78,11 +78,6 @@ de l’installer puis de rebuild pour Electron.
 
 Si le module natif ne charge pas dans Electron (lecture SQLite) :
 
-```bash
-npm run rebuild:native
-# ou
-npx @electron/rebuild -f -w better-sqlite3
-```
-
-`npm run dist:win` lance automatiquement le rebuild (`predist:win`).  
-Sinon l’app bascule automatiquement sur un **store JSON** dans `userData` (voir `docs/NATIVE.md`).
+1. Installer les Build Tools Windows (Visual Studio C++)
+2. Relancer `npm run rebuild:native`
+3. Sinon l’app bascule automatiquement sur le fallback JSON

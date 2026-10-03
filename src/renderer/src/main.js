@@ -9,6 +9,7 @@ import '@fontsource/figtree/600.css';
 import '@fontsource/figtree/700.css';
 import App from './App.vue';
 import router from './router';
+import './styles/tailwind.css';
 import './styles/tokens.css';
 import './styles/base.css';
 import './styles/orientation.css';

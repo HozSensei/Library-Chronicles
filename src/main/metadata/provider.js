@@ -60,8 +60,8 @@ export function setMetadataProvider(providerId) {
 
 export function getActiveProviderId() {
   const cfg = getConfigInternal();
-  const id = cfg.metadataProvider || 'stub';
-  return BY_ID[id] ? id : 'stub';
+  const id = cfg.metadataProvider || 'anilist';
+  return BY_ID[id] ? id : 'anilist';
 }
 
 export function detectMetadata(filePath) {
@@ -70,24 +70,58 @@ export function detectMetadata(filePath) {
 
 /**
  * Recherche d’enrichissement via le provider choisi.
- * Erreurs réseau → fallback stub (jamais d’obligation réseau).
- * @returns {Promise<import('./types.js').MetadataResult[]>}
+ * Erreurs réseau → fallback stub + flag warning (jamais d’obligation réseau).
+ * @returns {Promise<{ results: import('./types.js').MetadataResult[], provider: string, warning?: string|null }>}
  */
 export async function searchMetadata(query, { provider } = {}) {
   const cfg = getConfigInternal();
-  const providerId = provider || cfg.metadataProvider || 'stub';
+  const providerId = provider || cfg.metadataProvider || 'anilist';
   const impl = BY_ID[providerId] || stubProvider;
   const apiKey = cfg.apiKeys?.[impl.id] || null;
+  const q = String(query || '').trim();
+
+  if (!q) {
+    return {
+      results: [],
+      provider: impl.id,
+      warning: 'Requête vide — renseigne un titre ou une série.',
+    };
+  }
+
+  if (impl.requiresApiKey && !apiKey) {
+    const stub = await stubProvider.search(q);
+    return {
+      results: stub.map((r) => ({
+        ...r,
+        description: `${r.description || ''} (Clé API ${impl.label} manquante)`.trim(),
+      })),
+      provider: impl.id,
+      warning: `Clé API requise pour ${impl.label}. Configure-la dans Paramètres → API.`,
+    };
+  }
 
   try {
-    return await impl.search(query, { apiKey });
+    const results = await impl.search(q, { apiKey });
+    const allStub =
+      results.length > 0 && results.every((r) => r.source === 'stub' && impl.id !== 'stub');
+    return {
+      results,
+      provider: impl.id,
+      warning: allStub
+        ? `${impl.label} n’a pas renvoyé de résultats exploitables (réseau ou requête).`
+        : null,
+    };
   } catch (err) {
     console.warn(`[VDR] Provider ${impl.id} crashed:`, err.message);
-    const stub = await stubProvider.search(query);
-    return stub.map((r) => ({
-      ...r,
-      description: `${r.description || ''} (${impl.label} indisponible: ${err.message})`.trim(),
-    }));
+    const stub = await stubProvider.search(q);
+    return {
+      results: stub.map((r) => ({
+        ...r,
+        description: `${r.description || ''} (${impl.label} indisponible: ${err.message})`.trim(),
+      })),
+      provider: impl.id,
+      warning: `${impl.label} indisponible : ${err.message}`,
+    };
   }
 }
 

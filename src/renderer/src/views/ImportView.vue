@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, watch } from 'vue';
+import { computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import ControlHint from '../components/ControlHint.vue';
 import FocusButton from '../components/FocusButton.vue';
@@ -23,18 +23,19 @@ const statusLabel = computed(() => {
   return `${imp.items.length} fichier(s)`;
 });
 
+const enrichSubtitle = computed(() => {
+  if (imp.enrichLoading) return 'Recherche en cours…';
+  const p = imp.selectedProviderMeta;
+  if (!p) return 'Provider métadonnées';
+  return `${p.label} · ${p.freeLabel}`;
+});
+
 onMounted(async () => {
+  await ui.exitReaderMode();
   await imp.loadProviders();
   await imp.scan();
   ui.setImportFocus(0);
 });
-
-watch(
-  () => imp.cursor,
-  () => {
-    // draft rechargé via store
-  },
-);
 
 async function doImport() {
   if (!imp.selected) return;
@@ -44,212 +45,210 @@ async function doImport() {
 async function doEnrich() {
   await imp.enrich();
 }
-
-const enrichSubtitle = computed(() => {
-  const p = imp.selectedProviderMeta;
-  if (!p) return 'Provider métadonnées';
-  return `${p.label} · ${p.freeLabel}`;
-});
 </script>
 
 <template>
-  <section class="import">
-    <header class="import__header">
-      <p class="brand">Vertical Deck Reader</p>
-      <h1>Import</h1>
-      <p class="lead">{{ statusLabel }}</p>
-      <p v-if="imp.root" class="path">{{ imp.root }}</p>
-    </header>
+  <section class="import relative h-full" aria-label="Import">
+    <div
+      class="pointer-events-none absolute inset-0"
+      aria-hidden="true"
+      style="
+        background:
+          radial-gradient(ellipse 70% 40% at 0% 0%, var(--wash-a), transparent 50%),
+          var(--ink-950);
+      "
+    />
 
-    <div class="import__layout">
-      <aside class="list">
-        <button
-          v-for="(item, index) in imp.items"
-          :key="item.filePath"
-          type="button"
-          class="list__item"
-          :class="{ 'is-focused': index === imp.cursor }"
-          @click="imp.cursor = index; imp.loadDraftFromSelected()"
-        >
-          <span class="list__title">{{ item.detected?.title || item.name }}</span>
-          <span class="list__meta">
-            {{ item.format?.toUpperCase() }}
-            <template v-if="item.alreadyInLibrary"> · déjà en biblio</template>
-          </span>
-        </button>
-        <div v-if="!imp.items.length && !imp.loading" class="empty">
-          <p class="empty__title">Dossier import vide</p>
-          <p class="empty__hint">
-            Dépose des CBZ, CBR ou PDF dans le dossier import, puis appuie sur Rescanner.
-          </p>
-        </div>
-      </aside>
+    <div class="relative z-10 flex h-full flex-col px-8 py-8 sm:px-10">
+      <header class="mb-4">
+        <p class="m-0 text-sm font-semibold text-[var(--brass)]">Vertical Deck Reader</p>
+        <h1 class="m-0 mt-1 font-[family-name:var(--font-display)] text-3xl font-bold">Import</h1>
+        <p class="m-0 mt-2 text-[var(--paper-dim)]">{{ statusLabel }}</p>
+        <p v-if="imp.root" class="m-0 mt-1 break-all text-xs text-[var(--paper-dim)]">{{ imp.root }}</p>
+      </header>
 
-      <div v-if="!imp.selected && !imp.loading" class="detail detail--idle">
-        <p class="empty__title">Sélectionne un tome</p>
-        <p class="empty__hint">Navigue avec ↑↓, puis A pour importer ou Y pour enrichir.</p>
-      </div>
-
-      <div v-else-if="imp.selected" class="detail">
-        <div class="cover-wrap">
-          <img v-if="imp.coverPreview" :src="imp.coverPreview" alt="" class="cover" />
-          <div v-else class="cover cover--empty">Aperçu</div>
-        </div>
-
-        <div class="fields">
-          <div class="field">
-            <label>Provider métadonnées</label>
-            <select
-              class="provider-select"
-              :value="imp.activeProvider"
-              @change="imp.setProvider($event.target.value)"
+      <div class="import__layout grid min-h-0 flex-1 gap-5" style="grid-template-columns: minmax(18rem, 38%) minmax(0, 1fr)">
+        <aside class="list flex min-h-0 flex-col gap-2 overflow-auto pr-1">
+          <button
+            v-for="(item, index) in imp.items"
+            :key="item.filePath"
+            type="button"
+            class="list__item flex items-center gap-3 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-left"
+            :class="{ 'is-focused': index === imp.cursor }"
+            @click="imp.cursor = index; imp.loadDraftFromSelected()"
+          >
+            <span
+              class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-xs"
+              :class="item.alreadyInLibrary
+                ? 'border-[var(--success)] bg-[color-mix(in_srgb,var(--success)_25%,transparent)] text-[var(--success)]'
+                : 'border-[var(--border)] text-transparent'"
+              aria-hidden="true"
             >
-              <option v-for="p in imp.providers" :key="p.id" :value="p.id">
-                {{ p.label }} — {{ p.freeLabel }}
-              </option>
-            </select>
-            <p v-if="imp.selectedProviderMeta?.helpText" class="provider-help">
-              {{ imp.selectedProviderMeta.helpText }}
-              <button
-                v-if="imp.selectedProviderMeta.helpUrl"
-                type="button"
-                class="link-btn"
-                @click="imp.openProviderHelp(imp.selectedProviderMeta)"
-              >
-                {{ imp.selectedProviderMeta.helpLinkLabel || 'Documentation' }}
-              </button>
+              ✓
+            </span>
+            <span class="min-w-0 flex-1">
+              <span class="block truncate font-[family-name:var(--font-display)] font-bold">
+                {{ item.detected?.title || item.name }}
+              </span>
+              <span class="mt-0.5 block text-xs text-[var(--paper-dim)]">
+                {{ item.format?.toUpperCase() }}
+                <template v-if="item.alreadyInLibrary"> · déjà importé</template>
+              </span>
+            </span>
+          </button>
+
+          <div
+            v-if="!imp.items.length && !imp.loading"
+            class="rounded-[var(--radius-md)] border border-dashed border-[var(--border)] bg-[var(--surface)] p-8 text-center"
+          >
+            <p class="m-0 font-bold">Dossier import vide</p>
+            <p class="m-0 mt-2 text-sm text-[var(--paper-dim)]">
+              Dépose des CBZ, CBR ou PDF, puis Rescanner.
             </p>
           </div>
-          <div class="field">
-            <label>Titre</label>
-            <input v-model="imp.draft.title" type="text" />
-          </div>
-          <div class="field">
-            <label>Série</label>
-            <input v-model="imp.draft.series" type="text" />
-          </div>
-          <div class="field-row">
-            <div class="field">
-              <label>Tome</label>
-              <input v-model.number="imp.draft.volume" type="number" min="0" />
-            </div>
-            <div class="field">
-              <label>Année</label>
-              <input v-model.number="imp.draft.year" type="number" min="1900" />
-            </div>
-          </div>
-          <div class="field">
-            <label>Auteur</label>
-            <input v-model="imp.draft.author" type="text" />
+        </aside>
+
+        <div v-if="!imp.selected && !imp.loading" class="detail detail--idle flex items-center justify-center rounded-[var(--radius-md)] border border-dashed border-[var(--border)] bg-[var(--surface)] p-8 text-center text-[var(--paper-dim)]">
+          <div>
+            <p class="m-0 font-bold text-[var(--paper)]">Sélectionne un tome</p>
+            <p class="m-0 mt-2 text-sm">↑↓ pour naviguer · A importer · Y enrichir</p>
           </div>
         </div>
 
-        <div class="actions">
-          <FocusButton
-            :focused="ui.importFocusIndex === 0"
-            subtitle="Copier vers la bibliothèque"
-            @select="doImport"
-          >
-            Importer ce tome
-          </FocusButton>
-          <FocusButton
-            :focused="ui.importFocusIndex === 1"
-            :subtitle="enrichSubtitle"
-            @select="doEnrich"
-          >
-            Enrichir métadonnées
-          </FocusButton>
-        </div>
+        <div v-else-if="imp.selected" class="detail flex min-h-0 flex-col gap-4 overflow-auto">
+          <div class="flex gap-5">
+            <div class="w-28 shrink-0">
+              <img
+                v-if="imp.coverPreview"
+                :src="imp.coverPreview"
+                alt=""
+                class="aspect-[2/3] w-full rounded-[var(--radius-sm)] border border-[var(--border)] object-cover"
+              />
+              <div
+                v-else
+                class="grid aspect-[2/3] place-items-center rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--ink-800)] text-sm text-[var(--paper-dim)]"
+              >
+                Aperçu
+              </div>
+            </div>
 
-        <div v-if="imp.enrichResults.length" class="enrich">
-          <p class="enrich__title">Résultats</p>
-          <button
-            v-for="r in imp.enrichResults"
-            :key="r.id"
-            type="button"
-            class="enrich__item"
-            @click="imp.applyEnrichResult(r)"
+            <div class="fields min-w-0 flex-1 space-y-3">
+              <div class="field">
+                <label>Provider métadonnées</label>
+                <select
+                  class="provider-select w-full"
+                  :value="imp.activeProvider"
+                  @change="imp.setProvider($event.target.value)"
+                >
+                  <option v-for="p in imp.providers" :key="p.id" :value="p.id">
+                    {{ p.label }} — {{ p.freeLabel }}
+                  </option>
+                </select>
+                <p v-if="imp.selectedProviderMeta?.helpText" class="provider-help m-0 mt-2 text-xs text-[var(--paper-dim)]">
+                  {{ imp.selectedProviderMeta.helpText }}
+                  <button
+                    v-if="imp.selectedProviderMeta.helpUrl"
+                    type="button"
+                    class="link-btn"
+                    @click="imp.openProviderHelp(imp.selectedProviderMeta)"
+                  >
+                    {{ imp.selectedProviderMeta.helpLinkLabel || 'Documentation' }}
+                  </button>
+                </p>
+              </div>
+              <div class="field">
+                <label>Titre</label>
+                <input v-model="imp.draft.title" type="text" />
+              </div>
+              <div class="field">
+                <label>Série</label>
+                <input v-model="imp.draft.series" type="text" />
+              </div>
+              <div class="grid grid-cols-2 gap-3">
+                <div class="field">
+                  <label>Tome</label>
+                  <input v-model.number="imp.draft.volume" type="number" min="0" />
+                </div>
+                <div class="field">
+                  <label>Année</label>
+                  <input v-model.number="imp.draft.year" type="number" min="1900" />
+                </div>
+              </div>
+              <div class="field">
+                <label>Auteur</label>
+                <input v-model="imp.draft.author" type="text" />
+              </div>
+              <div class="field">
+                <label>Synopsis</label>
+                <textarea v-model="imp.draft.description" rows="3" class="w-full resize-y" />
+              </div>
+            </div>
+          </div>
+
+          <div class="grid gap-3 sm:grid-cols-2">
+            <FocusButton
+              :focused="ui.importFocusIndex === 0"
+              subtitle="Copier vers la bibliothèque"
+              @select="doImport"
+            >
+              Importer ce tome
+            </FocusButton>
+            <FocusButton
+              :focused="ui.importFocusIndex === 1"
+              :subtitle="enrichSubtitle"
+              @select="doEnrich"
+            >
+              {{ imp.enrichLoading ? 'Enrichissement…' : 'Enrichir métadonnées' }}
+            </FocusButton>
+          </div>
+
+          <p
+            v-if="imp.enrichWarning || imp.enrichError"
+            class="m-0 rounded-[var(--radius-sm)] border border-[var(--danger)]/40 bg-[color-mix(in_srgb,var(--danger)_12%,transparent)] px-3 py-2 text-sm"
           >
-            <strong>{{ r.title }}</strong>
-            <span>{{ r.source }} · conf. {{ Math.round(r.confidence * 100) }}%</span>
-          </button>
+            {{ imp.enrichError || imp.enrichWarning }}
+          </p>
+
+          <div v-if="imp.enrichResults.length" class="enrich">
+            <p class="m-0 text-xs uppercase tracking-wider text-[var(--brass)]">
+              Résultats
+              <template v-if="imp.enrichProvider"> · {{ imp.enrichProvider }}</template>
+            </p>
+            <button
+              v-for="r in imp.enrichResults"
+              :key="r.id"
+              type="button"
+              class="enrich__item mt-2 flex w-full flex-col gap-0.5 rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-left"
+              @click="imp.applyEnrichResult(r)"
+            >
+              <strong>{{ r.title }}</strong>
+              <span class="text-xs text-[var(--paper-dim)]">
+                {{ r.source }} · conf. {{ Math.round((r.confidence || 0) * 100) }}%
+                <template v-if="r.author"> · {{ r.author }}</template>
+              </span>
+              <span v-if="r.description" class="line-clamp-2 text-xs text-[var(--paper-dim)]">
+                {{ r.description }}
+              </span>
+            </button>
+          </div>
         </div>
       </div>
-    </div>
 
-    <footer class="import__footer">
-      <button type="button" class="ghost" @click="router.push({ name: 'library' })">Retour</button>
-      <button type="button" class="ghost" @click="imp.scan()">Rescanner</button>
-      <ControlHint :items="hints" />
-    </footer>
+      <footer class="mt-4 flex flex-wrap items-center justify-center gap-3">
+        <button type="button" class="ghost" @click="router.push({ name: 'library' })">Retour</button>
+        <button type="button" class="ghost" @click="imp.scan()">Rescanner</button>
+        <ControlHint :items="hints" />
+      </footer>
+    </div>
   </section>
 </template>
 
 <style scoped>
-.import {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  padding: var(--pad);
-  background:
-    radial-gradient(ellipse 80% 40% at 10% 0%, var(--wash-a), transparent 50%),
-    var(--ink-950);
-}
-
-.brand {
-  margin: 0 0 0.35rem;
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 0.95rem;
-  color: var(--brass);
-}
-
-h1 {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: 2rem;
-}
-
-.lead {
-  margin: 0.4rem 0 0;
-  color: var(--paper-dim);
-}
-
-.path {
-  margin: 0.25rem 0 0;
-  font-size: 0.75rem;
-  color: var(--paper-dim);
-  word-break: break-all;
-}
-
-.import__layout {
-  flex: 1;
-  min-height: 0;
-  margin-top: 1.25rem;
-  display: grid;
-  grid-template-rows: minmax(0, 38%) minmax(0, 1fr);
-  gap: 1rem;
-}
-
-.list {
-  overflow: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 0.45rem;
-}
-
 .list__item {
-  appearance: none;
-  text-align: left;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  border-radius: var(--radius-md);
-  padding: 0.75rem 0.9rem;
   cursor: pointer;
-  transition:
-    border-color 160ms var(--ease-soft),
-    box-shadow 160ms var(--ease-soft),
-    transform 160ms var(--ease-soft);
+  color: inherit;
+  font: inherit;
+  transition: border-color 160ms var(--ease-soft), box-shadow 160ms var(--ease-soft), transform 160ms var(--ease-soft);
 }
 
 .list__item.is-focused {
@@ -258,101 +257,14 @@ h1 {
   transform: translate3d(3px, 0, 0);
 }
 
-.list__title {
-  display: block;
-  font-family: var(--font-display);
-  font-weight: 700;
-}
-
-.list__meta {
-  display: block;
-  margin-top: 0.2rem;
-  color: var(--paper-dim);
-  font-size: 0.78rem;
-}
-
-.empty {
-  color: var(--paper-dim);
-  text-align: center;
-  padding: 1.75rem 1.25rem;
-  border: 1px dashed var(--border);
-  border-radius: var(--radius-md);
-  background: var(--surface);
-}
-
-.empty__title {
-  margin: 0;
-  font-family: var(--font-display);
-  font-weight: 700;
-  color: var(--paper);
-}
-
-.empty__hint {
-  margin: 0.45rem 0 0;
-  line-height: 1.4;
-  font-size: 0.9rem;
-}
-
-.detail {
-  overflow: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 0.85rem;
-  animation: detail-in 260ms var(--ease-out);
-}
-
-.detail--idle {
-  place-content: center;
-  text-align: center;
-  border: 1px dashed var(--border);
-  border-radius: var(--radius-md);
-  background: var(--surface);
-  padding: 1.5rem;
-  color: var(--paper-dim);
-}
-
-.cover-wrap {
-  width: 100%;
-  max-width: 10rem;
-  align-self: center;
-}
-
-.cover {
-  width: 100%;
-  aspect-ratio: 2 / 3;
-  object-fit: cover;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-}
-
-.cover--empty {
-  display: grid;
-  place-items: center;
-  background: var(--ink-800);
-  color: var(--paper-dim);
-}
-
-.fields {
-  display: flex;
-  flex-direction: column;
-  gap: 0.55rem;
-}
-
-.provider-select {
-  width: 100%;
+.provider-select,
+textarea {
   background: var(--surface);
   border: 1px solid var(--border);
   color: var(--paper);
   padding: 0.55rem 0.65rem;
-  font: inherit;
   border-radius: var(--radius-sm);
-}
-
-.provider-help {
-  margin: 0.35rem 0 0;
-  color: var(--paper-dim);
-  font-size: 0.78rem;
-  line-height: 1.35;
+  font: inherit;
 }
 
 .link-btn {
@@ -361,79 +273,19 @@ h1 {
   background: transparent;
   color: var(--brass-bright);
   text-decoration: underline;
-  text-underline-offset: 0.15em;
   padding: 0;
   margin-left: 0.35rem;
   font: inherit;
-  font-size: inherit;
   cursor: pointer;
-}
-
-.field-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.55rem;
-}
-
-.actions {
-  display: flex;
-  flex-direction: column;
-  gap: 0.55rem;
-}
-
-.enrich__title {
-  margin: 0;
-  font-size: 0.8rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--brass);
 }
 
 .enrich__item {
-  appearance: none;
-  width: 100%;
-  text-align: left;
-  margin-top: 0.4rem;
-  padding: 0.65rem 0.75rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
   cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
+  color: inherit;
+  font: inherit;
 }
 
-.enrich__item span {
-  color: var(--paper-dim);
-  font-size: 0.78rem;
-}
-
-.import__footer {
-  margin-top: 0.85rem;
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 0.65rem;
-}
-
-@keyframes detail-in {
-  from {
-    opacity: 0;
-    transform: translate3d(0, 10px, 0);
-  }
-  to {
-    opacity: 1;
-    transform: translate3d(0, 0, 0);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .detail {
-    animation: none;
-  }
-  .list__item {
-    transition: none;
-  }
+.enrich__item:hover {
+  border-color: var(--brass);
 }
 </style>

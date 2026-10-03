@@ -32,7 +32,7 @@ function createWindow() {
     minWidth: bounds.minWidth,
     minHeight: bounds.minHeight,
     title: 'Vertical Deck Reader',
-    backgroundColor: theme === 'light' ? '#f4efe6' : '#0b0c0f',
+    backgroundColor: theme === 'light' ? '#eef3f8' : '#0e1419',
     autoHideMenuBar: true,
     show: false,
     webPreferences: {
@@ -71,6 +71,20 @@ function notifyOrientation(orientation) {
   });
 }
 
+/**
+ * Mode session UI (landscape) vs lecture (portrait).
+ * Persiste l’orientation pour cohérence au prochain démarrage hors lecteur.
+ */
+function applySessionMode(mode) {
+  const orientation = mode === 'reader' ? 'portrait-ccw' : 'landscape';
+  const prev = getConfig();
+  const next =
+    prev.orientation === orientation ? prev : setConfig({ orientation });
+  applyWindowOrientation(mainWindow, orientation);
+  notifyOrientation(orientation);
+  return { mode: mode === 'reader' ? 'reader' : 'ui', orientation: next.orientation };
+}
+
 function registerAppIpc() {
   ipcMain.handle(IpcChannels.APP_GET_CONFIG, () => getConfig());
   ipcMain.handle(IpcChannels.APP_SET_CONFIG, (_event, patch) => {
@@ -88,6 +102,9 @@ function registerAppIpc() {
     }
     return next;
   });
+  ipcMain.handle(IpcChannels.APP_SET_SESSION_MODE, (_e, { mode } = {}) =>
+    applySessionMode(mode),
+  );
   ipcMain.handle(IpcChannels.APP_GET_DEFAULT_PATHS, () => getDefaultPaths());
   ipcMain.handle(IpcChannels.APP_PICK_DIRECTORY, async (_e, { title } = {}) => {
     const result = await dialog.showOpenDialog({
@@ -109,11 +126,11 @@ app.whenReady().then(() => {
   // Choix profil à chaque lancement (après setup)
   setConfig({ profileSelected: false });
 
-  // Raccourci CLI : `--landscape` / `--portrait` (persiste en config)
-  if (process.argv.includes('--landscape')) {
-    setConfig({ orientation: 'landscape' });
-  } else if (process.argv.includes('--portrait')) {
+  // Menus toujours landscape au boot ; `--portrait` force lecture (dev).
+  if (process.argv.includes('--portrait')) {
     setConfig({ orientation: 'portrait-ccw' });
+  } else {
+    setConfig({ orientation: 'landscape' });
   }
 
   registerAppIpc();

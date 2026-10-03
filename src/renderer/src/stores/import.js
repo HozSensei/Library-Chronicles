@@ -7,19 +7,21 @@ export const useImportStore = defineStore('import', {
     loading: false,
     root: null,
     error: null,
-    /** Édition en cours du tome sélectionné */
     draft: {
       title: '',
       series: '',
       volume: null,
       author: '',
       year: null,
+      description: '',
     },
     enrichResults: [],
     enrichLoading: false,
     enrichProvider: null,
+    enrichWarning: null,
+    enrichError: null,
     providers: [],
-    activeProvider: 'stub',
+    activeProvider: 'anilist',
     coverPreview: null,
     lastImported: null,
   }),
@@ -34,15 +36,25 @@ export const useImportStore = defineStore('import', {
       try {
         const data = await window.vdr.metadata.listProviders();
         this.providers = data.providers || [];
-        this.activeProvider = data.activeProvider || 'stub';
+        // Évite de rester coincé sur stub si un provider réel est disponible
+        const active = data.activeProvider || 'anilist';
+        this.activeProvider =
+          active === 'stub' && this.providers.some((p) => p.id === 'anilist')
+            ? 'anilist'
+            : active;
+        if (this.activeProvider !== active) {
+          await window.vdr.metadata.setProvider(this.activeProvider);
+        }
       } catch {
         this.providers = [];
-        this.activeProvider = 'stub';
+        this.activeProvider = 'anilist';
       }
     },
     async setProvider(id) {
       await window.vdr.metadata.setProvider(id);
       this.activeProvider = id;
+      this.enrichWarning = null;
+      this.enrichError = null;
       await this.loadProviders();
     },
     async openProviderHelp(provider) {
@@ -82,9 +94,12 @@ export const useImportStore = defineStore('import', {
         volume: d.volume,
         author: d.author || '',
         year: d.year,
+        description: d.description || '',
       };
       this.enrichResults = [];
       this.enrichProvider = null;
+      this.enrichWarning = null;
+      this.enrichError = null;
       this.coverPreview = null;
       try {
         const cover = await window.vdr.import.previewCover(item.filePath);
@@ -102,14 +117,28 @@ export const useImportStore = defineStore('import', {
       const item = this.selected;
       if (!item) return;
       this.enrichLoading = true;
+      this.enrichWarning = null;
+      this.enrichError = null;
+      this.enrichResults = [];
       try {
+        if (this.activeProvider === 'stub') {
+          // Auto-bascule vers AniList si l’utilisateur est encore sur stub
+          const hasAni = this.providers.some((p) => p.id === 'anilist');
+          if (hasAni) {
+            await this.setProvider('anilist');
+          }
+        }
         const query = this.draft.series || this.draft.title || item.name;
-        const { results, activeProvider } = await window.vdr.metadata.search(
-          query,
-          this.activeProvider,
-        );
-        this.enrichResults = results || [];
-        this.enrichProvider = activeProvider || this.activeProvider;
+        const payload = await window.vdr.metadata.search(query, this.activeProvider);
+        this.enrichResults = payload.results || [];
+        this.enrichProvider = payload.activeProvider || this.activeProvider;
+        this.enrichWarning = payload.warning || null;
+        if (!this.enrichResults.length && !this.enrichWarning) {
+          this.enrichWarning = 'Aucun résultat. Essaie un autre provider ou un titre plus court.';
+        }
+      } catch (err) {
+        this.enrichError = err?.message || 'Échec enrichissement';
+        this.enrichResults = [];
       } finally {
         this.enrichLoading = false;
       }
@@ -121,6 +150,7 @@ export const useImportStore = defineStore('import', {
         volume: result.volume ?? this.draft.volume,
         author: result.author || this.draft.author,
         year: result.year ?? this.draft.year,
+        description: result.description || this.draft.description,
       });
     },
     async commitSelected({ copyToLibrary = true } = {}) {
@@ -128,7 +158,10 @@ export const useImportStore = defineStore('import', {
       if (!item) return null;
       const result = await window.vdr.import.commit({
         sourcePath: item.filePath,
-        metadata: { ...this.draft },
+        metadata: {
+          ...this.draft,
+          description: this.draft.description || null,
+        },
         copyToLibrary,
       });
       this.lastImported = result.book;

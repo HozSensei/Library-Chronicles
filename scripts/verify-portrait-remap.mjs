@@ -14,6 +14,7 @@ import {
 } from '../src/shared/key-bindings.js';
 import { detectFromFilename } from '../src/main/metadata/parse-filename.js';
 import { naturalCompare, detectChapters } from '../src/main/extractors/cbz.js';
+import { GamepadButtons } from '../src/shared/gamepad-codes.js';
 
 let failed = 0;
 
@@ -46,15 +47,24 @@ assert(
   'landscape stick : physique = logique',
 );
 
-assert(readingActionForLogicalDpad('left') === 'page-prev', '← écran = page prev');
-assert(readingActionForLogicalDpad('right') === 'page-next', '→ écran = page next');
-assert(readingActionForLogicalDpad('up') === 'zoom-in', '↑ écran = zoom in');
-assert(readingActionForLogicalDpad('down') === 'zoom-out', '↓ écran = zoom out');
+// Spec UX : droite = Zoom +, gauche = Zoom − ; haut/bas = pages
+assert(readingActionForLogicalDpad('right') === 'zoom-in', '→ écran = zoom +');
+assert(readingActionForLogicalDpad('left') === 'zoom-out', '← écran = zoom −');
+assert(readingActionForLogicalDpad('up') === 'page-prev', '↑ écran = page prev');
+assert(readingActionForLogicalDpad('down') === 'page-next', '↓ écran = page next');
 
 const bindings = resolveKeyBindings(null);
 assert(
-  actionForBinding(bindings, 'reader', 'dpad:left') === 'page-prev',
-  'binding défaut page-prev',
+  actionForBinding(bindings, 'reader', 'dpad:right') === 'zoom-in',
+  'binding défaut zoom-in (droite)',
+);
+assert(
+  actionForBinding(bindings, 'reader', 'dpad:left') === 'zoom-out',
+  'binding défaut zoom-out (gauche)',
+);
+assert(
+  actionForBinding(bindings, 'reader', `button:${GamepadButtons.SELECT}`) === 'toggle-pause',
+  'Select = menu pause',
 );
 assert(
   actionForBinding(bindings, 'reader', 'button:0') === 'toggle-direction',

@@ -10,25 +10,30 @@ export const useUiStore = defineStore('ui', {
     reducedMotion: false,
     theme: 'dark',
     language: 'fr',
-    orientation: 'portrait-ccw',
+    /** Session : landscape (menus) ou portrait-ccw (lecteur). */
+    orientation: 'landscape',
+    /** Contexte manette dérivé : ui | reader */
+    inputContext: 'ui',
     setupCompleted: false,
     configLoaded: false,
     keyBindings: resolveKeyBindings(null),
     userKeyBindings: null,
-    listeningForBind: null, // { context, actionId } | null
+    listeningForBind: null,
     setupFocusIndex: 0,
     settingsFocusIndex: 0,
     importFocusIndex: 0,
-    /** Feedback vibration manette (Ally). */
+    bookFocusIndex: 0,
     hapticsEnabled: true,
     hapticsAvailable: false,
   }),
   getters: {
     isDark: (s) => s.theme !== 'light',
+    isReaderOrientation: (s) => s.orientation === 'portrait-ccw',
   },
   actions: {
     setRouteName(name) {
       this.routeName = name || 'boot';
+      this.inputContext = name === 'reader' ? 'reader' : 'ui';
     },
     setHapticsAvailable(available) {
       this.hapticsAvailable = Boolean(available);
@@ -53,6 +58,9 @@ export const useUiStore = defineStore('ui', {
     setImportFocus(index) {
       this.importFocusIndex = index;
     },
+    setBookFocus(index) {
+      this.bookFocusIndex = index;
+    },
     refreshGamepadHint() {
       this.reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     },
@@ -62,14 +70,36 @@ export const useUiStore = defineStore('ui', {
     },
     applyOrientation(orientation) {
       this.orientation =
-        orientation === 'landscape' ? 'landscape' : 'portrait-ccw';
+        orientation === 'portrait-ccw' ? 'portrait-ccw' : 'landscape';
       document.documentElement.setAttribute('data-orientation', this.orientation);
+    },
+    /**
+     * Bascule fenêtre Electron + remap manette.
+     * @param {'ui'|'reader'} mode
+     */
+    async setSessionMode(mode) {
+      const result = await window.vdr.setSessionMode(mode === 'reader' ? 'reader' : 'ui');
+      const orientation = result?.orientation || (mode === 'reader' ? 'portrait-ccw' : 'landscape');
+      this.applyOrientation(orientation);
+      this.inputContext = mode === 'reader' ? 'reader' : 'ui';
+      return result;
+    },
+    async enterReaderMode() {
+      return this.setSessionMode('reader');
+    },
+    async exitReaderMode() {
+      return this.setSessionMode('ui');
     },
     async loadConfig() {
       const config = await window.vdr.getConfig();
       this.setupCompleted = Boolean(config.setupCompleted);
       this.language = config.language || 'fr';
-      this.applyOrientation(config.orientation || 'portrait-ccw');
+      // Menus = landscape ; ne pas hériter d’un portrait résiduel hors lecteur
+      const orientation =
+        config.orientation === 'portrait-ccw' && this.routeName === 'reader'
+          ? 'portrait-ccw'
+          : 'landscape';
+      this.applyOrientation(orientation);
       this.userKeyBindings = config.keyBindings || null;
       this.keyBindings = resolveKeyBindings(this.userKeyBindings);
       this.hapticsEnabled = config.hapticsEnabled !== false;
@@ -80,19 +110,6 @@ export const useUiStore = defineStore('ui', {
     async setTheme(theme) {
       this.applyTheme(theme);
       await window.vdr.setConfig({ theme: this.theme });
-    },
-    /**
-     * Persiste l’orientation, redimensionne la fenêtre Electron (via main)
-     * et met à jour data-orientation pour les layouts responsives.
-     */
-    async setOrientation(orientation) {
-      this.applyOrientation(orientation);
-      await window.vdr.setConfig({ orientation: this.orientation });
-    },
-    async toggleOrientation() {
-      await this.setOrientation(
-        this.orientation === 'landscape' ? 'portrait-ccw' : 'landscape',
-      );
     },
     async persistKeyBindings(userBindings) {
       this.userKeyBindings = userBindings;
@@ -115,21 +132,13 @@ export const useUiStore = defineStore('ui', {
         ...(this.userKeyBindings || {}),
         [context]: { ...(this.userKeyBindings?.[context] || {}) },
       };
-      // Retirer l’ancienne clé pour cette action dans ce contexte
       const merged = { ...this.keyBindings[context] };
       for (const [k, v] of Object.entries(merged)) {
         if (v === actionId) delete current[context][k];
       }
       current[context][bindingKey] = actionId;
-      // Nettoyer conflits : même touche → réassignée
       for (const [k, v] of Object.entries(current[context])) {
         if (k !== bindingKey && v === actionId) delete current[context][k];
-      }
-      // Aussi retirer la touche d’une autre action
-      for (const [k, v] of Object.entries({ ...this.keyBindings[context], ...current[context] })) {
-        if (k === bindingKey && v !== actionId) {
-          // ok
-        }
       }
       current[context][bindingKey] = actionId;
       await this.persistKeyBindings(current);

@@ -12,11 +12,12 @@ const DEFAULTS = {
   readingDirection: 'ltr',
   defaultFitMode: 'fit-height',
   /**
-   * Orientation app / fenêtre :
-   * - `portrait-ccw` — Ally verticale (remap manette 90°)
-   * - `landscape` — usage classique desktop (directions physiques = logiques)
+   * Orientation session (gérée automatiquement) :
+   * - `landscape` — menus / setup / biblio / import / fiche (défaut)
+   * - `portrait-ccw` — mode lecture uniquement (remap manette 90°)
+   * Plus de choix utilisateur « Lipton / orientation » au setup.
    */
-  orientation: 'portrait-ccw',
+  orientation: 'landscape',
   lastOpenedPath: null,
   phase1TestCbz: null,
   /** Overrides partiels des bindings ; null = défauts complets. */
@@ -26,8 +27,8 @@ const DEFAULTS = {
    * Ex. { comicvine: 'xxx' }
    */
   apiKeys: {},
-  /** Provider métadonnées actif. */
-  metadataProvider: 'stub',
+  /** Provider métadonnées actif (AniList par défaut — gratuit, sans clé). */
+  metadataProvider: 'anilist',
   /**
    * Feedback haptique manette (Ally / GamepadHapticActuator).
    * No-op si l’API ou le matériel est absent.
