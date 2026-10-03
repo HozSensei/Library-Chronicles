@@ -6,6 +6,7 @@ import {
   normalizeImportMetadata,
   resolveItemMetadata,
 } from '../../../shared/import-meta.js';
+import { useLibraryStore } from './library.js';
 
 function draftFromItem(item) {
   if (item?.selectedMeta) {
@@ -331,7 +332,6 @@ export const useImportStore = defineStore('import', {
         item.alreadyInLibrary = true;
         item.existingBookId = result.book?.id;
         try {
-          const { useLibraryStore } = await import('./library.js');
           useLibraryStore().invalidate();
         } catch {
           /* ignore */
