@@ -8,7 +8,6 @@ export const useProfilesStore = defineStore('profiles', {
     prefs: {
       readingDirection: 'ltr',
       defaultFitMode: 'fit-height',
-      webtoonMode: false,
       brightness: 1,
       contrast: 1,
       sepia: 0,

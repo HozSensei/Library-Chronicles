@@ -1089,7 +1089,6 @@ function createLoop(ctx) {
       }
       if (action === 'toggle-zoom') reader.toggleZoom();
       if (action === 'fit-width') reader.setFitWidth();
-      if (action === 'toggle-webtoon') reader.toggleWebtoon();
       if (action === 'add-bookmark') reader.addBookmark();
       if (action === 'next-volume') {
         reader.openNextVolume().then((ok) => {
@@ -1105,14 +1104,9 @@ function createLoop(ctx) {
           }
         });
       }
-      if (action === 'zoom-in') {
-        if (reader.webtoonMode) reader.stepPage('prev');
-        else reader.zoomBy(1);
-      }
-      if (action === 'zoom-out') {
-        if (reader.webtoonMode) reader.stepPage('next');
-        else reader.zoomBy(-1);
-      }
+      // Strip vertical : D-Pad ←/→ = page ± (zoom désactivé, pages déjà fit-width).
+      if (action === 'zoom-in') reader.stepPage('prev');
+      if (action === 'zoom-out') reader.stepPage('next');
       if (action === 'page-prev') {
         vibe('light');
         reader.stepPage('prev');
@@ -1136,14 +1130,10 @@ function createLoop(ctx) {
         const local = ui.readerCssRotate
           ? visualPanToLocal(payload.x, payload.y)
           : payload;
-        if (reader.webtoonMode) {
-          const strip = document.querySelector('.reader__strip');
-          if (strip) {
-            strip.scrollTop += local.y * 28;
-            strip.scrollLeft += local.x * 10;
-          } else {
-            reader.pan(local.x, local.y);
-          }
+        const strip = document.querySelector('.reader__strip');
+        if (strip) {
+          strip.scrollTop += local.y * 28;
+          strip.scrollLeft += local.x * 10;
         } else {
           reader.pan(local.x, local.y);
         }

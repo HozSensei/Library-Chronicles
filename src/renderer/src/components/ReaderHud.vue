@@ -11,7 +11,7 @@ const ui = useUiStore();
 const focusIds = computed(() => {
   const ids = ['tab-main', 'tab-filters', 'tab-bookmarks'];
   if (reader.hudPanel === 'main') {
-    ids.push('quit', 'direction', 'webtoon', 'bookmark');
+    ids.push('quit', 'direction', 'bookmark');
     if (reader.prevVolumeOffer) ids.push('prev-volume');
     if (reader.nextVolumeOffer) ids.push('next-volume');
   } else if (reader.hudPanel === 'filters') {
@@ -181,7 +181,7 @@ async function quitReading() {
           <div class="hud__meta">
             <span>
               {{ reader.direction.toUpperCase() }}
-              · {{ reader.webtoonMode ? 'webtoon' : reader.fitMode }}
+              · strip vertical
               <template v-if="reader.currentChapter">
                 · {{ reader.currentChapter.name }}
               </template>
@@ -209,15 +209,6 @@ async function quitReading() {
               @click="reader.toggleDirection()"
             >
               Sens {{ reader.direction.toUpperCase() }}
-            </button>
-            <button
-              type="button"
-              class="ghost"
-              data-hud-focus
-              :class="{ 'is-focused': isFocused('webtoon') }"
-              @click="reader.toggleWebtoon()"
-            >
-              {{ reader.webtoonMode ? 'Quitter webtoon' : 'Mode webtoon' }}
             </button>
             <button
               type="button"
