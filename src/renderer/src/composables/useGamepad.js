@@ -4,12 +4,14 @@ import { useUiStore } from '../stores/ui';
 import { useReaderStore } from '../stores/reader';
 import { useLibraryStore } from '../stores/library';
 import { useImportStore } from '../stores/import';
+import { useProfilesStore } from '../stores/profiles';
 import {
   DeviceOrientation,
   remapDpad,
   remapStick,
 } from '../../../shared/portrait-remap.js';
 import { actionForBinding, GamepadButtons } from '../../../shared/controls.js';
+import { markProfileSelected } from '../router';
 
 const BUTTON = GamepadButtons;
 
@@ -34,11 +36,12 @@ export function useGamepad() {
   const reader = useReaderStore();
   const library = useLibraryStore();
   const imp = useImportStore();
+  const profiles = useProfilesStore();
 
   if (!sharedLoop) {
-    sharedLoop = createLoop({ router, ui, reader, library, imp });
+    sharedLoop = createLoop({ router, ui, reader, library, imp, profiles });
   } else {
-    sharedLoop.bind({ router, ui, reader, library, imp });
+    sharedLoop.bind({ router, ui, reader, library, imp, profiles });
   }
 
   function start() {
@@ -121,6 +124,7 @@ function createLoop(ctx) {
     if (route === 'setup') return 'setup';
     if (route === 'import') return 'import';
     if (route === 'settings') return 'settings';
+    if (route === 'profiles') return 'profiles';
     return 'boot';
   }
 
@@ -138,6 +142,28 @@ function createLoop(ctx) {
     // Mode écoute remapping
     if (ui.listeningForBind && payload?.bindingKey) {
       ui.applyCapturedBind(payload.bindingKey);
+      return;
+    }
+
+    if (route === 'profiles') {
+      const { profiles } = handlers;
+      if (action === 'cursor-up' || (action === 'scroll' && payload?.y < -0.45)) {
+        profiles.moveFocus(-1);
+      }
+      if (action === 'cursor-down' || (action === 'scroll' && payload?.y > 0.45)) {
+        profiles.moveFocus(1);
+      }
+      if (action === 'cursor-left') profiles.moveFocus(-1);
+      if (action === 'cursor-right') profiles.moveFocus(1);
+      if (action === 'confirm' || action === 'open-book') {
+        const p = profiles.profiles[profiles.focusIndex];
+        if (p) {
+          profiles.select(p.id).then(() => {
+            markProfileSelected();
+            router.replace({ name: 'boot' });
+          });
+        }
+      }
       return;
     }
 
@@ -181,13 +207,24 @@ function createLoop(ctx) {
       if (action === 'cursor-down') library.moveCatalog(0, 1);
       if (action === 'cursor-left') library.moveCatalog(-1, 0);
       if (action === 'cursor-right') library.moveCatalog(1, 0);
+      if (action === 'toggle-series') library.toggleViewMode();
       if (action === 'open-book' || action === 'confirm') {
         if (library.focusZone === 'hero' && library.heroMode === 'empty') {
           router.push({ name: 'import' });
           return;
         }
         if (library.focusZone === 'hero' && library.heroMode === 'invite' && !library.heroBook) {
-          if (!library.focusRecent(0)) library.focusGrid(0);
+          if (library.viewMode === 'series') {
+            if (!library.focusSeries(0)) library.focusGrid(0);
+          } else if (!library.focusRecent(0)) library.focusGrid(0);
+          return;
+        }
+        if (library.focusZone === 'series') {
+          library.nextUnreadForSelected().then((book) => {
+            if (book?.filePath) {
+              router.push({ name: 'reader', query: { path: book.filePath } });
+            }
+          });
           return;
         }
         const book = library.selected;
@@ -278,14 +315,39 @@ function createLoop(ctx) {
       if (action === 'toggle-direction') reader.toggleDirection();
       if (action === 'toggle-zoom') reader.toggleZoom();
       if (action === 'fit-width') reader.setFitWidth();
-      if (action === 'zoom-in') reader.zoomBy(1);
-      if (action === 'zoom-out') reader.zoomBy(-1);
+      if (action === 'toggle-webtoon') reader.toggleWebtoon();
+      if (action === 'add-bookmark') reader.addBookmark();
+      if (action === 'next-volume') {
+        reader.openNextVolume().then((ok) => {
+          if (ok && reader.filePath) {
+            router.replace({ name: 'reader', query: { path: reader.filePath } });
+          }
+        });
+      }
+      if (action === 'zoom-in') {
+        if (reader.webtoonMode) reader.stepPage('prev');
+        else reader.zoomBy(1);
+      }
+      if (action === 'zoom-out') {
+        if (reader.webtoonMode) reader.stepPage('next');
+        else reader.zoomBy(-1);
+      }
       if (action === 'page-prev') reader.stepPage('prev');
       if (action === 'page-next') reader.stepPage('next');
       if (action === 'chapter-prev') reader.stepChapter(-1);
       if (action === 'chapter-next') reader.stepChapter(1);
       if ((action === 'pan' || action === 'stick') && payload) {
-        reader.pan(payload.x, payload.y);
+        if (reader.webtoonMode) {
+          const strip = document.querySelector('.reader__strip');
+          if (strip) {
+            strip.scrollTop += payload.y * 28;
+            strip.scrollLeft += payload.x * 10;
+          } else {
+            reader.pan(payload.x, payload.y);
+          }
+        } else {
+          reader.pan(payload.x, payload.y);
+        }
       }
     }
   }

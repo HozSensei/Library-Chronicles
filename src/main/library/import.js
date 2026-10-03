@@ -75,6 +75,7 @@ export async function commitImport({ sourcePath, metadata, copyToLibrary = true 
     filePath: destPath,
     title: metadata?.title || path.basename(destPath, path.extname(destPath)),
     series: metadata?.series ?? null,
+    seriesId: metadata?.seriesId ?? null,
     volume: metadata?.volume ?? null,
     author: metadata?.author ?? null,
     year: metadata?.year ?? null,

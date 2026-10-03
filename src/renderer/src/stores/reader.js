@@ -1,10 +1,16 @@
 import { defineStore } from 'pinia';
 
+const NIGHT_PRESET = { brightness: 0.78, contrast: 1.12, sepia: 0.35 };
+const RESET_FILTERS = { brightness: 1, contrast: 1, sepia: 0 };
+
 export const useReaderStore = defineStore('reader', {
   state: () => ({
     filePath: null,
     bookId: null,
     title: '',
+    series: null,
+    seriesId: null,
+    volume: null,
     pageIndex: 0,
     pageCount: 0,
     direction: 'ltr',
@@ -13,13 +19,22 @@ export const useReaderStore = defineStore('reader', {
     panX: 0,
     panY: 0,
     hudVisible: false,
+    hudPanel: 'main', // main | bookmarks | filters
     pageUrl: null,
+    /** Pages empilées mode webtoon { index, url } */
+    stripPages: [],
     chapters: [],
     chapterIndex: 0,
+    bookmarks: [],
+    bookmarkFlash: null,
+    nextVolumeOffer: null,
+    webtoonMode: false,
+    brightness: 1,
+    contrast: 1,
+    sepia: 0,
     loading: false,
     error: null,
     renderEngine: null,
-    /** Timer HUD auto (flash page). */
     _hudTimer: null,
   }),
   getters: {
@@ -27,20 +42,35 @@ export const useReaderStore = defineStore('reader', {
     progress: (s) => (s.pageCount ? ((s.pageIndex + 1) / s.pageCount) * 100 : 0),
     transform: (s) => `translate3d(${s.panX}px, ${s.panY}px, 0) scale(${s.scale})`,
     currentChapter: (s) => s.chapters[s.chapterIndex] || null,
+    filterCss(s) {
+      return `brightness(${s.brightness}) contrast(${s.contrast}) sepia(${s.sepia})`;
+    },
     imageStyle(s) {
       const base = {
         transform: s.transform,
         transformOrigin: 'center center',
         willChange: 'transform',
+        filter: `brightness(${s.brightness}) contrast(${s.contrast}) sepia(${s.sepia})`,
       };
+      if (s.webtoonMode) {
+        return {
+          ...base,
+          transform: 'none',
+          width: '100%',
+          height: 'auto',
+          maxHeight: 'none',
+        };
+      }
       if (s.fitMode === 'fit-width') {
         return { ...base, width: '100%', height: 'auto', maxHeight: 'none' };
       }
       if (s.fitMode === 'zoom-100') {
         return { ...base, width: 'auto', height: 'auto', maxHeight: 'none' };
       }
-      // fit-height (défaut)
       return { ...base, height: '100%', width: 'auto', maxWidth: 'none' };
+    },
+    isFinished(s) {
+      return s.pageCount > 0 && s.pageIndex + 1 >= s.pageCount;
     },
   },
   actions: {
@@ -55,11 +85,38 @@ export const useReaderStore = defineStore('reader', {
         this._hudTimer = null;
       }, ms);
     },
+    async loadPrefs() {
+      try {
+        const prefs = await window.vdr.profiles.getPrefs();
+        this.direction = prefs.readingDirection || 'ltr';
+        this.fitMode = prefs.defaultFitMode || 'fit-height';
+        this.webtoonMode = Boolean(prefs.webtoonMode);
+        this.brightness = prefs.brightness ?? 1;
+        this.contrast = prefs.contrast ?? 1;
+        this.sepia = prefs.sepia ?? 0;
+      } catch {
+        // ignore
+      }
+    },
+    async persistPrefs(patch) {
+      try {
+        const prefs = await window.vdr.profiles.setPrefs(patch);
+        this.webtoonMode = Boolean(prefs.webtoonMode);
+        this.brightness = prefs.brightness ?? this.brightness;
+        this.contrast = prefs.contrast ?? this.contrast;
+        this.sepia = prefs.sepia ?? this.sepia;
+        if (prefs.readingDirection) this.direction = prefs.readingDirection;
+        if (prefs.defaultFitMode) this.fitMode = prefs.defaultFitMode;
+      } catch {
+        // ignore
+      }
+    },
     async open(filePath, { resume = true } = {}) {
       this.loading = true;
       this.error = null;
+      this.nextVolumeOffer = null;
       try {
-        const config = await window.vdr.getConfig();
+        await this.loadPrefs();
         const meta = await window.vdr.reader.open(filePath);
         this.filePath = filePath;
         this.bookId = meta.bookId ?? null;
@@ -68,9 +125,22 @@ export const useReaderStore = defineStore('reader', {
         this.chapters = meta.chapters || [];
         this.chapterIndex = 0;
         this.renderEngine = meta.renderEngine || meta.format || null;
-        this.direction = config.readingDirection || 'ltr';
-        this.fitMode = config.defaultFitMode || 'fit-height';
         this.resetTransform();
+
+        // Métadonnées série depuis la bibliothèque
+        try {
+          const books = await window.vdr.library.list();
+          const book = books.find((b) => b.filePath === filePath || b.id === meta.bookId);
+          if (book) {
+            this.bookId = book.id;
+            this.series = book.series;
+            this.seriesId = book.seriesId;
+            this.volume = book.volume;
+            this.title = book.title || this.title;
+          }
+        } catch {
+          // ignore
+        }
 
         let start = 0;
         if (resume && meta.resumePage > 0 && meta.resumePage < meta.pageCount) {
@@ -78,6 +148,7 @@ export const useReaderStore = defineStore('reader', {
         }
         this.pageIndex = start;
         await this.loadCurrentPage();
+        await this.refreshBookmarks();
         this.flashHud(1800);
         return meta;
       } catch (err) {
@@ -89,20 +160,62 @@ export const useReaderStore = defineStore('reader', {
     },
     async loadCurrentPage() {
       if (!this.filePath || this.pageCount === 0) return;
-      const page = await window.vdr.reader.getPage(this.pageIndex);
-      if (this.pageUrl) URL.revokeObjectURL(this.pageUrl);
-      if (!page?.data) {
-        this.pageUrl = null;
-        return;
+      if (this.webtoonMode) {
+        await this.loadStripWindow();
+      } else {
+        await this.revokeStrip();
+        const page = await window.vdr.reader.getPage(this.pageIndex);
+        if (this.pageUrl) URL.revokeObjectURL(this.pageUrl);
+        if (!page?.data) {
+          this.pageUrl = null;
+          return;
+        }
+        this.pageUrl = this.blobUrlFromPage(page);
+        if (page.engine) this.renderEngine = page.engine;
       }
+      this.syncChapterIndex();
+      this.persistProgress();
+      if (this.isFinished) await this.checkNextVolume();
+    },
+    blobUrlFromPage(page) {
       const bin = atob(page.data);
       const bytes = new Uint8Array(bin.length);
       for (let i = 0; i < bin.length; i += 1) bytes[i] = bin.charCodeAt(i);
       const blob = new Blob([bytes], { type: page.mime || 'image/jpeg' });
-      this.pageUrl = URL.createObjectURL(blob);
-      if (page.engine) this.renderEngine = page.engine;
-      this.syncChapterIndex();
-      this.persistProgress();
+      return URL.createObjectURL(blob);
+    },
+    async revokeStrip() {
+      for (const p of this.stripPages) {
+        if (p.url) URL.revokeObjectURL(p.url);
+      }
+      this.stripPages = [];
+    },
+    async loadStripWindow() {
+      const start = Math.max(0, this.pageIndex - 1);
+      const end = Math.min(this.pageCount - 1, this.pageIndex + 4);
+      const keep = new Map(this.stripPages.map((p) => [p.index, p]));
+      const next = [];
+      for (let i = start; i <= end; i += 1) {
+        if (keep.has(i)) {
+          next.push(keep.get(i));
+          keep.delete(i);
+        } else {
+          const page = await window.vdr.reader.getPage(i);
+          if (page?.data) {
+            next.push({ index: i, url: this.blobUrlFromPage(page) });
+          }
+        }
+      }
+      for (const orphan of keep.values()) {
+        if (orphan.url) URL.revokeObjectURL(orphan.url);
+      }
+      this.stripPages = next;
+      // Page « courante » aussi en pageUrl pour compat
+      const cur = next.find((p) => p.index === this.pageIndex);
+      if (this.pageUrl && !this.stripPages.some((p) => p.url === this.pageUrl)) {
+        // pageUrl peut être partagé avec strip — ne pas revoke si encore utilisé
+      }
+      this.pageUrl = cur?.url || null;
     },
     syncChapterIndex() {
       if (!this.chapters.length) {
@@ -127,24 +240,63 @@ export const useReaderStore = defineStore('reader', {
         // ignore
       }
     },
+    async checkNextVolume() {
+      if (!this.seriesId) {
+        this.nextVolumeOffer = null;
+        return;
+      }
+      try {
+        const next = await window.vdr.library.nextUnread({
+          seriesId: this.seriesId,
+          afterBookId: this.bookId,
+          afterVolume: this.volume,
+        });
+        this.nextVolumeOffer =
+          next && next.id !== this.bookId ? next : null;
+      } catch {
+        this.nextVolumeOffer = null;
+      }
+    },
+    async openNextVolume() {
+      if (!this.nextVolumeOffer?.filePath) {
+        await this.checkNextVolume();
+      }
+      const next = this.nextVolumeOffer;
+      if (!next?.filePath) return false;
+      await this.close();
+      await this.open(next.filePath);
+      return true;
+    },
     async close() {
       await this.persistProgress();
       if (this._hudTimer) {
         clearTimeout(this._hudTimer);
         this._hudTimer = null;
       }
+      await this.revokeStrip();
       if (this.pageUrl) {
-        URL.revokeObjectURL(this.pageUrl);
+        // peut déjà être révoqué via strip
+        try {
+          URL.revokeObjectURL(this.pageUrl);
+        } catch {
+          // ignore
+        }
         this.pageUrl = null;
       }
       await window.vdr.reader.close();
       this.filePath = null;
       this.bookId = null;
       this.title = '';
+      this.series = null;
+      this.seriesId = null;
+      this.volume = null;
       this.pageCount = 0;
       this.pageIndex = 0;
       this.hudVisible = false;
+      this.hudPanel = 'main';
       this.chapters = [];
+      this.bookmarks = [];
+      this.nextVolumeOffer = null;
       this.error = null;
       this.renderEngine = null;
     },
@@ -154,6 +306,16 @@ export const useReaderStore = defineStore('reader', {
       this.scale = 1;
     },
     pan(dx, dy, speed = 14) {
+      if (this.webtoonMode) {
+        // Scroll vertical principal
+        this.panY += dy * speed * 1.8;
+        this.panX += dx * speed * 0.25;
+        // Avancer/reculer page si défilement important
+        if (Math.abs(dy) > 0.55) {
+          // laissé au composant scroll natif ; panY sert de fallback
+        }
+        return;
+      }
       if (this.fitMode === 'fit-width') {
         this.panY += dy * speed * 1.4;
         this.panX += dx * speed * 0.4;
@@ -162,11 +324,16 @@ export const useReaderStore = defineStore('reader', {
       this.panX += dx * speed;
       this.panY += dy * speed;
     },
+    scrollWebtoon(deltaY) {
+      this.panY += deltaY;
+    },
     zoomBy(steps) {
+      if (this.webtoonMode) return;
       this.scale = Math.min(4, Math.max(0.25, this.scale + steps * 0.15));
       this.fitMode = 'custom';
     },
     toggleZoom() {
+      if (this.webtoonMode) return;
       if (this.fitMode === 'fit-height') {
         this.fitMode = 'zoom-100';
         this.scale = 1;
@@ -178,6 +345,7 @@ export const useReaderStore = defineStore('reader', {
       this.panY = 0;
     },
     setFitWidth() {
+      if (this.webtoonMode) return;
       this.fitMode = 'fit-width';
       this.scale = 1;
       this.panX = 0;
@@ -185,7 +353,16 @@ export const useReaderStore = defineStore('reader', {
     },
     toggleDirection() {
       this.direction = this.direction === 'ltr' ? 'rtl' : 'ltr';
+      this.persistPrefs({ readingDirection: this.direction });
       window.vdr.setConfig({ readingDirection: this.direction });
+    },
+    async toggleWebtoon() {
+      this.webtoonMode = !this.webtoonMode;
+      this.resetTransform();
+      await this.persistPrefs({ webtoonMode: this.webtoonMode });
+      await this.loadCurrentPage();
+      this.hudVisible = true;
+      this.flashHud(1200);
     },
     toggleHud() {
       if (this._hudTimer) {
@@ -193,14 +370,80 @@ export const useReaderStore = defineStore('reader', {
         this._hudTimer = null;
       }
       this.hudVisible = !this.hudVisible;
+      if (!this.hudVisible) this.hudPanel = 'main';
+    },
+    setHudPanel(panel) {
+      this.hudPanel = panel;
+      this.hudVisible = true;
+      if (this._hudTimer) {
+        clearTimeout(this._hudTimer);
+        this._hudTimer = null;
+      }
+    },
+    async setFilters(patch) {
+      if (patch.brightness != null) this.brightness = patch.brightness;
+      if (patch.contrast != null) this.contrast = patch.contrast;
+      if (patch.sepia != null) this.sepia = patch.sepia;
+      await this.persistPrefs({
+        brightness: this.brightness,
+        contrast: this.contrast,
+        sepia: this.sepia,
+      });
+    },
+    async applyNightPreset() {
+      await this.setFilters(NIGHT_PRESET);
+    },
+    async resetFilters() {
+      await this.setFilters(RESET_FILTERS);
+    },
+    async refreshBookmarks() {
+      if (!this.bookId) {
+        this.bookmarks = [];
+        return;
+      }
+      try {
+        this.bookmarks = (await window.vdr.bookmarks.list(this.bookId)) || [];
+      } catch {
+        this.bookmarks = [];
+      }
+    },
+    async addBookmark(label = null) {
+      if (!this.bookId) return null;
+      const result = await window.vdr.bookmarks.add({
+        bookId: this.bookId,
+        page: this.pageIndex,
+        label: label || `Page ${this.pageIndex + 1}`,
+      });
+      await this.refreshBookmarks();
+      this.bookmarkFlash = result.created ? 'Signet ajouté' : 'Signet déjà présent';
+      this.hudVisible = true;
+      this.hudPanel = 'bookmarks';
+      setTimeout(() => {
+        this.bookmarkFlash = null;
+      }, 1600);
+      return result;
+    },
+    async removeBookmark(id) {
+      await window.vdr.bookmarks.remove(id);
+      await this.refreshBookmarks();
+    },
+    async goToBookmark(bm) {
+      if (bm == null) return;
+      this.pageIndex = bm.page;
+      this.resetTransform();
+      await this.loadCurrentPage();
+      this.flashHud(900);
     },
     async stepPage(which) {
       const dir = this.direction === 'rtl' ? -1 : 1;
       const delta = which === 'next' ? dir : -dir;
       const next = this.pageIndex + delta;
-      if (next < 0 || next >= this.pageCount) return false;
+      if (next < 0 || next >= this.pageCount) {
+        if (which === 'next' && this.isFinished) await this.checkNextVolume();
+        return false;
+      }
       this.pageIndex = next;
-      this.resetTransform();
+      if (!this.webtoonMode) this.resetTransform();
       await this.loadCurrentPage();
       this.flashHud(900);
       return true;
@@ -213,7 +456,7 @@ export const useReaderStore = defineStore('reader', {
         );
         if (next === this.pageIndex) return false;
         this.pageIndex = next;
-        this.resetTransform();
+        if (!this.webtoonMode) this.resetTransform();
         await this.loadCurrentPage();
         this.flashHud(900);
         return true;
@@ -222,7 +465,7 @@ export const useReaderStore = defineStore('reader', {
       if (nextIdx < 0 || nextIdx >= this.chapters.length) return false;
       this.chapterIndex = nextIdx;
       this.pageIndex = this.chapters[nextIdx].startIndex;
-      this.resetTransform();
+      if (!this.webtoonMode) this.resetTransform();
       await this.loadCurrentPage();
       this.flashHud(900);
       return true;

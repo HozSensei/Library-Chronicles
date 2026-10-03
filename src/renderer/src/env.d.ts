@@ -15,6 +15,12 @@ interface VdrApi {
     continue: () => Promise<unknown>;
     recent: (limit?: number) => Promise<unknown[]>;
     lastAccessed: (excludeId?: number | null) => Promise<unknown>;
+    series: () => Promise<{ groups: unknown[]; singles: unknown[] }>;
+    nextUnread: (payload: {
+      seriesId: string;
+      afterVolume?: number | null;
+      afterBookId?: number | null;
+    }) => Promise<unknown>;
   };
   import: {
     scan: (importRoot?: string) => Promise<unknown>;
@@ -44,6 +50,34 @@ interface VdrApi {
   progress: {
     save: (payload: unknown) => Promise<unknown>;
     load: (filePath: string) => Promise<unknown>;
+  };
+  profiles: {
+    list: () => Promise<{
+      profiles: Array<{ id: number; name: string; color: string }>;
+      activeProfileId: number | null;
+      colors: string[];
+    }>;
+    create: (payload?: { name?: string; color?: string }) => Promise<unknown>;
+    update: (id: number, patch: Record<string, unknown>) => Promise<unknown>;
+    delete: (id: number) => Promise<{ ok: boolean; error?: string }>;
+    setActive: (id: number) => Promise<{ ok: boolean; profile?: unknown }>;
+    getActive: () => Promise<{ profile: unknown; prefs: Record<string, unknown> }>;
+    getPrefs: (profileId?: number | null) => Promise<Record<string, unknown>>;
+    setPrefs: (
+      patch: Record<string, unknown>,
+      profileId?: number | null,
+    ) => Promise<Record<string, unknown>>;
+  };
+  bookmarks: {
+    list: (bookId: number, profileId?: number) => Promise<unknown[]>;
+    listAll: (profileId?: number) => Promise<unknown[]>;
+    add: (payload: {
+      bookId: number;
+      page: number;
+      label?: string | null;
+    }) => Promise<unknown>;
+    remove: (id: number) => Promise<{ ok: boolean }>;
+    removeAt: (bookId: number, page: number) => Promise<{ ok: boolean }>;
   };
   watch: {
     status: () => Promise<{

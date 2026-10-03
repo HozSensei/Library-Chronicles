@@ -4,21 +4,27 @@ import { useRouter } from 'vue-router';
 import ControlHint from '../components/ControlHint.vue';
 import FocusButton from '../components/FocusButton.vue';
 import { useUiStore } from '../stores/ui';
+import { useProfilesStore } from '../stores/profiles';
 import {
   BINDABLE_ACTIONS,
   labelForBindingKey,
 } from '../../../shared/key-bindings.js';
+import { clearProfileSelected } from '../router';
 
 const router = useRouter();
 const ui = useUiStore();
+const profiles = useProfilesStore();
 
-const section = ref('general'); // general | bindings | api
+const section = ref('general'); // general | profiles | bindings | api
 const context = ref('reader');
 const apiKeyInput = ref('');
 const apiStatus = ref('');
+const newProfileName = ref('');
+const profileMsg = ref('');
 
 const sections = [
   { id: 'general', label: 'Général' },
+  { id: 'profiles', label: 'Profils' },
   { id: 'bindings', label: 'Manette' },
   { id: 'api', label: 'API métadonnées' },
 ];
@@ -34,6 +40,7 @@ function keysForAction(actionId) {
 
 onMounted(async () => {
   await ui.loadConfig();
+  await profiles.refresh();
   const status = await window.vdr.metadata.hasApiKey('comicvine');
   apiStatus.value = status.hasKey ? 'Clé ComicVine enregistrée' : 'Aucune clé';
   ui.setSettingsFocus(0);
@@ -64,6 +71,28 @@ function startRebind(actionId) {
   ui.startListening(context.value, actionId);
 }
 
+async function createProfile() {
+  const name = newProfileName.value.trim() || `Lecteur ${profiles.profiles.length + 1}`;
+  await profiles.create(name);
+  newProfileName.value = '';
+  profileMsg.value = 'Profil créé';
+}
+
+async function activateProfile(id) {
+  await profiles.select(id);
+  profileMsg.value = 'Profil actif mis à jour';
+}
+
+async function removeProfile(id) {
+  const result = await profiles.remove(id);
+  profileMsg.value = result.ok ? 'Profil supprimé' : result.error || 'Échec';
+}
+
+function openProfilePicker() {
+  clearProfileSelected();
+  router.push({ name: 'profiles', query: { manage: '1' } });
+}
+
 const listeningLabel = computed(() => {
   if (!ui.listeningForBind) return null;
   return `Appuie sur une touche pour « ${ui.listeningForBind.actionId} »…`;
@@ -75,7 +104,7 @@ const listeningLabel = computed(() => {
     <header>
       <p class="brand">Vertical Deck Reader</p>
       <h1>Paramètres</h1>
-      <p class="lead">Thème, orientation, remapping manette, clé API.</p>
+      <p class="lead">Thème, profils locaux, remapping manette, clé API.</p>
     </header>
 
     <nav class="tabs" aria-label="Sections">
@@ -116,11 +145,43 @@ const listeningLabel = computed(() => {
         </FocusButton>
       </template>
 
+      <template v-else-if="section === 'profiles'">
+        <p class="hint">
+          Actif :
+          <strong>{{ profiles.activeProfile?.name || '—' }}</strong>
+          — progression / signets / filtres sont locaux à ce profil.
+        </p>
+        <p v-if="profileMsg" class="api-status">{{ profileMsg }}</p>
+        <ul class="profile-list">
+          <li v-for="p in profiles.profiles" :key="p.id">
+            <span class="profile-dot" :style="{ background: p.color }" />
+            <span class="profile-name">{{ p.name }}</span>
+            <button
+              v-if="p.id !== profiles.activeProfileId"
+              type="button"
+              class="ghost"
+              @click="activateProfile(p.id)"
+            >
+              Activer
+            </button>
+            <button type="button" class="ghost" @click="removeProfile(p.id)">Suppr.</button>
+          </li>
+        </ul>
+        <div class="field">
+          <label>Nouveau profil</label>
+          <input v-model="newProfileName" type="text" maxlength="32" placeholder="Nom" />
+        </div>
+        <div class="row">
+          <button type="button" class="btn-primary" @click="createProfile">Créer</button>
+          <button type="button" class="ghost" @click="openProfilePicker">Écran choix</button>
+        </div>
+      </template>
+
       <template v-else-if="section === 'bindings'">
         <p v-if="listeningLabel" class="listen">{{ listeningLabel }}</p>
         <div class="ctx">
           <button
-            v-for="c in ['reader', 'library', 'boot', 'import', 'settings']"
+            v-for="c in ['reader', 'library', 'boot', 'profiles', 'import', 'settings']"
             :key="c"
             type="button"
             class="chip"
@@ -338,6 +399,66 @@ h1 {
   color: var(--paper-dim);
   font-size: 0.85rem;
   line-height: 1.4;
+}
+
+.profile-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.profile-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.profile-dot {
+  width: 0.9rem;
+  height: 0.9rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.profile-name {
+  flex: 1;
+  font-weight: 600;
+}
+
+.field {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.field label {
+  font-size: 0.85rem;
+  color: var(--paper-dim);
+}
+
+.field input {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--paper);
+  padding: 0.65rem 0.75rem;
+  font: inherit;
+  border-radius: var(--radius-sm);
+}
+
+.btn-primary {
+  appearance: none;
+  border: 1px solid var(--brass);
+  background: color-mix(in srgb, var(--brass) 22%, transparent);
+  color: var(--paper);
+  padding: 0.55rem 0.9rem;
+  font: inherit;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
 }
 
 footer {

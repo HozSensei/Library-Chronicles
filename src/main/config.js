@@ -24,6 +24,10 @@ const DEFAULTS = {
   apiKeys: {},
   /** Provider métadonnées actif. */
   metadataProvider: 'stub',
+  /** Profil local actif (progression / signets / prefs). */
+  activeProfileId: null,
+  /** Choix profil effectué pour cette session (gate UI). */
+  profileSelected: false,
 };
 
 let cache = null;
