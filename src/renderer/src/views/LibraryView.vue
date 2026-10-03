@@ -751,14 +751,22 @@ function scrollRail(refEl, dir) {
   position: relative;
   width: 64px;
   height: 40px;
+  max-width: 64px;
+  max-height: 40px;
+  flex-shrink: 0;
   border-radius: 8px;
   overflow: hidden;
   background: var(--ink-800);
 }
 
+.watching__thumb :deep(.lazy-cover),
 .watching__thumb :deep(img) {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
+  max-width: 100%;
+  max-height: 100%;
   object-fit: cover;
 }
 
@@ -876,7 +884,12 @@ function scrollRail(refEl, dir) {
 }
 
 .poster {
+  /* Largeur fixe : min-width:auto + titre nowrap gonflait une carte (titre long). */
   flex: 0 0 140px;
+  width: 140px;
+  max-width: 140px;
+  min-width: 0;
+  box-sizing: border-box;
   appearance: none;
   border: none;
   background: transparent;
@@ -890,7 +903,10 @@ function scrollRail(refEl, dir) {
 
 .poster__art {
   position: relative;
+  width: 100%;
+  max-width: 100%;
   aspect-ratio: 2 / 3;
+  height: auto;
   border-radius: 14px;
   overflow: hidden;
   background: var(--ink-800);
@@ -898,9 +914,14 @@ function scrollRail(refEl, dir) {
   transition: transform 160ms var(--ease-soft), box-shadow 160ms var(--ease-soft);
 }
 
+.poster__art :deep(.lazy-cover),
 .poster__art :deep(img) {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
+  max-width: 100%;
+  max-height: 100%;
   object-fit: cover;
 }
 
@@ -913,6 +934,8 @@ function scrollRail(refEl, dir) {
 .poster__title {
   display: block;
   margin-top: 0.55rem;
+  width: 100%;
+  max-width: 100%;
   font-size: 0.88rem;
   font-weight: 600;
   overflow: hidden;
@@ -984,15 +1007,23 @@ function scrollRail(refEl, dir) {
   position: relative;
   width: 48px;
   height: 72px;
+  max-width: 48px;
+  max-height: 72px;
+  aspect-ratio: 2 / 3;
   border-radius: 8px;
   overflow: hidden;
   background: var(--ink-800);
   flex-shrink: 0;
 }
 
+.series-row__cover :deep(.lazy-cover),
 .series-row__cover :deep(img) {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
+  max-width: 100%;
+  max-height: 100%;
   object-fit: cover;
 }
 

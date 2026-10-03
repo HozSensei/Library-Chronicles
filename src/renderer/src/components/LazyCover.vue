@@ -76,17 +76,27 @@ watch(
 .lazy-cover {
   position: absolute;
   inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  overflow: hidden;
   background: var(--ink-800);
 }
 
 .lazy-cover__img {
+  display: block;
   width: 100%;
   height: 100%;
+  max-width: 100%;
+  max-height: 100%;
   object-fit: cover;
+  object-position: center;
   animation: cover-in 280ms var(--ease-out);
 }
 
 .lazy-cover__placeholder {
+  width: 100%;
   height: 100%;
   display: grid;
   place-items: center;
@@ -97,6 +107,7 @@ watch(
 }
 
 .lazy-cover__skeleton {
+  width: 100%;
   height: 100%;
   background: linear-gradient(
     110deg,
