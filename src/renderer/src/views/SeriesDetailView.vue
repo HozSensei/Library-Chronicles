@@ -3,7 +3,6 @@ import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import ControlHint from '../components/ControlHint.vue';
 import LazyCover from '../components/LazyCover.vue';
-import AppBrandLogo from '../components/AppBrandLogo.vue';
 import { useLibraryStore } from '../stores/library';
 import { useUiStore } from '../stores/ui';
 import {
@@ -177,7 +176,7 @@ function backFocused() {
 
     <header class="series-detail__head">
       <div class="series-detail__head-main">
-        <AppBrandLogo size="sm" class="series-detail__brand" />
+        <p class="series-detail__brand">Library Chronicles</p>
         <p class="series-detail__status">
           {{ loading ? 'Chargement…' : group ? `Série · ${progressLabel}` : 'Introuvable' }}
         </p>
@@ -348,6 +347,11 @@ function backFocused() {
 
 .series-detail__brand {
   margin: 0;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.05rem;
+  letter-spacing: -0.02em;
+  color: var(--brass);
 }
 
 .series-detail__status {

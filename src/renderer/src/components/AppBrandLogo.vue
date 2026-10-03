@@ -2,11 +2,11 @@
 import logoUrl from '../assets/library-chronicles-logo.png';
 
 defineProps({
-  /** Compact header / chrome vs. hero boot mark */
+  /** Compact chrome · header à cheval · hero profil/boot */
   size: {
     type: String,
     default: 'md',
-    validator: (v) => ['sm', 'md', 'lg', 'hero'].includes(v),
+    validator: (v) => ['sm', 'md', 'lg', 'straddle', 'hero'].includes(v),
   },
 });
 </script>
@@ -35,8 +35,8 @@ defineProps({
 }
 
 .app-brand-logo--sm {
-  height: 1.45rem;
-  max-width: 10rem;
+  height: 1.35rem;
+  max-width: 9.5rem;
 }
 
 .app-brand-logo--md {
@@ -49,8 +49,19 @@ defineProps({
   max-width: min(100%, 18rem);
 }
 
+/* Wordmark sticker — déborde sous le bandeau bibliothèque */
+.app-brand-logo--straddle {
+  height: clamp(2.85rem, 5.8vw, 3.75rem);
+  max-width: min(42vw, 15rem);
+  object-position: left top;
+  filter: drop-shadow(0 3px 8px rgba(0, 0, 0, 0.42));
+}
+
 .app-brand-logo--hero {
-  height: clamp(3.4rem, 11vw, 4.8rem);
-  max-width: min(100%, 22rem);
+  height: clamp(4.2rem, 14vw, 6.4rem);
+  max-width: min(92vw, 28rem);
+  object-position: center center;
+  margin-inline: auto;
+  filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.35));
 }
 </style>
