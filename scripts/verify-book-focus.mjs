@@ -1,5 +1,5 @@
 /**
- * Focus fiche livre — blocs scrollables + CTA footer (style Import).
+ * Focus fiche livre — champs méta readonly + CTA footer (style Import detail).
  */
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -22,20 +22,27 @@ function assert(cond, msg) {
   }
 }
 
-assert(BOOK_FOCUS.IDENTITY === 0, 'IDENTITY = 0');
-assert(BOOK_FOCUS.META === 1, 'META = 1');
-assert(BOOK_FOCUS.SYNOPSIS === 2, 'SYNOPSIS = 2');
-assert(BOOK_FOCUS.READ === 3, 'READ = 3');
-assert(BOOK_FOCUS.BACK === 4, 'BACK = 4');
-assert(BOOK_FOCUS.OPTIONS === 5, 'OPTIONS = 5');
-assert(BOOK_FOCUS.MAX === 5, 'MAX = 5');
+assert(BOOK_FOCUS.TITLE === 0, 'TITLE = 0');
+assert(BOOK_FOCUS.SERIES === 1, 'SERIES = 1');
+assert(BOOK_FOCUS.VOLUME === 2, 'VOLUME = 2');
+assert(BOOK_FOCUS.YEAR === 3, 'YEAR = 3');
+assert(BOOK_FOCUS.AUTHOR === 4, 'AUTHOR = 4');
+assert(BOOK_FOCUS.STATUS === 5, 'STATUS = 5');
+assert(BOOK_FOCUS.PAGES === 6, 'PAGES = 6');
+assert(BOOK_FOCUS.PROVIDER === 7, 'PROVIDER = 7');
+assert(BOOK_FOCUS.SYNOPSIS === 8, 'SYNOPSIS = 8');
+assert(BOOK_FOCUS.READ === 9, 'READ = 9');
+assert(BOOK_FOCUS.BACK === 10, 'BACK = 10');
+assert(BOOK_FOCUS.OPTIONS === 11, 'OPTIONS = 11');
+assert(BOOK_FOCUS.MAX === 11, 'MAX = 11');
 
 assert(clampBookFocus(-1) === 0, 'clamp bas');
-assert(clampBookFocus(99) === 5, 'clamp haut');
+assert(clampBookFocus(99) === 11, 'clamp haut');
 assert(clampBookFocus(2.9) === 2, 'clamp trunc');
 assert(clampBookFocus(NaN) === BOOK_FOCUS.READ, 'clamp NaN → READ');
 
 assert(!isBookActionFocus(BOOK_FOCUS.SYNOPSIS), 'synopsis = contenu');
+assert(!isBookActionFocus(BOOK_FOCUS.TITLE), 'titre = contenu');
 assert(isBookActionFocus(BOOK_FOCUS.READ), 'lire = action');
 
 const view = readFileSync(
@@ -44,8 +51,12 @@ const view = readFileSync(
 );
 assert(view.includes('shell-scroll'), 'BookDetail shell-scroll au bord');
 assert(view.includes('book-detail__foot'), 'footer fixe fiche');
-assert(view.includes('book-detail__row--synopsis'), 'row synopsis focusable');
-assert(view.includes('book-detail__row--meta'), 'row méta focusable');
+assert(view.includes('book-detail__fields'), 'panneau champs méta');
+assert(view.includes('book-detail__field'), 'champs focusables');
+assert(view.includes('book-detail__cover'), 'couverture');
+assert(view.includes('readonly'), 'champs readonly (focusables)');
+assert(view.includes('book-detail__textarea'), 'synopsis textarea');
+assert(!view.includes('book-detail__row'), 'pas de rows style liste import');
 assert(view.includes('scheduleScrollFocusedIntoView'), 'scroll focus manette');
 
 const pad = readFileSync(
@@ -55,6 +66,7 @@ const pad = readFileSync(
 assert(pad.includes('clampBookFocus'), 'useGamepad clamp book focus');
 assert(pad.includes("route === 'book'"), 'handler route book');
 assert(pad.includes('book-detail__action'), 'confirm cible actions fiche');
+assert(pad.includes('book-detail__field'), 'confirm sur champ méta');
 // Ne pas casser le chemin reader (scope tick)
 const tickBody = pad.slice(pad.indexOf('function tick()'));
 assert(
