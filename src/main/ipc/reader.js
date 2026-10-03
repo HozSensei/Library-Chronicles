@@ -3,8 +3,36 @@ import { IpcChannels } from '../../shared/ipc-channels.js';
 import { openBook } from '../extractors/index.js';
 import { setConfig } from '../config.js';
 import { getBookByPath } from '../database/books.js';
+import { createLruMap } from '../../shared/perf-cache.js';
 
 let session = null;
+/** Cache IPC base64 pages courantes ±N (évite re-encode à chaque getPage). */
+let pagePayloadCache = createLruMap(10);
+/** @type {Map<number, Promise<object>>} */
+let pageInflight = new Map();
+
+function clearPageCaches() {
+  pagePayloadCache = createLruMap(10);
+  pageInflight = new Map();
+}
+
+function encodePagePayload(index, page) {
+  if (Buffer.isBuffer(page)) {
+    return {
+      index,
+      mime: 'image/jpeg',
+      data: page.toString('base64'),
+    };
+  }
+  return {
+    index,
+    mime: page.mime || 'image/jpeg',
+    data: page.buffer ? page.buffer.toString('base64') : null,
+    name: page.name || null,
+    engine: page.engine || null,
+    placeholder: Boolean(page.placeholder),
+  };
+}
 
 export function registerReaderIpc() {
   ipcMain.handle(IpcChannels.READER_OPEN, async (_e, filePath) => {
@@ -12,6 +40,7 @@ export function registerReaderIpc() {
       await session.close().catch(() => {});
       session = null;
     }
+    clearPageCaches();
 
     const book = await openBook(filePath);
     session = book;
@@ -26,6 +55,9 @@ export function registerReaderIpc() {
       filePath,
       chapters: book.chapters || [],
       bookId: dbBook?.id ?? null,
+      series: dbBook?.series ?? null,
+      seriesId: dbBook?.seriesId ?? null,
+      volume: dbBook?.volume ?? null,
       resumePage: dbBook?.pageCurrent ?? 0,
       direction: undefined,
       renderEngine: book.renderEngine || null,
@@ -34,23 +66,21 @@ export function registerReaderIpc() {
 
   ipcMain.handle(IpcChannels.READER_GET_PAGE, async (_e, index) => {
     if (!session) throw new Error('Aucun livre ouvert');
-    const page = await session.getPage(index);
-    // Compat : getPage peut renvoyer Buffer (legacy) ou { buffer, mime }
-    if (Buffer.isBuffer(page)) {
-      return {
-        index,
-        mime: 'image/jpeg',
-        data: page.toString('base64'),
-      };
-    }
-    return {
-      index,
-      mime: page.mime || 'image/jpeg',
-      data: page.buffer ? page.buffer.toString('base64') : null,
-      name: page.name || null,
-      engine: page.engine || null,
-      placeholder: Boolean(page.placeholder),
-    };
+    const idx = Number(index);
+    const cached = pagePayloadCache.get(idx);
+    if (cached) return cached;
+    if (pageInflight.has(idx)) return pageInflight.get(idx);
+
+    const promise = (async () => {
+      const page = await session.getPage(idx);
+      const payload = encodePagePayload(idx, page);
+      pagePayloadCache.set(idx, payload);
+      return payload;
+    })().finally(() => {
+      pageInflight.delete(idx);
+    });
+    pageInflight.set(idx, promise);
+    return promise;
   });
 
   ipcMain.handle(IpcChannels.READER_GET_CHAPTERS, async () => {
@@ -63,6 +93,7 @@ export function registerReaderIpc() {
       await session.close().catch(() => {});
     }
     session = null;
+    clearPageCaches();
     return { ok: true };
   });
 }

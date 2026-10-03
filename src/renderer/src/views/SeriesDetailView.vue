@@ -97,7 +97,7 @@ function syncFocus() {
 
 async function load() {
   loading.value = true;
-  await library.refresh();
+  await library.refresh({ warmCovers: false });
   syncFocus();
   if (coverBookId.value != null) await library.ensureCover(coverBookId.value);
   for (const v of volumes.value.slice(0, 12)) {

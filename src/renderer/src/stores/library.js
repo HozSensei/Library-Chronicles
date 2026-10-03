@@ -1,11 +1,14 @@
 import { defineStore } from 'pinia';
 import {
   findSeriesGroup,
+  groupBooksBySeries,
   listRecentSeries,
 } from '../../../shared/series.js';
 
 const RECENT_LIMIT = 14;
 const CONTINUE_LIMIT = 18;
+/** TTL soft-refresh : évite listBooks ×N à chaque navigation fiche/grille. */
+const REFRESH_TTL_MS = 12_000;
 
 function sortByTitle(a, b) {
   return String(a.title || '').localeCompare(String(b.title || ''), 'fr', {
@@ -62,6 +65,12 @@ export const useLibraryStore = defineStore('library', {
     filterIndex: 0,
     columns: 6,
     profileName: '',
+    /** Epoch ms du dernier refresh réussi. */
+    _refreshedAt: 0,
+    /** @type {Promise<void>|null} */
+    _refreshPromise: null,
+    /** @type {string|number|null} profil pour lequel `books` est valide */
+    _booksProfileId: null,
   }),
   getters: {
     filtered(s) {
@@ -77,10 +86,6 @@ export const useLibraryStore = defineStore('library', {
      */
     recentSeries(s) {
       return listRecentSeries(s.books, RECENT_LIMIT);
-    },
-    /** @deprecated alias couverture — préférer recentSeries */
-    recentBooks() {
-      return this.recentSeries.map((e) => e.lastBook).filter(Boolean);
     },
     readingBooks(s) {
       return s.books
@@ -179,85 +184,151 @@ export const useLibraryStore = defineStore('library', {
       else if (w <= 960) this.columns = 4;
       else this.columns = 6;
     },
-    async refresh() {
+    /**
+     * Invalide le cache liste (après scan / import / changement profil / progression).
+     */
+    invalidate() {
+      this._refreshedAt = 0;
+      this._booksProfileId = null;
+    },
+    /**
+     * @param {{ force?: boolean, warmCovers?: boolean }} [opts]
+     * force=true ignore le TTL ; warmCovers=false saute le prefetch couvertures.
+     */
+    async refresh(opts = {}) {
+      const force = Boolean(opts.force);
+      const warmCovers = opts.warmCovers !== false;
+      const now = Date.now();
+      if (
+        !force &&
+        this._refreshedAt > 0 &&
+        now - this._refreshedAt < REFRESH_TTL_MS &&
+        Array.isArray(this.books)
+      ) {
+        this.syncColumns();
+        return;
+      }
+      if (this._refreshPromise) {
+        await this._refreshPromise;
+        if (
+          !force &&
+          this._refreshedAt > 0 &&
+          Date.now() - this._refreshedAt < REFRESH_TTL_MS
+        ) {
+          return;
+        }
+      }
+
+      this.loading = true;
+      this._refreshPromise = (async () => {
+        try {
+          const config = await window.vdr.getConfig();
+          this.root = config.libraryRoot;
+          this.importRoot = config.importRoot;
+          this.syncColumns();
+          let profileId = null;
+          try {
+            const active = await window.vdr.profiles.getActive();
+            this.profileName = active?.profile?.name || '';
+            profileId = active?.profile?.id ?? null;
+          } catch {
+            this.profileName = '';
+          }
+          // Un seul listBooks IPC — séries / continue / lastAccess dérivés localement
+          this.books = (await window.vdr.library.list()) || [];
+          this._booksProfileId = profileId;
+          try {
+            const series = groupBooksBySeries(this.books);
+            this.seriesGroups = series?.groups || [];
+            this.seriesSingles = series?.singles || [];
+          } catch {
+            this.seriesGroups = [];
+            this.seriesSingles = [];
+          }
+          this.continueBook =
+            this.books.find((b) => b.status === 'reading' && b.lastAccess) || null;
+          const excludeId = this.continueBook?.id ?? null;
+          this.lastAccessedBook =
+            this.books
+              .filter((b) => b.lastAccess && b.id !== excludeId)
+              .sort((a, b) =>
+                String(b.lastAccess).localeCompare(String(a.lastAccess)),
+              )[0] || null;
+          if (this.catalogTab === 'all' || this.focusZone === 'grid') {
+            this.cursor = Math.min(this.cursor, Math.max(0, this.filtered.length - 1));
+          } else {
+            this.cursor = Math.min(
+              this.cursor,
+              Math.max(0, this.trendingBooks.length - 1),
+            );
+          }
+          this.recentCursor = Math.min(
+            this.recentCursor,
+            Math.max(0, this.recentSeries.length - 1),
+          );
+          this.seriesCursor = Math.min(
+            this.seriesCursor,
+            Math.max(0, this.seriesList.length - 1),
+          );
+          this.readingCursor = Math.min(
+            this.readingCursor,
+            Math.max(0, this.readingBooks.length - 1),
+          );
+          this.navIndex = Math.min(
+            this.navIndex,
+            Math.max(0, this.headerNav.length - 1),
+          );
+          if (this.focusZone === 'nav' || this.focusZone === 'filters') {
+            /* keep */
+          } else if (!this.books.length) {
+            this.focusZone = this.catalogTab === 'board' ? 'continue' : 'filters';
+          } else if (
+            this.focusZone === 'continue' &&
+            !this.readingBooks.length &&
+            this.catalogTab === 'board'
+          ) {
+            this.focusZone = 'filters';
+          }
+          this._refreshedAt = Date.now();
+          if (warmCovers) {
+            const warm = [
+              ...this.readingBooks.slice(0, 12).map((b) => b.id),
+              ...this.trendingBooks.slice(0, 10).map((b) => b.id),
+              ...(this.catalogTab === 'all'
+                ? this.filtered.slice(0, 24).map((b) => b.id)
+                : []),
+            ];
+            await Promise.all([...new Set(warm)].map((id) => this.ensureCover(id)));
+          }
+        } finally {
+          this.loading = false;
+          this._refreshPromise = null;
+        }
+      })();
+      await this._refreshPromise;
+    },
+    /**
+     * @param {{ force?: boolean }} [opts]
+     * force=true (UI Scanner) ré-ouvre tous les archives ; sinon incrémental.
+     */
+    async scan(opts = {}) {
+      const force = opts.force !== false;
       this.loading = true;
       try {
-        const config = await window.vdr.getConfig();
-        this.root = config.libraryRoot;
-        this.importRoot = config.importRoot;
-        this.syncColumns();
-        try {
-          const active = await window.vdr.profiles.getActive();
-          this.profileName = active?.profile?.name || '';
-        } catch {
-          this.profileName = '';
-        }
-        this.books = (await window.vdr.library.list()) || [];
-        try {
-          const series = await window.vdr.library.series();
-          this.seriesGroups = series?.groups || [];
-          this.seriesSingles = series?.singles || [];
-        } catch {
-          this.seriesGroups = [];
-          this.seriesSingles = [];
-        }
-        this.continueBook = (await window.vdr.library.continue()) || null;
-        const excludeId = this.continueBook?.id ?? null;
-        this.lastAccessedBook =
-          (await window.vdr.library.lastAccessed?.(excludeId)) ||
-          this.books
-            .filter((b) => b.lastAccess && b.id !== excludeId)
-            .sort((a, b) => String(b.lastAccess).localeCompare(String(a.lastAccess)))[0] ||
-          null;
-        if (this.catalogTab === 'all' || this.focusZone === 'grid') {
-          this.cursor = Math.min(this.cursor, Math.max(0, this.filtered.length - 1));
-        } else {
-          this.cursor = Math.min(this.cursor, Math.max(0, this.trendingBooks.length - 1));
-        }
-        this.recentCursor = Math.min(
-          this.recentCursor,
-          Math.max(0, this.recentSeries.length - 1),
-        );
-        this.seriesCursor = Math.min(
-          this.seriesCursor,
-          Math.max(0, this.seriesList.length - 1),
-        );
-        this.readingCursor = Math.min(
-          this.readingCursor,
-          Math.max(0, this.readingBooks.length - 1),
-        );
-        this.navIndex = Math.min(
-          this.navIndex,
-          Math.max(0, this.headerNav.length - 1),
-        );
-        if (this.focusZone === 'nav' || this.focusZone === 'filters') {
-          /* keep */
-        } else if (!this.books.length) {
-          this.focusZone = this.catalogTab === 'board' ? 'continue' : 'filters';
-        } else if (
-          this.focusZone === 'continue' &&
-          !this.readingBooks.length &&
-          this.catalogTab === 'board'
-        ) {
-          this.focusZone = 'filters';
-        }
-        const warm = [
-          ...this.readingBooks.slice(0, 12).map((b) => b.id),
-          ...this.trendingBooks.slice(0, 10).map((b) => b.id),
-          ...(this.catalogTab === 'all'
-            ? this.filtered.slice(0, 24).map((b) => b.id)
-            : []),
-        ];
-        await Promise.all([...new Set(warm)].map((id) => this.ensureCover(id)));
+        await window.vdr.library.scan({ force });
+        this.invalidate();
+        await this.refresh({ force: true });
       } finally {
         this.loading = false;
       }
     },
-    async scan() {
+    /** Watcher FS : index incrémental puis soft refresh. */
+    async syncFromWatch() {
       this.loading = true;
       try {
-        await window.vdr.library.scan();
-        await this.refresh();
+        await window.vdr.library.scan({ force: false });
+        this.invalidate();
+        await this.refresh({ force: true, warmCovers: true });
       } finally {
         this.loading = false;
       }

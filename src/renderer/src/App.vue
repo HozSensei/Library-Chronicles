@@ -79,15 +79,17 @@ onMounted(async () => {
     unsubs.push(
       window.vdr.watch.onLibraryChanged(async () => {
         try {
+          // Incrémental : n’ouvre pas les archives déjà indexées (évite rescans lourds).
           if (
             ui.routeName === 'library' ||
             ui.routeName === 'boot' ||
             ui.routeName === 'book' ||
             ui.routeName === 'series'
           ) {
-            await library.scan();
+            await library.syncFromWatch();
           } else {
-            await window.vdr.library.scan();
+            await window.vdr.library.scan({ force: false });
+            library.invalidate();
           }
         } catch (err) {
           console.warn('[VDR] watch library:', err);

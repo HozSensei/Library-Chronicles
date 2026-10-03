@@ -134,6 +134,17 @@ Voir [`docs/UX.md`](./docs/UX.md), [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.
 - [x] Setup + Paramètres + CLI `--landscape` / `--portrait` + raccourci `Ctrl+Shift+L`
 - [x] Docs [`docs/CONTROLS.md`](./docs/CONTROLS.md)
 
+
+
+### Phase 7 — Audit perf & cleanup *(fait)*
+
+- [x] Scan library incrémental (watcher) vs force (Scanner)
+- [x] Store library : TTL refresh, dedupe in-flight, dérivation séries/continue locale
+- [x] Reader : plus de `listBooks` à l’open ; prefetch pages ±N ; cache IPC/extracteur ; revoke ObjectURL
+- [x] Covers : cache mémoire data-URL (disque déjà en place)
+- [x] Metadata search : TTL + dedupe ; import providers mis en cache
+- [x] Doc [`docs/PERF.md`](./docs/PERF.md)
+
 ### Merge
 
 - **PR #1** mergée dans `main` — squelette produit + PDF + watcher initial + packaging.

@@ -2,6 +2,7 @@ import path from 'path';
 import fs from 'fs';
 import { createExtractorFromData } from 'node-unrar-js';
 import { naturalCompare, detectChapters } from './cbz.js';
+import { createLruMap } from '../../shared/perf-cache.js';
 
 function mimeFromName(name) {
   const ext = path.extname(name).toLowerCase();
@@ -38,10 +39,12 @@ export async function openCbr(filePath, { isImageEntry }) {
 
   const title = path.basename(filePath, path.extname(filePath));
   const chapters = detectChapters(pageNames);
-  const extracted = new Map();
+  /** Extraction RAR bornée (évite de garder tout le tome en RAM). */
+  const extracted = createLruMap(12);
 
   function ensureExtracted(name) {
-    if (extracted.has(name)) return extracted.get(name);
+    const hit = extracted.get(name);
+    if (hit) return hit;
     const { files } = extractor.extract({ files: [name] });
     const file = [...files].find((f) => f.fileHeader.name === name);
     if (!file || !file.extraction) {
