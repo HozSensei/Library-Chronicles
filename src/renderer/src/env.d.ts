@@ -7,6 +7,7 @@ interface VdrApi {
   pickDirectory: (opts?: { title?: string }) => Promise<string | null>;
   setSessionMode: (
     mode: 'ui' | 'reader',
+    opts?: { force?: boolean },
   ) => Promise<{ mode: string; orientation: string }>;
   onOrientationChanged: (
     handler: (payload: { orientation: string }) => void,

@@ -35,7 +35,6 @@ const hints = [
 ];
 
 onMounted(async () => {
-  await ui.exitReaderMode();
   await library.refresh();
   const id = route.params.id;
   book.value = library.books.find((b) => String(b.id) === String(id)) || null;

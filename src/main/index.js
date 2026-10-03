@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, screen } from 'electron';
 import { join } from 'path';
 import fs from 'fs';
 import { IpcChannels } from '../shared/ipc-channels.js';
@@ -18,23 +18,48 @@ import {
   getWatcherStatus,
 } from './library/watcher.js';
 import { destroyPdfElectronHost } from './extractors/pdf-electron-canvas.js';
-import { applyWindowOrientation, boundsForOrientation } from './window-bounds.js';
+import {
+  applyWindowOrientation,
+  boundsForOrientation,
+  clampSizeToWorkArea,
+  centerInWorkArea,
+} from './window-bounds.js';
 
 let mainWindow = null;
+
+function primaryWorkArea() {
+  try {
+    return screen.getPrimaryDisplay().workArea;
+  } catch {
+    return { x: 0, y: 0, width: 1920, height: 1080 };
+  }
+}
 
 function createWindow() {
   const config = getConfig();
   const theme = config.theme || 'dark';
-  const bounds = boundsForOrientation(config.orientation);
+  // Boot menus = 1080p landscape, clamper à l’écran, centré, pas de fullscreen.
+  const orientation =
+    config.orientation === 'portrait-ccw' && process.argv.includes('--portrait')
+      ? 'portrait-ccw'
+      : 'landscape';
+  const workArea = primaryWorkArea();
+  const desired = boundsForOrientation(orientation);
+  const bounds = clampSizeToWorkArea(desired, workArea);
+  const pos = centerInWorkArea(bounds, workArea);
+
   mainWindow = new BrowserWindow({
     width: bounds.width,
     height: bounds.height,
+    x: pos.x,
+    y: pos.y,
     minWidth: bounds.minWidth,
     minHeight: bounds.minHeight,
     title: 'Vertical Deck Reader',
     backgroundColor: theme === 'light' ? '#eef3f8' : '#0e1419',
     autoHideMenuBar: true,
     show: false,
+    fullscreen: false,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
@@ -44,7 +69,9 @@ function createWindow() {
   });
 
   mainWindow.once('ready-to-show', () => {
-    mainWindow?.show();
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    if (mainWindow.isFullScreen()) mainWindow.setFullScreen(false);
+    mainWindow.show();
   });
 
   if (process.env.ELECTRON_RENDERER_URL) {
@@ -74,23 +101,29 @@ function notifyOrientation(orientation) {
 /**
  * Mode session UI (landscape) vs lecture (portrait).
  * Menus = toujours landscape ; portrait uniquement en reader.
- * Au boot on force landscape — on ne persiste portrait que pendant la lecture
- * pour éviter un redémarrage menus encore en portrait-ccw.
+ * Resize / setBounds UNIQUEMENT si l’orientation change — jamais à chaque
+ * navigation de menu (sinon la fenêtre « saute »).
  */
-function applySessionMode(mode) {
+function applySessionMode(mode, { force = false } = {}) {
   const isReader = mode === 'reader';
   const orientation = isReader ? 'portrait-ccw' : 'landscape';
   const prev = getConfig();
-  // Hors lecteur : persister landscape même si déjà landscape (répare stale portrait)
-  const next =
-    prev.orientation === orientation && isReader
-      ? prev
-      : setConfig({ orientation });
-  applyWindowOrientation(mainWindow, orientation);
-  notifyOrientation(orientation);
+  const changed = prev.orientation !== orientation;
+
+  if (changed) {
+    setConfig({ orientation });
+  }
+
+  // Resize uniquement si l’orientation change (entrée/sortie lecteur) ou force boot.
+  // Jamais de setBounds sur un appel ui→ui (navigation menus).
+  if (changed || force) {
+    applyWindowOrientation(mainWindow, orientation, primaryWorkArea());
+    notifyOrientation(orientation);
+  }
+
   return {
     mode: isReader ? 'reader' : 'ui',
-    orientation: next.orientation || orientation,
+    orientation,
   };
 }
 
@@ -106,13 +139,13 @@ function registerAppIpc() {
       patch.orientation !== undefined &&
       patch.orientation !== prev.orientation
     ) {
-      applyWindowOrientation(mainWindow, next.orientation);
+      applyWindowOrientation(mainWindow, next.orientation, primaryWorkArea());
       notifyOrientation(next.orientation);
     }
     return next;
   });
-  ipcMain.handle(IpcChannels.APP_SET_SESSION_MODE, (_e, { mode } = {}) =>
-    applySessionMode(mode),
+  ipcMain.handle(IpcChannels.APP_SET_SESSION_MODE, (_e, { mode, force } = {}) =>
+    applySessionMode(mode, { force: Boolean(force) }),
   );
   ipcMain.handle(IpcChannels.APP_GET_DEFAULT_PATHS, () => getDefaultPaths());
   ipcMain.handle(IpcChannels.APP_PICK_DIRECTORY, async (_e, { title } = {}) => {

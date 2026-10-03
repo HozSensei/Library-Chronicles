@@ -33,15 +33,15 @@ onMounted(async () => {
   ui.refreshGamepadHint();
   try {
     const config = await ui.loadConfig();
-    // Menus toujours landscape au boot (ignore portrait résiduel config)
+    // Boot menus : sync orientation store (resize déjà fait à createWindow ;
+    // setSessionMode ui sans force = no-op si déjà landscape → pas de saut).
     if (ui.routeName !== 'reader') {
-      await ui.exitReaderMode();
+      await ui.setSessionMode('ui');
       ui.applyOrientation('landscape');
     }
     library.syncColumns('landscape');
     refreshOrientation();
     if (config.setupCompleted) markSetupCompleted();
-    // Prefer setup flag du profil actif
     try {
       const active = await window.vdr.profiles.getActive();
       if (active?.prefs?.setupCompleted) markSetupCompleted();
@@ -108,19 +108,22 @@ router.afterEach((to) => {
   ui.setRouteName(to.name);
 });
 
+/**
+ * Resize portrait/landscape UNIQUEMENT entrée/sortie lecteur.
+ * Pas de setSessionMode sur les autres changements de route.
+ */
 watch(
   () => ui.routeName,
   async (name, prev) => {
     if (name === 'reader' && prev !== 'reader') {
       await ui.enterReaderMode();
       refreshOrientation();
-    } else if (name !== 'reader' && (prev === 'reader' || ui.orientation === 'portrait-ccw')) {
-      // Quit lecture OU correction si menus encore en portrait
+    } else if (prev === 'reader' && name !== 'reader') {
       await ui.exitReaderMode();
       ui.applyOrientation('landscape');
       refreshOrientation();
       library.syncColumns('landscape');
-    } else if (name !== 'reader') {
+    } else {
       refreshOrientation();
     }
   },

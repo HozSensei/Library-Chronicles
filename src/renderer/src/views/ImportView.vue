@@ -31,7 +31,6 @@ const enrichSubtitle = computed(() => {
 });
 
 onMounted(async () => {
-  await ui.exitReaderMode();
   await imp.loadProviders();
   await imp.scan();
   ui.setImportFocus(0);

@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import ControlHint from '../components/ControlHint.vue';
 import { useProfilesStore } from '../stores/profiles';
@@ -16,7 +16,13 @@ const ui = useUiStore();
 
 const newName = ref('');
 const creating = ref(false);
-const showCreate = ref(false);
+/** pick = ronds · naming = saisie pseudo (création ou édition) */
+const phase = ref('pick');
+/** null = création · id = renommage */
+const editingId = ref(null);
+const nameInput = ref(null);
+/** Focus dans le formulaire : 0 = input, 1 = valider */
+const formFocus = ref(0);
 
 /** Focus : 0..n-1 = profils, n = bouton + */
 const totalSlots = computed(() => profiles.profiles.length + 1);
@@ -24,23 +30,56 @@ const focused = computed(() =>
   Math.min(profiles.focusIndex, Math.max(0, totalSlots.value - 1)),
 );
 const isAddFocused = computed(() => focused.value === profiles.profiles.length);
+const isNaming = computed(() => phase.value === 'naming');
+const formTitle = computed(() =>
+  editingId.value != null ? 'Renommer le profil' : 'Nouveau profil',
+);
+const submitLabel = computed(() =>
+  editingId.value != null ? 'Enregistrer' : 'Créer',
+);
 
-const hints = [
-  { key: '←→', label: 'naviguer' },
-  { key: 'A', label: 'choisir / créer' },
-];
+const hints = computed(() => {
+  if (isNaming.value) {
+    return [
+      { key: '←→', label: 'champ / valider' },
+      { key: 'A', label: 'valider' },
+      { key: 'B', label: 'annuler' },
+    ];
+  }
+  return [
+    { key: '←→', label: 'naviguer' },
+    { key: 'A', label: 'choisir' },
+    { key: 'Y', label: 'renommer' },
+    { key: '+', label: 'créer' },
+  ];
+});
+
+watch(isNaming, async (on) => {
+  if (!on) return;
+  formFocus.value = 0;
+  await nextTick();
+  nameInput.value?.focus?.();
+  nameInput.value?.select?.();
+});
+
+function onRenameEvent() {
+  renameFocused();
+}
 
 onMounted(async () => {
-  await ui.exitReaderMode();
+  window.addEventListener('vdr-profile-rename', onRenameEvent);
   await profiles.refresh();
   const idx = profiles.profiles.findIndex((p) => p.id === profiles.activeProfileId);
   profiles.setFocus(idx >= 0 ? idx : 0);
   ui.setRouteName('profiles');
-  // Si aucun profil, focus sur +
   if (!profiles.profiles.length) {
     profiles.setFocus(0);
-    showCreate.value = true;
+    openCreate();
   }
+});
+
+onUnmounted(() => {
+  window.removeEventListener('vdr-profile-rename', onRenameEvent);
 });
 
 async function afterSelect() {
@@ -54,10 +93,37 @@ async function afterSelect() {
   }
 }
 
+function openCreate() {
+  editingId.value = null;
+  newName.value = '';
+  phase.value = 'naming';
+  formFocus.value = 0;
+  profiles.setFocus(profiles.profiles.length);
+}
+
+function openRename(index) {
+  const p = profiles.profiles[index];
+  if (!p) return;
+  editingId.value = p.id;
+  newName.value = p.name || '';
+  phase.value = 'naming';
+  formFocus.value = 0;
+  profiles.setFocus(index);
+}
+
+function cancelNaming() {
+  phase.value = 'pick';
+  editingId.value = null;
+  newName.value = '';
+  formFocus.value = 0;
+  if (!profiles.profiles.length) {
+    openCreate();
+  }
+}
+
 async function choose(index) {
   if (index >= profiles.profiles.length) {
-    showCreate.value = true;
-    profiles.setFocus(profiles.profiles.length);
+    openCreate();
     return;
   }
   profiles.setFocus(index);
@@ -68,14 +134,28 @@ async function choose(index) {
   await afterSelect();
 }
 
-async function addProfile() {
+async function submitName() {
   creating.value = true;
   try {
-    const name = newName.value.trim() || `Lecteur ${profiles.profiles.length + 1}`;
+    const name =
+      newName.value.trim() ||
+      (editingId.value != null
+        ? profiles.profiles.find((p) => p.id === editingId.value)?.name
+        : null) ||
+      `Lecteur ${profiles.profiles.length + 1}`;
+
+    if (editingId.value != null) {
+      await profiles.update(editingId.value, { name });
+      phase.value = 'pick';
+      editingId.value = null;
+      newName.value = '';
+      return;
+    }
+
     const color = profiles.colors[profiles.profiles.length % profiles.colors.length];
     const created = await profiles.create(name, color);
     newName.value = '';
-    showCreate.value = false;
+    phase.value = 'pick';
     await profiles.select(created.id);
     await afterSelect();
   } finally {
@@ -84,9 +164,46 @@ async function addProfile() {
 }
 
 function onAddClick() {
-  showCreate.value = true;
-  profiles.setFocus(profiles.profiles.length);
+  openCreate();
 }
+
+/** API manette / tests */
+function moveFormFocus(delta) {
+  formFocus.value = delta < 0 ? 0 : 1;
+}
+
+async function activateFocused() {
+  if (isNaming.value) {
+    if (formFocus.value === 0) {
+      await nextTick();
+      nameInput.value?.focus?.();
+      return;
+    }
+    await submitName();
+    return;
+  }
+  await choose(focused.value);
+}
+
+function renameFocused() {
+  if (isNaming.value) return;
+  if (focused.value >= profiles.profiles.length) {
+    openCreate();
+    return;
+  }
+  openRename(focused.value);
+}
+
+defineExpose({
+  openCreate,
+  openRename,
+  cancelNaming,
+  submitName,
+  activateFocused,
+  renameFocused,
+  moveFormFocus,
+  phase,
+});
 </script>
 
 <template>
@@ -103,13 +220,13 @@ function onAddClick() {
       </p>
     </header>
 
-    <div class="profiles__grid" role="list">
+    <div class="profiles__grid" role="list" :aria-hidden="isNaming ? 'true' : undefined">
       <button
         v-for="(p, index) in profiles.profiles"
         :key="p.id"
         type="button"
         class="avatar"
-        :class="{ 'is-focused': index === focused }"
+        :class="{ 'is-focused': !isNaming && index === focused }"
         role="listitem"
         @click="choose(index)"
       >
@@ -129,7 +246,7 @@ function onAddClick() {
       <button
         type="button"
         class="avatar avatar--add"
-        :class="{ 'is-focused': isAddFocused }"
+        :class="{ 'is-focused': !isNaming && isAddFocused }"
         role="listitem"
         aria-label="Ajouter un profil"
         @click="onAddClick"
@@ -140,21 +257,34 @@ function onAddClick() {
     </div>
 
     <form
-      v-if="showCreate || !profiles.profiles.length"
+      v-if="isNaming"
       class="profiles__create"
-      @submit.prevent="addProfile"
+      @submit.prevent="submitName"
     >
       <label>
-        Nouveau profil
+        {{ formTitle }}
         <input
+          ref="nameInput"
           v-model="newName"
           type="text"
           maxlength="32"
           placeholder="Pseudo"
-          autofocus
+          autocomplete="off"
+          enterkeyhint="done"
+          :class="{ 'is-focused': formFocus === 0 }"
+          @focus="formFocus = 0"
         />
       </label>
-      <button type="submit" class="ghost" :disabled="creating">Créer</button>
+      <button
+        type="submit"
+        class="btn-primary"
+        :class="{ 'is-focused': formFocus === 1 }"
+        :disabled="creating"
+        @focus="formFocus = 1"
+      >
+        {{ submitLabel }}
+      </button>
+      <button type="button" class="ghost" @click="cancelNaming">Annuler</button>
     </form>
 
     <footer>
@@ -172,6 +302,8 @@ function onAddClick() {
   padding: var(--pad);
   gap: 1.5rem;
   overflow: hidden;
+  overflow-x: hidden;
+  min-height: 0;
 }
 
 .profiles__atmosphere {
@@ -224,8 +356,10 @@ footer {
   justify-content: center;
   gap: 1.5rem 2rem;
   flex: 1;
+  min-height: 0;
   align-content: center;
   overflow: auto;
+  overflow-x: hidden;
   padding: 1rem 0;
 }
 
@@ -286,6 +420,7 @@ footer {
   max-width: 28rem;
   margin: 0 auto;
   width: 100%;
+  min-width: 0;
 }
 
 .profiles__create label {
@@ -304,12 +439,29 @@ footer {
   padding: 0.75rem 1rem;
   font: inherit;
   border-radius: 999px;
+  width: 100%;
+  box-sizing: border-box;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.profiles__create input.is-focused,
+.profiles__create input:focus-visible {
+  outline: none;
+  border-color: var(--brass-bright);
+  box-shadow: 0 0 0 3px var(--focus-glow);
+}
+
+.profiles__create .btn-primary.is-focused {
+  box-shadow: 0 0 0 3px var(--focus-glow);
+  border-color: var(--brass-bright);
 }
 
 footer {
   margin-top: auto;
   display: flex;
   justify-content: center;
+  flex-shrink: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {
