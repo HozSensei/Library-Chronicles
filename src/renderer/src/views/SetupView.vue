@@ -3,6 +3,7 @@ import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import FocusButton from '../components/FocusButton.vue';
 import ControlHint from '../components/ControlHint.vue';
+import AppBrandLogo from '../components/AppBrandLogo.vue';
 import { useUiStore } from '../stores/ui';
 import { markSetupCompleted } from '../router';
 import {
@@ -173,7 +174,7 @@ defineExpose({
 
     <div class="setup__frame">
       <header class="setup__header">
-        <p class="setup__brand">Vertical Deck Reader</p>
+        <AppBrandLogo size="lg" class="setup__brand" />
         <p class="setup__step">
           {{ steps[step].title }} · {{ step + 1 }}/{{ steps.length }}
         </p>
@@ -372,11 +373,6 @@ defineExpose({
 
 .setup__brand {
   margin: 0;
-  font-family: var(--font-display);
-  font-size: clamp(1.6rem, 4vw, 2.25rem);
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  color: var(--brass-bright);
 }
 
 .setup__step {

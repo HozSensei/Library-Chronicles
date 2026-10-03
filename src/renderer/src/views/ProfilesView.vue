@@ -2,6 +2,7 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import ControlHint from '../components/ControlHint.vue';
+import AppBrandLogo from '../components/AppBrandLogo.vue';
 import { useProfilesStore } from '../stores/profiles';
 import { useUiStore } from '../stores/ui';
 import {
@@ -226,7 +227,7 @@ defineExpose({
     </div>
 
     <header class="profiles__head">
-      <p class="profiles__brand">Vertical Deck Reader</p>
+      <AppBrandLogo size="lg" class="profiles__brand" />
       <h1>Qui lit ?</h1>
       <p class="lead">
         Chaque profil a sa bibliothèque, ses dossiers et ses préférences.
@@ -345,11 +346,6 @@ footer {
 
 .profiles__brand {
   margin: 0;
-  font-family: var(--font-display);
-  font-weight: 800;
-  font-size: clamp(1.8rem, 5vw, 2.6rem);
-  color: var(--brass-bright);
-  letter-spacing: -0.02em;
 }
 
 .profiles__head h1 {

@@ -2,6 +2,7 @@
 import { computed, nextTick, onMounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import ControlHint from '../components/ControlHint.vue';
+import AppBrandLogo from '../components/AppBrandLogo.vue';
 import { useImportStore } from '../stores/import';
 import { useUiStore } from '../stores/ui';
 import { scheduleScrollFocusedIntoView } from '../../../shared/focus-scroll.js';
@@ -260,7 +261,7 @@ function dotLabel(item) {
 
     <header class="import__head">
       <div class="import__head-main">
-        <p class="import__brand">Vertical Deck Reader</p>
+        <AppBrandLogo size="sm" class="import__brand" />
         <h1 class="import__title">
           {{ imp.isDetail ? 'Fiche import' : 'Import' }}
         </h1>
@@ -677,9 +678,6 @@ function dotLabel(item) {
 
 .import__brand {
   margin: 0;
-  font-size: 0.9rem;
-  font-weight: 700;
-  color: var(--brass);
 }
 
 .import__title {

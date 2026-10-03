@@ -57,7 +57,7 @@ function createWindow() {
     y: pos.y,
     minWidth: bounds.minWidth,
     minHeight: bounds.minHeight,
-    title: 'Vertical Deck Reader',
+    title: 'Library Chronicles',
     backgroundColor: theme === 'light' ? '#f3f0ea' : '#121418',
     autoHideMenuBar: true,
     show: false,

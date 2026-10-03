@@ -3,6 +3,7 @@ import { computed, nextTick, onMounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import ControlHint from '../components/ControlHint.vue';
 import LazyCover from '../components/LazyCover.vue';
+import AppBrandLogo from '../components/AppBrandLogo.vue';
 import { useLibraryStore } from '../stores/library';
 import { useUiStore } from '../stores/ui';
 import { useProfilesStore } from '../stores/profiles';
@@ -165,13 +166,13 @@ function selectTab(tab) {
 </script>
 
 <template>
-  <section class="catalog relative h-full min-h-0 min-w-0 overflow-hidden overflow-x-hidden" aria-label="Catalogue Vertical Deck Reader">
+  <section class="catalog relative h-full min-h-0 min-w-0 overflow-hidden overflow-x-hidden" aria-label="Catalogue Library Chronicles">
     <div class="catalog__bg pointer-events-none absolute inset-0" aria-hidden="true" />
 
     <div class="relative z-10 flex h-full min-h-0 min-w-0 flex-col overflow-x-hidden">
       <!-- Header -->
       <header class="catalog__header" :class="{ 'catalog__header--empty': library.isEmpty }">
-        <p class="catalog__logo">Vertical Deck Reader</p>
+        <AppBrandLogo size="md" class="catalog__logo" />
 
         <nav v-if="!library.isEmpty" class="catalog__nav" aria-label="Sections">
           <button
@@ -563,12 +564,7 @@ function selectTab(tab) {
 
 .catalog__logo {
   margin: 0;
-  font-family: var(--font-display);
-  font-weight: 800;
-  font-size: 1.15rem;
-  letter-spacing: -0.02em;
-  color: var(--paper);
-  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .catalog__nav {
