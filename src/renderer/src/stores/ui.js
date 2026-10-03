@@ -35,7 +35,12 @@ export const useUiStore = defineStore('ui', {
     setupFocusIndex: 0,
     settingsFocusIndex: 0,
     importFocusIndex: 0,
-    /** Zone focus Import : liste de tomes ou barre d’actions. */
+    /**
+     * Zone focus Import :
+     * - list : fichiers
+     * - fields / results / actions : fiche détail
+     * - actions (liste) : footer Rescanner / Retour
+     */
     importFocusZone: 'list',
     bookFocusIndex: 0,
     hapticsEnabled: true,
@@ -74,7 +79,15 @@ export const useUiStore = defineStore('ui', {
       this.importFocusIndex = index;
     },
     setImportFocusZone(zone) {
-      this.importFocusZone = zone === 'actions' ? 'actions' : 'list';
+      if (
+        zone === 'actions' ||
+        zone === 'fields' ||
+        zone === 'results'
+      ) {
+        this.importFocusZone = zone;
+      } else {
+        this.importFocusZone = 'list';
+      }
     },
     setBookFocus(index) {
       // Champs méta readonly + footer (voir shared/book-focus.js)

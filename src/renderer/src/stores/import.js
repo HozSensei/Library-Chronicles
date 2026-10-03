@@ -4,8 +4,10 @@ export const useImportStore = defineStore('import', {
   state: () => ({
     items: [],
     cursor: 0,
-    /** Chemins sélectionnés pour import multi. */
+    /** Chemins sélectionnés (interne : commitAll). */
     selectedPaths: [],
+    /** list = fichiers · detail = fiche méta / search API. */
+    viewMode: 'list',
     loading: false,
     committing: false,
     root: null,
@@ -18,7 +20,10 @@ export const useImportStore = defineStore('import', {
       year: null,
       description: '',
     },
+    /** Requête API éditable (clavier virtuel). */
+    searchQuery: '',
     enrichResults: [],
+    enrichResultCursor: 0,
     enrichLoading: false,
     enrichProvider: null,
     enrichWarning: null,
@@ -42,6 +47,7 @@ export const useImportStore = defineStore('import', {
       if (!s.items.length) return false;
       return s.items.every((i) => s.selectedPaths.includes(i.filePath));
     },
+    isDetail: (s) => s.viewMode === 'detail',
   },
   actions: {
     isPathSelected(filePath) {
@@ -71,7 +77,6 @@ export const useImportStore = defineStore('import', {
       try {
         const data = await window.vdr.metadata.listProviders();
         this.providers = data.providers || [];
-        // Évite de rester coincé sur stub si un provider réel est disponible
         const active = data.activeProvider || 'anilist';
         this.activeProvider =
           active === 'stub' && this.providers.some((p) => p.id === 'anilist')
@@ -92,6 +97,13 @@ export const useImportStore = defineStore('import', {
       this.enrichError = null;
       await this.loadProviders();
     },
+    cycleProvider(delta = 1) {
+      if (!this.providers.length) return;
+      const idx = this.providers.findIndex((p) => p.id === this.activeProvider);
+      const next =
+        (Math.max(0, idx) + delta + this.providers.length) % this.providers.length;
+      return this.setProvider(this.providers[next].id);
+    },
     async openProviderHelp(provider) {
       if (!provider?.helpUrl) return;
       await window.vdr.metadata.openHelp({
@@ -108,11 +120,14 @@ export const useImportStore = defineStore('import', {
         this.root = result.root;
         this.items = result.found || [];
         this.error = result.error || null;
-        this.cursor = 0;
-        // Conserve la sélection encore présente après rescan
+        this.cursor = Math.min(this.cursor, Math.max(0, this.items.length - 1));
         const valid = new Set(this.items.map((i) => i.filePath));
         this.selectedPaths = this.selectedPaths.filter((p) => valid.has(p));
-        if (this.selected) await this.loadDraftFromSelected();
+        if (this.viewMode === 'detail' && this.selected) {
+          await this.loadDraftFromSelected({ keepResults: false });
+        } else if (this.viewMode === 'detail' && !this.selected) {
+          this.viewMode = 'list';
+        }
       } finally {
         this.loading = false;
       }
@@ -120,9 +135,25 @@ export const useImportStore = defineStore('import', {
     moveCursor(delta) {
       if (!this.items.length) return;
       this.cursor = (this.cursor + delta + this.items.length) % this.items.length;
-      this.loadDraftFromSelected();
     },
-    async loadDraftFromSelected() {
+    /**
+     * Ouvre la fiche détail import (édition méta + search API) — pas d’import immédiat.
+     * @param {number} [index]
+     */
+    async openDetail(index) {
+      if (typeof index === 'number' && this.items[index]) {
+        this.cursor = index;
+      }
+      if (!this.selected) return false;
+      await this.loadDraftFromSelected({ keepResults: false });
+      this.viewMode = 'detail';
+      return true;
+    },
+    closeDetail() {
+      this.viewMode = 'list';
+      this.enrichResultCursor = 0;
+    },
+    async loadDraftFromSelected({ keepResults = false } = {}) {
       const item = this.selected;
       if (!item) return;
       const d = item.detected || {};
@@ -134,10 +165,14 @@ export const useImportStore = defineStore('import', {
         year: d.year,
         description: d.description || '',
       };
-      this.enrichResults = [];
-      this.enrichProvider = null;
-      this.enrichWarning = null;
-      this.enrichError = null;
+      this.searchQuery = String(d.series || d.title || item.name || '').trim();
+      if (!keepResults) {
+        this.enrichResults = [];
+        this.enrichResultCursor = 0;
+        this.enrichProvider = null;
+        this.enrichWarning = null;
+        this.enrichError = null;
+      }
       this.coverPreview = null;
       try {
         const cover = await window.vdr.import.previewCover(item.filePath);
@@ -151,6 +186,18 @@ export const useImportStore = defineStore('import', {
     patchDraft(patch) {
       this.draft = { ...this.draft, ...patch };
     },
+    setSearchQuery(query) {
+      this.searchQuery = String(query ?? '');
+    },
+    moveEnrichCursor(delta) {
+      if (!this.enrichResults.length) {
+        this.enrichResultCursor = 0;
+        return;
+      }
+      const n = this.enrichResults.length;
+      this.enrichResultCursor = (this.enrichResultCursor + delta + n) % n;
+    },
+    /** Recherche API via le provider actif — query éditable (searchQuery). */
     async enrich() {
       const item = this.selected;
       if (!item) return;
@@ -158,30 +205,39 @@ export const useImportStore = defineStore('import', {
       this.enrichWarning = null;
       this.enrichError = null;
       this.enrichResults = [];
+      this.enrichResultCursor = 0;
       try {
         if (this.activeProvider === 'stub') {
-          // Auto-bascule vers AniList si l’utilisateur est encore sur stub
           const hasAni = this.providers.some((p) => p.id === 'anilist');
           if (hasAni) {
             await this.setProvider('anilist');
           }
         }
-        const query = this.draft.series || this.draft.title || item.name;
+        const query =
+          String(this.searchQuery || '').trim() ||
+          this.draft.series ||
+          this.draft.title ||
+          item.name;
+        if (!String(this.searchQuery || '').trim()) {
+          this.searchQuery = String(query || '');
+        }
         const payload = await window.vdr.metadata.search(query, this.activeProvider);
         this.enrichResults = payload.results || [];
         this.enrichProvider = payload.activeProvider || this.activeProvider;
         this.enrichWarning = payload.warning || null;
         if (!this.enrichResults.length && !this.enrichWarning) {
-          this.enrichWarning = 'Aucun résultat. Essaie un autre provider ou un titre plus court.';
+          this.enrichWarning =
+            'Aucun résultat. Essaie un autre provider ou des mots-clés plus courts.';
         }
       } catch (err) {
-        this.enrichError = err?.message || 'Échec enrichissement';
+        this.enrichError = err?.message || 'Échec recherche métadonnées';
         this.enrichResults = [];
       } finally {
         this.enrichLoading = false;
       }
     },
     applyEnrichResult(result) {
+      if (!result) return;
       this.patchDraft({
         title: result.title || this.draft.title,
         series: result.series || this.draft.series,
@@ -191,26 +247,31 @@ export const useImportStore = defineStore('import', {
         description: result.description || this.draft.description,
       });
     },
+    applyEnrichCursor() {
+      const result = this.enrichResults[this.enrichResultCursor];
+      if (result) this.applyEnrichResult(result);
+    },
     async commitSelected({ copyToLibrary = true } = {}) {
       const item = this.selected;
       if (!item) return null;
-      const result = await window.vdr.import.commit({
-        sourcePath: item.filePath,
-        metadata: {
-          ...this.draft,
-          description: this.draft.description || null,
-        },
-        copyToLibrary,
-      });
-      this.lastImported = result.book;
-      item.alreadyInLibrary = true;
-      item.existingBookId = result.book?.id;
-      return result;
+      this.committing = true;
+      try {
+        const result = await window.vdr.import.commit({
+          sourcePath: item.filePath,
+          metadata: {
+            ...this.draft,
+            description: this.draft.description || null,
+          },
+          copyToLibrary,
+        });
+        this.lastImported = result.book;
+        item.alreadyInLibrary = true;
+        item.existingBookId = result.book?.id;
+        return result;
+      } finally {
+        this.committing = false;
+      }
     },
-    /**
-     * Importe les tomes cochés (ou le curseur si aucune sélection).
-     * Le tome curseur applique le brouillon métadonnées courant.
-     */
     async commitSelection({ copyToLibrary = true } = {}) {
       const paths =
         this.selectedPaths.length > 0
@@ -258,7 +319,7 @@ export const useImportStore = defineStore('import', {
       }
       return results;
     },
-    /** Sélectionne tout puis importe. */
+    /** Importe tous les fichiers avec méta détectées / draft curseur. */
     async commitAll({ copyToLibrary = true } = {}) {
       this.selectAll();
       return this.commitSelection({ copyToLibrary });
