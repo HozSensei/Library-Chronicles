@@ -10,7 +10,6 @@ import {
   remapDpad,
   remapStick,
   sessionOrientationForRoute,
-  visualPanToLocal,
 } from '../../../shared/portrait-remap.js';
 import { actionForBinding, GamepadButtons } from '../../../shared/controls.js';
 import { hasHaptics, pulseHaptic } from './useHaptics.js';
