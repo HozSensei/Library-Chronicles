@@ -24,6 +24,7 @@ const hints = [
 
 const navItems = [
   { id: 'board', label: 'Bibliothèque' },
+  { id: 'all', label: 'Tous les livres' },
   { id: 'recent', label: 'Récents' },
   { id: 'series', label: 'Séries' },
 ];
@@ -62,7 +63,15 @@ onMounted(async () => {
 });
 
 watch(
-  () => [library.focusZone, library.cursor, library.recentCursor, library.readingCursor, library.heroIndex],
+  () => [
+    library.focusZone,
+    library.cursor,
+    library.recentCursor,
+    library.readingCursor,
+    library.heroIndex,
+    library.catalogTab,
+    library.filter,
+  ],
   () => nextTick(scrollFocusIntoView),
 );
 
@@ -359,6 +368,68 @@ function scrollRail(refEl, dir) {
           </template>
         </template>
 
+        <!-- ALL BOOKS tab — grille dense (pas de rail horizontal) -->
+        <template v-else-if="library.catalogTab === 'all'">
+          <section class="filters pad-top" aria-label="Filtres">
+            <h2 class="section-label">Tous les livres</h2>
+            <div class="filters__row">
+              <button
+                v-for="(f, index) in library.filters"
+                :key="'af-' + f.id"
+                type="button"
+                class="pill"
+                :class="{
+                  'is-active': library.filter === f.id,
+                  'is-focused':
+                    library.focusZone === 'filters' && library.filterIndex === index,
+                }"
+                @click="library.setFilter(f.id); library.focusZone = 'filters'"
+              >
+                {{ f.label }}
+              </button>
+            </div>
+          </section>
+
+          <div v-if="library.isEmpty && !library.loading" class="catalog__empty">
+            <p class="catalog__empty-title">Bibliothèque vide</p>
+            <button type="button" class="catalog__cta" @click="router.push({ name: 'import' })">
+              Importer
+            </button>
+          </div>
+          <div v-else-if="!library.filtered.length" class="catalog__empty">
+            <p class="catalog__empty-title">Aucun livre pour ce filtre</p>
+          </div>
+          <section v-else class="grid-section" aria-label="Tous les livres">
+            <div
+              class="book-grid"
+              :style="{ '--grid-cols': String(library.columns || 6) }"
+              role="list"
+            >
+              <button
+                v-for="(book, index) in library.filtered"
+                :key="'g-' + book.id"
+                type="button"
+                class="poster poster--grid"
+                :class="{
+                  'is-focused':
+                    library.focusZone === 'grid' && index === library.cursor,
+                }"
+                role="listitem"
+                @click="library.focusGrid(index); openBook(book)"
+              >
+                <div class="poster__art">
+                  <LazyCover :book-id="book.id" :alt="book.title" :format="book.format" />
+                </div>
+                <span class="poster__title">{{ book.title }}</span>
+                <span class="poster__meta">
+                  {{ statusBadge(book.status) }}
+                  <template v-if="book.series"> · {{ book.series }}</template>
+                </span>
+              </button>
+            </div>
+          </section>
+        </template>
+
         <!-- RECENTS tab -->
         <template v-else-if="library.catalogTab === 'recent'">
           <section class="rail-section pad-top" aria-label="Récents">
@@ -390,7 +461,7 @@ function scrollRail(refEl, dir) {
         </template>
 
         <!-- SERIES tab -->
-        <template v-else>
+        <template v-else-if="library.catalogTab === 'series'">
           <section class="series-panel pad-top" aria-label="Séries">
             <div class="rail-head">
               <h2>Séries</h2>
@@ -881,6 +952,25 @@ function scrollRail(refEl, dir) {
 .rail--wrap {
   flex-wrap: wrap;
   overflow: visible;
+}
+
+.grid-section {
+  margin-top: 1.25rem;
+}
+
+.book-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--grid-cols, 6), minmax(0, 1fr));
+  gap: 1rem 0.85rem;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.poster--grid {
+  flex: none;
+  width: 100%;
+  max-width: none;
+  min-width: 0;
 }
 
 .poster {
