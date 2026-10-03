@@ -1,77 +1,66 @@
 # UX — Vertical Deck Reader
 
-Objectif : une expérience **console-first** irréprochable sur ROG Ally X (portrait, manette).  
+Objectif : expérience **console-first** type Steam OS / Big Picture sur ROG Ally X.  
 Application **100 % locale** — pas d’OPDS ni de dossier distant.
 
 ## Stack front
 
 | Couche | Choix |
 |--------|--------|
-| UI | Vue 3 (Composition API) |
+| UI | Vue 3 (Composition API) + **Tailwind CSS** |
 | Build | Vite via `electron-vite` |
 | État | Pinia |
 | Navigation | Vue Router (hash) + gates setup / profil |
-| Gamepad | `useGamepad` + remap + key-bindings |
+| Gamepad | `useGamepad` — contexte `ui` vs `reader` |
+
+## Flux d’orientation (automatique)
+
+| Zone | Orientation | Manette |
+|------|-------------|---------|
+| Setup / Profils / Boot / Bibliothèque / Import / Fiche / Paramètres | **Landscape** 1920×1080 | Identity (Haut = Haut) |
+| Lecteur | **Portrait** 1080×1920 | Remap 90° CCW |
+
+Plus de choix « Portrait Ally / Landscape » au setup ni dans les paramètres.  
+L’app appelle `setSessionMode('reader'|'ui')` à l’entrée / sortie du lecteur.
 
 ## Écrans
 
-1. **Setup** — wizard obligatoire au premier lancement
-2. **Profils** — choix du profil local (chaque lancement après setup)
-3. **Boot** — marque dominante + actions (Continuer / Bibliothèque / Import / Paramètres)
-4. **Import** — review métadonnées par tome
-5. **Bibliothèque (catalogue)** — héro reprise, rail récents, grille livres **ou** vue séries
-6. **Lecteur** — planche plein écran, HUD (Y) : lecture / filtres / signets ; mode webtoon
-7. **Paramètres** — thème, profils, orientation (portrait Ally / landscape), haptics, remap, API
-
-## Orientation
-
-- **Portrait Ally** (`portrait-ccw`) — fenêtre 1080×1920, remap manette 90° CCW
-- **Landscape classique** (`landscape`) — fenêtre 1920×1080, directions physiques = logiques
-- Layouts adaptés via `data-orientation` (catalogue 6 colonnes, HUD latéral, import côte-à-côte)
-- Voir [`CONTROLS.md`](./CONTROLS.md)
+1. **Setup** — wizard aéré (dossiers, thème, langue) — pas d’orientation
+2. **Profils** — choix du profil local
+3. **Boot** — marque + actions (Continuer / Bibliothèque / Import / Paramètres)
+4. **Import** — liste rows + check « déjà importé » + enrichissement métadonnées
+5. **Bibliothèque** — grille Steam OS (covers focusables) ; vide = message + bouton Importer
+6. **Fiche livre** — cover gauche · détails droite · synopsis pleine largeur · Lire / Retour / Options
+7. **Lecteur** — portrait, menu pause (Select) : quitter, signets, filtres, webtoon, sens
+8. **Paramètres** — thème, profils, haptics, remap, API (orientation info seule)
 
 ## Thèmes
 
-Tokens CSS `data-theme="dark|light"` :
-- sombre : encre nuit + laiton (lecteur / console)
-- clair : papier chaud + encre (bibliothèque / setup)
-
+Tokens CSS `data-theme="dark|light"` — direction Steam (encre bleutée + accent cyan).  
 Persistance via config `theme`.
 
 ## Profils locaux
 
-- Plusieurs profils (nom + couleur avatar)
-- Progression, signets, prefs lecture (direction, webtoon, filtres) **par profil**
+- Plusieurs profils (nom + couleur)
+- Progression, signets, prefs lecture **par profil**
 - Pas de sync cloud
 
 ## Principes
 
 1. Zéro dépendance souris — focus toujours visible
 2. Une intention par écran
-3. Feedback immédiat (edge boutons, glow focus, haptics optionnels)
-4. 60/120 FPS ressenti — `translate3d` / `scale` / `filter`
-5. HUD discret
+3. Padding confortable, contenu centré / max-width
+4. Choix multi-valeurs en ligne (côte à côte), pas une liste d’étapes
+5. Feedback immédiat (bordure focus, haptics)
 6. Reduced motion respecté
-
-## Direction visuelle
-
-- Display **Syne** · Body **Figtree**
-- Focus laiton, pas de glow violet
-- Grain + wash radial
 
 ## Checklist
 
-- [x] Focus manette lisible à 60 cm
-- [x] Aucun dead-end sans B
-- [x] Setup bloquant tant que non complété
-- [x] Choix profil au lancement
-- [x] Thème clair/sombre cohérent sur tous les écrans
-- [x] Lecteur : 0 chrome sauf overlay Y (+ flash progression page)
-- [x] Boot : marque dominante dans le 1er viewport
-- [x] Reduced motion respecté (transitions / HUD)
-- [x] Watcher FS → refresh bibliothèque / import
-- [x] Haptics Ally (setting on/off, no-op si absent)
-- [x] Messages vides import / bibliothèque guidés manette
-- [x] Catalogue bibliothèque : héro reprise / rail récents / grille + lazy covers + skeletons
-- [x] Vue séries + reprise tome suivant
-- [x] Signets / webtoon / filtres lecture
+- [x] Menus landscape · lecture portrait automatique
+- [x] Setup sans choix orientation
+- [x] Bibliothèque vide → un seul CTA Importer
+- [x] Grille store + fiche livre détail
+- [x] Import rows + check déjà importé
+- [x] Enrichir métadonnées (warning + AniList défaut)
+- [x] Select → menu pause lecture
+- [x] Tailwind + tokens Steam OS

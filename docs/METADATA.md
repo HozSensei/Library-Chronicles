@@ -23,11 +23,13 @@ séparées de `vdr-config.json`. **Jamais** commités dans le dépôt.
 
 - **Paramètres → API métadonnées** : liste des providers, badge gratuit / clé requise, champ clé seulement si `requiresApiKey`, texte d’aide + lien (`shell.openExternal`, pas de webview).
 - **Import** : sélecteur de provider + même lien d’aide ; « Enrichir » utilise le provider actif.
+- **Défaut** : `anilist` (gratuit, sans clé) — plus `stub` par défaut.
+- Warnings visibles si réseau / clé / résultats vides ; synopsis appliquée au draft.
 
 ## Comportement réseau
 
 - Timeout ~8 s, User-Agent identifié.
-- Erreur / timeout / clé manquante → résultats stub annotés (pas de crash).
+- Erreur / timeout / clé manquante → résultats stub annotés + `warning` IPC (pas de crash).
 - Provider actif persisté dans la config (`metadataProvider`).
 
 ## Tests

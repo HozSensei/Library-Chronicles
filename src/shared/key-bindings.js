@@ -27,7 +27,7 @@ export const BINDABLE_ACTIONS = Object.freeze({
     { id: 'next-volume', label: 'Tome suivant non lu' },
   ],
   library: [
-    { id: 'open-book', label: 'Ouvrir' },
+    { id: 'open-book', label: 'Ouvrir fiche' },
     { id: 'back', label: 'Retour' },
     { id: 'book-options', label: 'Options du livre' },
     { id: 'cursor-up', label: 'Curseur ↑' },
@@ -40,6 +40,18 @@ export const BINDABLE_ACTIONS = Object.freeze({
     { id: 'import', label: 'Ouvrir import' },
     { id: 'settings', label: 'Paramètres' },
     { id: 'toggle-series', label: 'Vue séries' },
+  ],
+  book: [
+    { id: 'open-book', label: 'Lire' },
+    { id: 'back', label: 'Retour' },
+    { id: 'book-options', label: 'Options' },
+    { id: 'cursor-up', label: 'Curseur ↑' },
+    { id: 'cursor-down', label: 'Curseur ↓' },
+    { id: 'cursor-left', label: 'Curseur ←' },
+    { id: 'cursor-right', label: 'Curseur →' },
+    { id: 'confirm', label: 'Valider' },
+    { id: 'import', label: 'Import' },
+    { id: 'settings', label: 'Paramètres' },
   ],
   boot: [
     { id: 'cursor-up', label: 'Curseur ↑' },

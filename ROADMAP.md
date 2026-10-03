@@ -36,20 +36,20 @@ Voir [`docs/UX.md`](./docs/UX.md), [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.
 
 ## Mapping manette (référence)
 
-> **Portrait Ally (90° CCW)** puis **mapping utilisateur**.  
+> **Menus = landscape (identity)** · **Lecture = portrait CCW + remap**.  
 > Voir `docs/CONTROLS.md`, `portrait-remap.js`, `key-bindings.js`.
 
-| Contrôle (écran) | Mode Lecture | Mode Bibliothèque |
+| Contrôle (écran) | Mode Lecture (portrait) | Mode Bibliothèque (landscape) |
 |----------|--------------|-------------------|
-| Stick L | Pan / scroll webtoon | Scroll grille |
+| Stick L | Pan (remap portrait) | Curseur grille |
 | L3 / R3 | Toggle Fit Height ↔ Zoom 100 % | Valider |
-| D-Pad Haut / Bas | Zoom ±15 % (pages en webtoon) | Curseur |
-| D-Pad Gauche / Droite | Page ±1 | Catégorie / déplier série |
-| A | Sens Occidental ↔ Manga | Ouvrir album / tome suivant |
-| B | Fermer livre → bibliothèque | Retour menu |
+| D-Pad ← / → | **Zoom ±** | Curseur |
+| D-Pad ↑ / ↓ | Page ±1 | Curseur |
+| A | Sens Occidental ↔ Manga | Ouvrir **fiche livre** |
+| B | Fermer → biblio (restore landscape) | Retour |
 | X | **Signet** | Ouvrir Import |
-| Y | Overlay options (filtres / signets) | Options |
-| Select | Mode webtoon | Vue séries |
+| Y | Overlay onglets | Options |
+| Select | **Menu pause** | Vue séries |
 | Start | — | Paramètres |
 | LB | Fit Width | — |
 | RB | Tome suivant non lu | — |
@@ -59,20 +59,30 @@ Voir [`docs/UX.md`](./docs/UX.md), [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.
 
 ## Phases
 
+### Phase UX Steam OS *(fait)*
+
+- [x] Tailwind CSS + tokens console Steam-inspired
+- [x] Menus landscape / lecture portrait automatique (`setSessionMode`)
+- [x] Setup sans choix orientation ; prefs thème côte à côte
+- [x] Bibliothèque grille store ; vide = CTA Importer unique
+- [x] Fiche livre (cover | détails + synopsis)
+- [x] Import rows + check déjà importé ; enrich AniList défaut
+- [x] Select → menu pause lecture ; D-Pad ←→ zoom
+
 ### Phase 0 — Squelette *(fait)*
 
 - [x] Electron + Vue 3 + Pinia + Router
-- [x] Fenêtre portrait 1080×1920
-- [x] Remap manette portrait 90° CCW
+- [x] Fenêtre landscape 1920×1080 (menus) / portrait lecture
+- [x] Remap manette portrait 90° CCW (lecteur)
 - [x] UI boot console-first
 
 ### Phase Setup & préférences *(fait)*
 
 - [x] Wizard premier lancement (`setupCompleted`)
-- [x] Dossiers library / import, langue, thème, orientation
+- [x] Dossiers library / import, langue, thème (orientation auto)
 - [x] Thème sombre / clair (tokens CSS + persistance)
 - [x] Remapping touches (UI settings + persistance)
-- [x] Intégration gamepad : remap orientation → bindings user
+- [x] Intégration gamepad : contexte ui/reader → bindings user
 
 ### Phase 1 — MVP lecteur *(fait)*
 

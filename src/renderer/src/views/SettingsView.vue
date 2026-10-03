@@ -175,6 +175,10 @@ const listeningLabel = computed(() => {
 
     <div class="body">
       <template v-if="section === 'general'">
+        <p class="hint">
+          Orientation : <strong>automatique</strong> — menus en paysage (1920×1080),
+          lecture en portrait Ally (1080×1920 + remap manette).
+        </p>
         <FocusButton
           :focused="ui.settingsFocusIndex === 0"
           :subtitle="ui.theme === 'dark' ? 'Sombre actif' : 'Clair actif'"
@@ -184,13 +188,6 @@ const listeningLabel = computed(() => {
         </FocusButton>
         <FocusButton
           :focused="ui.settingsFocusIndex === 1"
-          subtitle="Menus paysage · lecture portrait (auto)"
-          @select="() => {}"
-        >
-          Orientation automatique
-        </FocusButton>
-        <FocusButton
-          :focused="ui.settingsFocusIndex === 2"
           :subtitle="hapticsSubtitle"
           @select="toggleHaptics"
         >

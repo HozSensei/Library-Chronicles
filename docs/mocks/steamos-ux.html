@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="fr"><head><meta charset="utf-8"><title>VDR UX Mock</title>
+<style>
+  *{box-sizing:border-box} body{margin:0;font-family:Figtree,Segoe UI,sans-serif;background:#0e1419;color:#e8eef4}
+  .wrap{display:grid;grid-template-columns:1fr 1fr;gap:24px;padding:24px}
+  .frame{background:linear-gradient(160deg,#141c24,#0e1419);border:1px solid rgba(232,238,244,.12);border-radius:12px;overflow:hidden;aspect-ratio:16/9;position:relative}
+  .frame.portrait{aspect-ratio:9/16;max-width:280px;margin:0 auto}
+  .label{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#3d9be9;margin-bottom:8px}
+  .brand{font-family:Syne,sans-serif;font-weight:800;font-size:28px;color:#66b5f5;padding:28px 32px 0}
+  .title{font-family:Syne,sans-serif;font-size:22px;margin:8px 32px}
+  .grid{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;padding:16px 32px}
+  .tile{aspect-ratio:2/3;background:#1b2632;border-radius:8px;border:1px solid rgba(232,238,244,.12)}
+  .tile.focus{border-color:#66b5f5;box-shadow:0 0 0 3px rgba(61,155,233,.35);transform:translateY(-2px)}
+  .empty{display:grid;place-items:center;height:70%;text-align:center}
+  .btn{display:inline-block;padding:14px 28px;border:1px solid #3d9be9;border-radius:12px;background:rgba(61,155,233,.15);font-weight:700}
+  .detail{display:grid;grid-template-columns:140px 1fr;gap:24px;padding:28px 32px}
+  .cover{aspect-ratio:2/3;background:#243141;border-radius:10px}
+  .meta div{margin:6px 0;font-size:13px;color:#9aafc0}
+  .meta strong{color:#e8eef4}
+  .syn{margin:0 32px 24px;padding:16px;border:1px solid rgba(232,238,244,.12);border-radius:12px;color:#9aafc0;font-size:14px}
+  .row{display:flex;align-items:center;gap:12px;margin:8px 20px;padding:12px 14px;border:1px solid rgba(232,238,244,.12);border-radius:10px;background:rgba(20,28,36,.9)}
+  .check{width:22px;height:22px;border-radius:50%;border:1px solid #3db88a;color:#3db88a;display:grid;place-items:center;font-size:12px}
+  .reader{background:#000;height:100%;display:grid;place-items:center;position:relative}
+  .page{width:70%;height:80%;background:#222;border:1px solid #333}
+  .pause{position:absolute;left:0;right:0;bottom:0;padding:20px;background:linear-gradient(0deg,rgba(14,20,25,.95),transparent);font-size:14px}
+  .pause h3{margin:0 0 8px;color:#66b5f5}
+</style></head><body>
+<div class="wrap">
+  <div>
+    <div class="label">Bibliothèque vide · landscape</div>
+    <div class="frame"><div class="brand">Vertical Deck Reader</div><div class="title">Bibliothèque</div>
+      <div class="empty"><div><div style="font:700 22px Syne,sans-serif;margin-bottom:8px">Aucun livre</div><div class="btn">Importer</div></div></div>
+    </div>
+  </div>
+  <div>
+    <div class="label">Grille Steam OS · landscape</div>
+    <div class="frame"><div class="brand">Vertical Deck Reader</div><div class="title">Bibliothèque</div>
+      <div class="grid"><div class="tile focus"></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><div class="tile"></div></div>
+    </div>
+  </div>
+  <div>
+    <div class="label">Fiche livre · landscape</div>
+    <div class="frame">
+      <div class="detail"><div class="cover"></div><div class="meta"><div style="font:800 24px Syne,sans-serif;color:#e8eef4">One Piece T03</div><div style="color:#66b5f5">One Piece · Tome 3</div><div>Auteur <strong>Eiichiro Oda</strong></div><div>Format <strong>CBZ</strong> · Statut <strong>En cours</strong></div><div class="btn" style="margin-top:12px">Lire</div></div></div>
+      <div class="syn">Synopsis pleine largeur — enrichissement AniList / Open Library.</div>
+    </div>
+  </div>
+  <div>
+    <div class="label">Import rows + check · landscape</div>
+    <div class="frame" style="padding-top:20px">
+      <div class="row"><span class="check">✓</span><div><strong>Akira T01</strong><div style="font-size:12px;color:#9aafc0">CBZ · déjà importé</div></div></div>
+      <div class="row" style="border-color:#66b5f5;box-shadow:0 0 0 3px rgba(61,155,233,.35)"><span class="check" style="border-color:#445;color:transparent">✓</span><div><strong>Sandman #1</strong><div style="font-size:12px;color:#9aafc0">CBR</div></div></div>
+      <div class="row"><span class="check" style="border-color:#445;color:transparent">✓</span><div><strong>Watchmen</strong><div style="font-size:12px;color:#9aafc0">PDF</div></div></div>
+    </div>
+  </div>
+  <div style="grid-column:1/-1;display:flex;gap:24px;align-items:flex-start">
+    <div>
+      <div class="label">Lecteur portrait + pause Select</div>
+      <div class="frame portrait"><div class="reader"><div class="page"></div><div class="pause"><h3>Pause lecture</h3>Quitter · Webtoon · Sens · Signets<br><span style="color:#9aafc0">←→ zoom · ↑↓ pages</span></div></div></div>
+    </div>
+    <div style="flex:1;padding-top:40px;color:#9aafc0;line-height:1.6;max-width:420px">
+      <div style="font:800 20px Syne,sans-serif;color:#e8eef4;margin-bottom:8px">Flux UX VDR</div>
+      Setup / Biblio / Import / Fiche en <strong style="color:#66b5f5">landscape</strong>.<br>
+      Ouverture livre → fenêtre <strong style="color:#66b5f5">portrait</strong> + remap manette.<br>
+      Retour biblio → restore landscape.
+    </div>
+  </div>
+</div>
+</body></html>
