@@ -1,11 +1,14 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog } from 'electron';
 import { join } from 'path';
+import fs from 'fs';
 import { IpcChannels } from '../shared/ipc-channels.js';
 import { registerLibraryIpc } from './ipc/library.js';
 import { registerReaderIpc } from './ipc/reader.js';
 import { registerProgressIpc } from './ipc/progress.js';
-import { getConfig, setConfig } from './config.js';
-import { initDatabase } from './database/db.js';
+import { registerImportIpc } from './ipc/import.js';
+import { registerMetadataIpc } from './ipc/metadata.js';
+import { getConfig, setConfig, getDefaultPaths } from './config.js';
+import { initDatabase, closeDatabase } from './database/db.js';
 
 /** Résolution portrait cible ROG Ally X (mode vertical). */
 const PORTRAIT = { width: 1080, height: 1920 };
@@ -13,13 +16,14 @@ const PORTRAIT = { width: 1080, height: 1920 };
 let mainWindow = null;
 
 function createWindow() {
+  const theme = getConfig().theme || 'dark';
   mainWindow = new BrowserWindow({
     width: PORTRAIT.width,
     height: PORTRAIT.height,
     minWidth: 540,
     minHeight: 960,
     title: 'Vertical Deck Reader',
-    backgroundColor: '#0b0c0f',
+    backgroundColor: theme === 'light' ? '#f4efe6' : '#0b0c0f',
     autoHideMenuBar: true,
     show: false,
     webPreferences: {
@@ -41,7 +45,6 @@ function createWindow() {
   }
 
   if (process.argv.includes('--dev') || !app.isPackaged) {
-    // DevTools détachées uniquement si flag explicite
     if (process.argv.includes('--devtools')) {
       mainWindow.webContents.openDevTools({ mode: 'detach' });
     }
@@ -55,16 +58,28 @@ function createWindow() {
 function registerAppIpc() {
   ipcMain.handle(IpcChannels.APP_GET_CONFIG, () => getConfig());
   ipcMain.handle(IpcChannels.APP_SET_CONFIG, (_event, patch) => setConfig(patch));
+  ipcMain.handle(IpcChannels.APP_GET_DEFAULT_PATHS, () => getDefaultPaths());
+  ipcMain.handle(IpcChannels.APP_PICK_DIRECTORY, async (_e, { title } = {}) => {
+    const result = await dialog.showOpenDialog({
+      properties: ['openDirectory', 'createDirectory'],
+      title: title || 'Choisir un dossier',
+    });
+    if (result.canceled || !result.filePaths[0]) return null;
+    const dir = result.filePaths[0];
+    fs.mkdirSync(dir, { recursive: true });
+    return dir;
+  });
 }
 
 app.whenReady().then(() => {
-  // TODO[Phase 3]: init DB réelle + migration schéma
   initDatabase();
 
   registerAppIpc();
   registerLibraryIpc();
   registerReaderIpc();
   registerProgressIpc();
+  registerImportIpc();
+  registerMetadataIpc();
 
   createWindow();
 
@@ -74,5 +89,6 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
+  closeDatabase();
   if (process.platform !== 'darwin') app.quit();
 });

@@ -1,4 +1,5 @@
 import path from 'path';
+import fs from 'fs';
 import { openCbz } from './cbz.js';
 import { openCbr } from './cbr.js';
 import { openPdf } from './pdf.js';
@@ -21,6 +22,10 @@ export async function openBook(filePath) {
   const format = detectFormat(filePath);
   if (!format) {
     throw new Error(`Format non supporté: ${filePath}`);
+  }
+
+  if (!fs.existsSync(filePath)) {
+    throw new Error(`Fichier introuvable: ${filePath}`);
   }
 
   switch (format) {
