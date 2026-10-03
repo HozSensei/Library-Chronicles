@@ -53,11 +53,14 @@ export function createStickMenuNav(opts = {}) {
   let heldDir = null;
   let firstFireAt = 0;
   let lastFireAt = 0;
+  /** true si le dernier `update` non-null était un auto-repeat (pas l’edge). */
+  let lastFireWasRepeat = false;
 
   function reset() {
     heldDir = null;
     firstFireAt = 0;
     lastFireAt = 0;
+    lastFireWasRepeat = false;
   }
 
   /**
@@ -77,6 +80,7 @@ export function createStickMenuNav(opts = {}) {
       heldDir = dir;
       firstFireAt = now;
       lastFireAt = now;
+      lastFireWasRepeat = false;
       return dir;
     }
 
@@ -84,10 +88,16 @@ export function createStickMenuNav(opts = {}) {
     if (sinceFirst < initialDelayMs) return null;
     if (now - lastFireAt >= repeatMs) {
       lastFireAt = now;
+      lastFireWasRepeat = true;
       return dir;
     }
     return null;
   }
 
-  return { update, reset };
+  /** Dernier pas émis était-il un repeat ? (pour couper les haptics nav.) */
+  function lastWasRepeat() {
+    return lastFireWasRepeat;
+  }
+
+  return { update, reset, lastWasRepeat };
 }

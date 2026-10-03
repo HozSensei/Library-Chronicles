@@ -1,6 +1,8 @@
 /**
  * Feedback haptique manette (ROG Ally / Gamepad API).
  * Utilise GamepadHapticActuator ou vibrationActuator si présents ; no-op sinon.
+ *
+ * Throttle global (~100 ms) pour éviter le spam stick-repeat / focus rafale.
  */
 
 /** @typedef {'light' | 'confirm' | 'nav'} HapticKind */
@@ -12,7 +14,8 @@ const PATTERNS = {
 };
 
 let lastPulseAt = -Infinity;
-const MIN_GAP_MS = 70;
+/** Intervalle mini entre pulses — bande ~80–120 ms. */
+export const MIN_HAPTIC_GAP_MS = 100;
 
 /**
  * @param {Gamepad | null | undefined} pad
@@ -37,13 +40,14 @@ function getActuator(pad) {
 /**
  * @param {Gamepad | null | undefined} pad
  * @param {HapticKind} [kind]
- * @param {{ enabled?: boolean }} [opts]
+ * @param {{ enabled?: boolean, minGapMs?: number }} [opts]
  * @returns {Promise<boolean>} true si un pulse a été tenté
  */
 export async function pulseHaptic(pad, kind = 'light', opts = {}) {
   if (opts.enabled === false) return false;
   const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
-  if (now - lastPulseAt < MIN_GAP_MS) return false;
+  const gap = opts.minGapMs ?? MIN_HAPTIC_GAP_MS;
+  if (now - lastPulseAt < gap) return false;
 
   const actuator = getActuator(pad);
   if (!actuator) return false;
