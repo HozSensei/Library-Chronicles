@@ -336,6 +336,29 @@ export function getContinueBook() {
   return books[0];
 }
 
+/** Dernier tome consulté (toute progression), hors lecture en cours si fourni. */
+export function getLastAccessedBook(excludeId = null) {
+  const books = listBooks()
+    .filter((b) => b.lastAccess && b.id !== excludeId)
+    .sort((a, b) => String(b.lastAccess).localeCompare(String(a.lastAccess)));
+  return books[0] || null;
+}
+
+/** Ajouts récents triés par created_at DESC. */
+export function listRecentBooks(limit = 12) {
+  const books = listBooks()
+    .slice()
+    .sort((a, b) => {
+      const ca = a.createdAt || '';
+      const cb = b.createdAt || '';
+      if (ca && cb) return String(cb).localeCompare(String(ca));
+      if (ca) return -1;
+      if (cb) return 1;
+      return String(b.id).localeCompare(String(a.id), undefined, { numeric: true });
+    });
+  return books.slice(0, Math.max(0, limit));
+}
+
 /** Supprime un livre (et sa progression) par id. */
 export function deleteBook(id) {
   const mode = getDbMode();

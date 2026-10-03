@@ -22,6 +22,9 @@ contextBridge.exposeInMainWorld('vdr', {
     updateBook: (id, patch) =>
       ipcRenderer.invoke(IpcChannels.LIBRARY_UPDATE_BOOK, { id, patch }),
     continue: () => ipcRenderer.invoke(IpcChannels.LIBRARY_CONTINUE),
+    recent: (limit) => ipcRenderer.invoke(IpcChannels.LIBRARY_RECENT, limit),
+    lastAccessed: (excludeId) =>
+      ipcRenderer.invoke(IpcChannels.LIBRARY_LAST_ACCESSED, excludeId),
   },
 
   import: {

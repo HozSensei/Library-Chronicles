@@ -17,7 +17,7 @@ Objectif : une expérience **console-first** irréprochable sur ROG Ally X (port
 1. **Setup** — wizard obligatoire au premier lancement
 2. **Boot** — marque dominante + actions (Continuer / Bibliothèque / Import / Paramètres)
 3. **Import** — review métadonnées par tome
-4. **Bibliothèque** — grille couvertures focusable
+4. **Bibliothèque (catalogue)** — héro « Lecture en cours », rail « Ajouts récents », grille « Tous les livres » (lazy covers)
 5. **Lecteur** — planche plein écran, HUD discret (Y)
 6. **Paramètres** — thème, remap, API
 

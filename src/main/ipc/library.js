@@ -7,6 +7,8 @@ import {
   listBooks,
   updateBook,
   getContinueBook,
+  getLastAccessedBook,
+  listRecentBooks,
   getBookById,
   upsertBook,
   pruneMissingBooks,
@@ -89,4 +91,12 @@ export function registerLibraryIpc() {
   );
 
   ipcMain.handle(IpcChannels.LIBRARY_CONTINUE, async () => getContinueBook());
+
+  ipcMain.handle(IpcChannels.LIBRARY_RECENT, async (_e, limit = 12) =>
+    listRecentBooks(limit),
+  );
+
+  ipcMain.handle(IpcChannels.LIBRARY_LAST_ACCESSED, async (_e, excludeId = null) =>
+    getLastAccessedBook(excludeId),
+  );
 }

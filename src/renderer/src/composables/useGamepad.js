@@ -177,11 +177,19 @@ function createLoop(ctx) {
 
     if (route === 'library') {
       if (action === 'back') router.push({ name: 'boot' });
-      if (action === 'cursor-up') library.moveCursorGrid(0, -1);
-      if (action === 'cursor-down') library.moveCursorGrid(0, 1);
-      if (action === 'cursor-left') library.moveCursorGrid(-1, 0);
-      if (action === 'cursor-right') library.moveCursorGrid(1, 0);
+      if (action === 'cursor-up') library.moveCatalog(0, -1);
+      if (action === 'cursor-down') library.moveCatalog(0, 1);
+      if (action === 'cursor-left') library.moveCatalog(-1, 0);
+      if (action === 'cursor-right') library.moveCatalog(1, 0);
       if (action === 'open-book' || action === 'confirm') {
+        if (library.focusZone === 'hero' && library.heroMode === 'empty') {
+          router.push({ name: 'import' });
+          return;
+        }
+        if (library.focusZone === 'hero' && library.heroMode === 'invite' && !library.heroBook) {
+          if (!library.focusRecent(0)) library.focusGrid(0);
+          return;
+        }
         const book = library.selected;
         if (book) router.push({ name: 'reader', query: { path: book.filePath } });
       }
@@ -191,13 +199,14 @@ function createLoop(ctx) {
       if (action === 'tab-prev') library.cycleFilter(-1);
       if (action === 'scroll' && payload) {
         const now = performance.now();
-        if (now - lastStickNav < 180) return;
+        const stickDelay = library.focusZone === 'recent' ? 140 : 180;
+        if (now - lastStickNav < stickDelay) return;
         if (Math.abs(payload.y) < 0.45 && Math.abs(payload.x) < 0.45) return;
         lastStickNav = now;
         if (Math.abs(payload.y) >= Math.abs(payload.x)) {
-          library.moveCursorGrid(0, payload.y > 0 ? 1 : -1);
+          library.moveCatalog(0, payload.y > 0 ? 1 : -1);
         } else {
-          library.moveCursorGrid(payload.x > 0 ? 1 : -1, 0);
+          library.moveCatalog(payload.x > 0 ? 1 : -1, 0);
         }
       }
       return;
