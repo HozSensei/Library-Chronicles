@@ -3,15 +3,17 @@ import fs from 'fs';
 import crypto from 'crypto';
 import { app } from 'electron';
 
-export function cacheDir() {
-  return path.join(app.getPath('userData'), 'covers');
+export function cacheDir(profileId = null) {
+  const root = path.join(app.getPath('userData'), 'covers');
+  if (profileId == null) return root;
+  return path.join(root, `profile-${profileId}`);
 }
 
 /**
  * Écrit la couverture sur disque (cache) et retourne le chemin.
  */
-export async function ensureCover(bookFilePath, getCoverBuffer) {
-  const dir = cacheDir();
+export async function ensureCover(bookFilePath, getCoverBuffer, profileId = null) {
+  const dir = cacheDir(profileId);
   fs.mkdirSync(dir, { recursive: true });
   const hash = crypto.createHash('sha1').update(bookFilePath).digest('hex').slice(0, 16);
   const coverPath = path.join(dir, `${hash}.jpg`);

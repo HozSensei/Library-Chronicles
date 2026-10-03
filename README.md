@@ -32,17 +32,28 @@ Voir [`docs/PACKAGING.md`](./docs/PACKAGING.md).
 
 Fenêtres : **1920 × 1080** (menus) → **1080 × 1920** à l’ouverture d’un livre, restore au retour.
 
-Au **premier lancement**, un wizard configure dossiers (library / import), langue et thème.  
-L’orientation n’est plus un choix utilisateur.
+Au **premier lancement** : **choix de profil** → setup (dossiers / thème) **par profil**.  
+Chaque profil a sa propre bibliothèque (chemins + index DB isolés).
+
+## Reset bibliothèque
+
+```bash
+npm run reset:library          # wipe livres, progression, covers (profils conservés)
+npm run reset:app              # + rejouer le setup (flags setup)
+npm run reset:app -- --all     # TOUT : profils, config, secrets, DB, covers
+```
+
+Override du dossier userData : `VDR_USER_DATA=/chemin npm run reset:library`.
 
 ## Parcours
 
-1. **Setup** — dossiers, thème, langue
-2. **Import** — CBZ/CBR/PDF · check déjà importé · Enrichir (AniList / Open Library / …)
-3. **Bibliothèque** — grille type Steam OS (vide = bouton Importer)
-4. **Fiche livre** — cover · détails · synopsis · Lire
-5. **Lecteur** — portrait, Select = pause, D-Pad ←→ zoom
-6. **Paramètres** — thème, haptics, remap, providers métadonnées
+1. **Profils** — ronds avatar / initiale + bouton **+** (premier écran)
+2. **Setup** — dossiers, thème, langue **du profil**
+3. **Bibliothèque** — catalogue type TV (héro, En cours, filtres, rails posters)
+4. **Import** — CBZ/CBR/PDF · check déjà importé · Enrichir
+5. **Fiche livre** — cover · détails · synopsis · Lire
+6. **Lecteur** — portrait, Select = pause, D-Pad ←→ zoom
+7. **Paramètres** — thème, haptics, remap, providers métadonnées
 
 ## Stack
 

@@ -35,15 +35,18 @@ const focusables = computed(() => {
 const focusedId = computed(() => focusables.value[ui.setupFocusIndex] || focusables.value[0]);
 
 onMounted(async () => {
-  const paths = await window.vdr.getDefaultPaths();
-  defaults.value = paths;
-  form.libraryRoot = paths.libraryRoot;
-  form.importRoot = paths.importRoot;
-  const config = await window.vdr.getConfig();
-  form.language = config.language || 'fr';
-  form.theme = config.theme || 'dark';
-  ui.applyTheme(form.theme);
   await ui.exitReaderMode();
+  const paths =
+    (await window.vdr.profiles.defaultPaths?.()) ||
+    (await window.vdr.getDefaultPaths());
+  defaults.value = paths;
+  const active = await window.vdr.profiles.getActive();
+  const prefs = active?.prefs;
+  form.libraryRoot = prefs?.libraryRoot || paths.libraryRoot;
+  form.importRoot = prefs?.importRoot || paths.importRoot;
+  form.language = prefs?.language || 'fr';
+  form.theme = prefs?.theme || 'dark';
+  ui.applyTheme(form.theme);
   ui.setSetupFocus(0);
 });
 
@@ -77,6 +80,14 @@ function back() {
 }
 
 async function finish() {
+  // Setup scoped au profil actif
+  await window.vdr.profiles.setPrefs({
+    libraryRoot: form.libraryRoot,
+    importRoot: form.importRoot,
+    language: form.language,
+    theme: form.theme,
+    setupCompleted: true,
+  });
   await window.vdr.setConfig({
     libraryRoot: form.libraryRoot,
     importRoot: form.importRoot,
@@ -90,7 +101,7 @@ async function finish() {
   ui.applyTheme(form.theme);
   await ui.exitReaderMode();
   ui.language = form.language;
-  router.replace({ name: 'profiles' });
+  router.replace({ name: 'library' });
 }
 
 function activateFocused() {
@@ -137,8 +148,8 @@ defineExpose({ next, back, finish, activateFocused, focusables });
             Installons ton espace de lecture
           </h1>
           <p class="lead m-0 max-w-xl text-[var(--paper-dim)] leading-relaxed">
-            Menus en paysage, lecture en portrait — l’app bascule toute seule.
-            Choisis dossiers et thème, puis entre dans la bibliothèque.
+            Profil sélectionné — configure ses dossiers et son thème.
+            Menus en paysage, lecture en portrait : l’app bascule toute seule.
           </p>
           <FocusButton :focused="focusedId === 'next'" subtitle="Continuer" @select="next">
             Commencer

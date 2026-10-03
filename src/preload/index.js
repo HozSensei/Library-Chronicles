@@ -81,6 +81,8 @@ contextBridge.exposeInMainWorld('vdr', {
       ipcRenderer.invoke(IpcChannels.PROFILES_GET_PREFS, profileId),
     setPrefs: (patch, profileId) =>
       ipcRenderer.invoke(IpcChannels.PROFILES_SET_PREFS, { patch, profileId }),
+    defaultPaths: (payload) =>
+      ipcRenderer.invoke(IpcChannels.PROFILES_DEFAULT_PATHS, payload || {}),
   },
 
   bookmarks: {

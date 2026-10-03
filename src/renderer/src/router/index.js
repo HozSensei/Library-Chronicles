@@ -12,22 +12,21 @@ const router = createRouter({
   history: createWebHashHistory(),
   routes: [
     {
-      path: '/setup',
-      name: 'setup',
-      component: SetupView,
-      meta: { transition: 'fade-slide', public: true },
-    },
-    {
       path: '/profiles',
       name: 'profiles',
       component: ProfilesView,
       meta: { transition: 'fade-slide', profiles: true },
     },
     {
+      path: '/setup',
+      name: 'setup',
+      component: SetupView,
+      meta: { transition: 'fade-slide', public: true },
+    },
+    {
       path: '/',
       name: 'boot',
       component: BootView,
-      meta: { transition: 'fade-slide' },
     },
     {
       path: '/library',
@@ -62,33 +61,39 @@ const router = createRouter({
   ],
 });
 
-let setupGateChecked = false;
-let setupCompleted = false;
 let profileGateChecked = false;
 let profileSelected = false;
-
-export async function ensureSetupGate() {
-  if (setupGateChecked) return setupCompleted;
-  try {
-    const config = await window.vdr.getConfig();
-    setupCompleted = Boolean(config.setupCompleted);
-  } catch {
-    setupCompleted = false;
-  }
-  setupGateChecked = true;
-  return setupCompleted;
-}
+let setupGateChecked = false;
+let setupCompleted = false;
 
 export async function ensureProfileGate() {
   if (profileGateChecked) return profileSelected;
   try {
     const config = await window.vdr.getConfig();
-    profileSelected = Boolean(config.profileSelected);
+    profileSelected = Boolean(config.profileSelected && config.activeProfileId);
   } catch {
     profileSelected = false;
   }
   profileGateChecked = true;
   return profileSelected;
+}
+
+export async function ensureSetupGate() {
+  if (setupGateChecked) return setupCompleted;
+  try {
+    const active = await window.vdr.profiles.getActive();
+    // Setup par profil — prefs.setupCompleted prioritaire
+    if (active?.prefs) {
+      setupCompleted = Boolean(active.prefs.setupCompleted);
+    } else {
+      const config = await window.vdr.getConfig();
+      setupCompleted = Boolean(config.setupCompleted);
+    }
+  } catch {
+    setupCompleted = false;
+  }
+  setupGateChecked = true;
+  return setupCompleted;
 }
 
 export function markSetupCompleted() {
@@ -104,28 +109,50 @@ export function markProfileSelected() {
 export function clearProfileSelected() {
   profileSelected = false;
   profileGateChecked = true;
+  setupCompleted = false;
+  setupGateChecked = false;
   window.vdr?.setConfig?.({ profileSelected: false });
 }
 
+export function clearSetupGate() {
+  setupCompleted = false;
+  setupGateChecked = false;
+}
+
+/**
+ * Flux : Profils (1er) → Setup (par profil) → app.
+ */
 router.beforeEach(async (to) => {
-  const done = await ensureSetupGate();
-  if (!done && to.name !== 'setup') {
-    return { name: 'setup' };
-  }
-  if (done && to.name === 'setup') {
-    return { name: 'profiles' };
-  }
-
-  if (!done) return true;
-
+  // 1) Toujours choisir un profil en premier
   const hasProfile = await ensureProfileGate();
   if (!hasProfile && to.name !== 'profiles') {
     return { name: 'profiles' };
   }
-  // Gestion profils depuis Paramètres (?manage=1) même si déjà choisi
   if (hasProfile && to.name === 'profiles' && to.query.manage !== '1') {
-    return { name: 'boot' };
+    // profil déjà choisi cette session → continuer le flux
+  } else if (!hasProfile) {
+    return true;
   }
+
+  // Gestion profils depuis Paramètres
+  if (to.name === 'profiles' && to.query.manage === '1') {
+    return true;
+  }
+  if (to.name === 'profiles' && hasProfile && to.query.manage !== '1') {
+    // Après sélection on redirige depuis la vue ; si refresh → setup/boot
+  }
+
+  if (!hasProfile) return true;
+
+  // 2) Setup du profil actif
+  const done = await ensureSetupGate();
+  if (!done && to.name !== 'setup' && to.name !== 'profiles') {
+    return { name: 'setup' };
+  }
+  if (done && to.name === 'setup') {
+    return { name: 'library' };
+  }
+
   return true;
 });
 

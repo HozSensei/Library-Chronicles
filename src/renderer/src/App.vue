@@ -6,6 +6,7 @@ import { useUiStore } from './stores/ui';
 import { useLibraryStore } from './stores/library';
 import { useImportStore } from './stores/import';
 import { markSetupCompleted } from './router';
+import { sessionOrientationForRoute } from '../../shared/portrait-remap.js';
 
 const router = useRouter();
 const ui = useUiStore();
@@ -17,8 +18,14 @@ const { start, stop, refreshOrientation } = useGamepad();
 let unsubs = [];
 
 function syncOrientationSideEffects(orientation) {
-  ui.applyOrientation(orientation);
-  library.syncColumns(orientation === 'portrait-ccw' ? 'portrait-ccw' : 'landscape');
+  // Ne jamais appliquer un portrait pushé par le main si on n’est pas en lecteur
+  const expected = sessionOrientationForRoute(ui.routeName);
+  const safe =
+    orientation === 'portrait-ccw' && expected !== 'portrait-ccw'
+      ? 'landscape'
+      : expected;
+  ui.applyOrientation(safe);
+  library.syncColumns('landscape');
   refreshOrientation();
 }
 
@@ -26,12 +33,21 @@ onMounted(async () => {
   ui.refreshGamepadHint();
   try {
     const config = await ui.loadConfig();
-    // Force landscape au démarrage (menus) sauf si déjà sur lecteur
+    // Menus toujours landscape au boot (ignore portrait résiduel config)
     if (ui.routeName !== 'reader') {
       await ui.exitReaderMode();
+      ui.applyOrientation('landscape');
     }
     library.syncColumns('landscape');
+    refreshOrientation();
     if (config.setupCompleted) markSetupCompleted();
+    // Prefer setup flag du profil actif
+    try {
+      const active = await window.vdr.profiles.getActive();
+      if (active?.prefs?.setupCompleted) markSetupCompleted();
+    } catch {
+      // ignore
+    }
   } catch (err) {
     console.warn('[VDR] config:', err);
   }
@@ -98,11 +114,14 @@ watch(
     if (name === 'reader' && prev !== 'reader') {
       await ui.enterReaderMode();
       refreshOrientation();
-      library.syncColumns('portrait-ccw');
-    } else if (prev === 'reader' && name !== 'reader') {
+    } else if (name !== 'reader' && (prev === 'reader' || ui.orientation === 'portrait-ccw')) {
+      // Quit lecture OU correction si menus encore en portrait
       await ui.exitReaderMode();
+      ui.applyOrientation('landscape');
       refreshOrientation();
       library.syncColumns('landscape');
+    } else if (name !== 'reader') {
+      refreshOrientation();
     }
   },
 );

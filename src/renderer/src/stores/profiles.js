@@ -70,12 +70,12 @@ export const useProfilesStore = defineStore('profiles', {
       return this.prefs;
     },
     moveFocus(delta) {
-      if (!this.profiles.length) return;
-      this.focusIndex =
-        (this.focusIndex + delta + this.profiles.length) % this.profiles.length;
+      const slots = this.profiles.length + 1; // + bouton ajouter
+      this.focusIndex = (this.focusIndex + delta + slots) % slots;
     },
     setFocus(index) {
-      this.focusIndex = Math.max(0, Math.min(index, this.profiles.length - 1));
+      const max = this.profiles.length; // inclus = bouton +
+      this.focusIndex = Math.max(0, Math.min(index, max));
     },
   },
 });

@@ -6,6 +6,7 @@ import { ensureCover } from './thumbnails.js';
 import { upsertBook, getBookByPath } from '../database/books.js';
 import { detectMetadata } from '../metadata/provider.js';
 import { getConfig } from '../config.js';
+import { getActiveProfileId } from '../database/profiles.js';
 
 /**
  * Scan le dossier import + métadonnées détectées pour chaque fichier.
@@ -62,7 +63,11 @@ export async function commitImport({ sourcePath, metadata, copyToLibrary = true 
     const book = await openBook(destPath);
     pageTotal = book.pageCount || 0;
     try {
-      coverPath = await ensureCover(destPath, () => book.getCoverBuffer());
+      coverPath = await ensureCover(
+        destPath,
+        () => book.getCoverBuffer(),
+        getActiveProfileId(),
+      );
     } catch (err) {
       console.warn('[VDR] couverture:', err.message);
     }

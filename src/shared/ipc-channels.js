@@ -42,6 +42,7 @@ export const IpcChannels = Object.freeze({
   PROFILES_GET_ACTIVE: 'profiles:get-active',
   PROFILES_GET_PREFS: 'profiles:get-prefs',
   PROFILES_SET_PREFS: 'profiles:set-prefs',
+  PROFILES_DEFAULT_PATHS: 'profiles:default-paths',
 
   BOOKMARKS_LIST: 'bookmarks:list',
   BOOKMARKS_LIST_ALL: 'bookmarks:list-all',

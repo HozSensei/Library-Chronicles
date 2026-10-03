@@ -9,10 +9,11 @@ import {
   DeviceOrientation,
   remapDpad,
   remapStick,
+  sessionOrientationForRoute,
 } from '../../../shared/portrait-remap.js';
 import { actionForBinding, GamepadButtons } from '../../../shared/controls.js';
 import { hasHaptics, pulseHaptic } from './useHaptics.js';
-import { markProfileSelected } from '../router';
+import { markProfileSelected, clearSetupGate } from '../router';
 
 
 const BUTTON = GamepadButtons;
@@ -31,6 +32,8 @@ let sharedLoop = null;
 /**
  * Boucle Gamepad unique.
  * Contexte `ui` (landscape, identity) vs `reader` (portrait remap + bindings lecture).
+ * Le remap portrait ne dépend QUE de la route `reader` — jamais de config.orientation
+ * ni d’un inputContext sticky (bug menus encore vertical).
  */
 export function useGamepad() {
   const router = useRouter();
@@ -69,7 +72,7 @@ function createLoop(ctx) {
   let prevButtons = [];
   let padIndex = null;
   let handlers = ctx;
-  /** @type {string} */
+  /** @type {string} — défaut menus = landscape (identité). */
   let orientation = DeviceOrientation.LANDSCAPE;
   let lastStickNav = 0;
   /** @type {Gamepad | null} */
@@ -87,16 +90,14 @@ function createLoop(ctx) {
   }
 
   /**
-   * Orientation manette dérivée du contexte session :
-   * lecteur → portrait-ccw ; tout le reste → landscape (identity).
+   * Orientation manette = route uniquement.
+   * setup / profils / boot / biblio / import / fiche / paramètres → landscape
+   * reader → portrait-ccw
+   * Ne jamais lire config.orientation ni inputContext (sticky après lecture).
    */
   function refreshOrientation() {
     const { ui } = handlers;
-    orientation =
-      ui.routeName === 'reader' || ui.inputContext === 'reader'
-        ? DeviceOrientation.PORTRAIT_CCW
-        : DeviceOrientation.LANDSCAPE;
-    ui.orientation = orientation;
+    orientation = sessionOrientationForRoute(ui.routeName);
     return orientation;
   }
 
@@ -166,19 +167,39 @@ function createLoop(ctx) {
       const { profiles } = handlers;
       if (action === 'cursor-up' || (action === 'scroll' && payload?.y < -0.45)) {
         profiles.moveFocus(-1);
+        vibe('nav');
       }
       if (action === 'cursor-down' || (action === 'scroll' && payload?.y > 0.45)) {
         profiles.moveFocus(1);
+        vibe('nav');
       }
-      if (action === 'cursor-left') profiles.moveFocus(-1);
-      if (action === 'cursor-right') profiles.moveFocus(1);
+      if (action === 'cursor-left') {
+        profiles.moveFocus(-1);
+        vibe('nav');
+      }
+      if (action === 'cursor-right') {
+        profiles.moveFocus(1);
+        vibe('nav');
+      }
       if (action === 'confirm' || action === 'open-book') {
+        if (profiles.focusIndex >= profiles.profiles.length) {
+          document.querySelector('.avatar--add')?.click();
+          vibe('confirm');
+          return;
+        }
         const p = profiles.profiles[profiles.focusIndex];
         if (p) {
-          profiles.select(p.id).then(() => {
+          profiles.select(p.id).then(async () => {
             markProfileSelected();
-            router.replace({ name: 'boot' });
+            clearSetupGate();
+            const active = await window.vdr.profiles.getActive();
+            if (active?.prefs?.setupCompleted) {
+              router.replace({ name: 'library' });
+            } else {
+              router.replace({ name: 'setup' });
+            }
           });
+          vibe('confirm');
         }
       }
       return;
@@ -253,7 +274,10 @@ function createLoop(ctx) {
         library.moveCatalog(1, 0);
         vibe('nav');
       }
-      if (action === 'toggle-series') library.toggleViewMode();
+      if (action === 'toggle-series') {
+        library.toggleViewMode();
+        vibe('light');
+      }
       if (action === 'open-book' || action === 'confirm') {
         if (!library.books.length) {
           router.push({ name: 'import' });

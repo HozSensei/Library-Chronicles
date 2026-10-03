@@ -5,7 +5,13 @@
  * doivent passer par `portrait-remap.js` (repère écran ≠ boutons physiques).
  */
 
-export { DeviceOrientation, remapDpad, remapStick } from './portrait-remap.js';
+export {
+  DeviceOrientation,
+  remapDpad,
+  remapStick,
+  sessionOrientationForRoute,
+  sessionModeForRoute,
+} from './portrait-remap.js';
 export {
   DEFAULT_KEY_BINDINGS,
   BINDABLE_ACTIONS,
