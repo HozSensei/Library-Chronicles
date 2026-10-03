@@ -10,6 +10,7 @@ import {
   remapDpad,
   remapStick,
   sessionOrientationForRoute,
+  visualPanToLocal,
 } from '../../../shared/portrait-remap.js';
 import { actionForBinding, GamepadButtons } from '../../../shared/controls.js';
 import { hasHaptics, pulseHaptic } from './useHaptics.js';
@@ -559,16 +560,21 @@ function createLoop(ctx) {
         reader.stepChapter(1);
       }
       if ((action === 'pan' || action === 'stick') && payload) {
+        // payload = axes logiques (repère utilisateur). Si le plan est en
+        // rotate(+90°), convertir vers le repère local du stage.
+        const local = ui.readerCssRotate
+          ? visualPanToLocal(payload.x, payload.y)
+          : payload;
         if (reader.webtoonMode) {
           const strip = document.querySelector('.reader__strip');
           if (strip) {
-            strip.scrollTop += payload.y * 28;
-            strip.scrollLeft += payload.x * 10;
+            strip.scrollTop += local.y * 28;
+            strip.scrollLeft += local.x * 10;
           } else {
-            reader.pan(payload.x, payload.y);
+            reader.pan(local.x, local.y);
           }
         } else {
-          reader.pan(payload.x, payload.y);
+          reader.pan(local.x, local.y);
         }
       }
     }

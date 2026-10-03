@@ -121,7 +121,8 @@ router.afterEach((to) => {
 });
 
 /**
- * Resize portrait/landscape UNIQUEMENT entrée/sortie lecteur.
+ * Entrée/sortie lecteur : orientation logique + CSS rotate.
+ * Fenêtre reste landscape (stratégie B) — setSessionMode ne shrink pas.
  * Pas de setSessionMode sur fiche livre, grille, import, setup, etc.
  */
 watch(

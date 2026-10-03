@@ -6,13 +6,16 @@
  * - poignée droite (ABXY + stick R) en haut
  *
  * Conséquence pour l’utilisateur qui regarde l’écran vertical :
- *   physique HAUT    → logique GAUCHE
+ *   physique HAUT    → logique GAUCHE   (haut natif pointe à gauche)
  *   physique BAS     → logique DROITE
- *   physique GAUCHE  → logique HAUT
- *   physique DROITE  → logique BAS
+ *   physique GAUCHE  → logique BAS      (gauche natif pointe vers le D-Pad / bas)
+ *   physique DROITE  → logique HAUT     (droite natif pointe vers ABXY / haut)
+ *
+ * Le plan lecteur CSS est tourné de +90° (CW) pour que la planche soit
+ * à l’endroit dans ce hold — voir ReaderView + visualPanToLocal.
  *
  * Toutes les actions UI/lecteur doivent raisonner en directions *logiques*
- * (repère écran), jamais en indices bruts du D-Pad XInput.
+ * (repère écran utilisateur), jamais en indices bruts du D-Pad XInput.
  *
  * IMPORTANT — remap portrait UNIQUEMENT en mode lecture.
  * Menus (setup / profils / biblio / import / fiche / paramètres) = landscape
@@ -27,7 +30,7 @@ export const DeviceOrientation = Object.freeze({
   PORTRAIT_CCW: 'portrait-ccw',
 });
 
-/** Directions logiques (repère écran). */
+/** Directions logiques (repère écran utilisateur). */
 export const LogicalDir = Object.freeze({
   UP: 'up',
   DOWN: 'down',
@@ -48,7 +51,7 @@ export function sessionOrientationForRoute(routeName) {
 }
 
 /**
- * Mode session fenêtre : ui (landscape) | reader (portrait).
+ * Mode session fenêtre : ui (landscape) | reader (portrait logique).
  * @param {string | null | undefined} routeName
  * @returns {'ui'|'reader'}
  */
@@ -70,21 +73,21 @@ export function remapDpad(orientation, physical) {
     case 'down':
       return LogicalDir.RIGHT;
     case 'left':
-      return LogicalDir.UP;
-    case 'right':
       return LogicalDir.DOWN;
+    case 'right':
+      return LogicalDir.UP;
     default:
       return physical;
   }
 }
 
 /**
- * Axes stick physiques → axes logiques écran.
+ * Axes stick physiques → axes logiques écran utilisateur.
  * Convention Gamepad : x −1 gauche / +1 droite, y −1 haut / +1 bas.
  *
- * Portrait CCW :
+ * Portrait CCW (D-Pad en bas) :
  *   logicalX = physicalY
- *   logicalY = physicalX
+ *   logicalY = −physicalX
  *
  * @returns {{ x: number, y: number }}
  */
@@ -92,7 +95,21 @@ export function remapStick(orientation, physicalX, physicalY) {
   if (orientation !== DeviceOrientation.PORTRAIT_CCW) {
     return { x: physicalX, y: physicalY };
   }
-  return { x: physicalY, y: physicalX };
+  return { x: physicalY, y: -physicalX };
+}
+
+/**
+ * Convertit un pan en repère utilisateur (visuel) vers le repère local
+ * du plan lecteur tourné de +90° CSS (CW).
+ *
+ * rotate(90deg) : (x, y) → (−y, x)  ⇒  localX = visualY, localY = −visualX
+ *
+ * @param {number} visualX
+ * @param {number} visualY
+ * @returns {{ x: number, y: number }}
+ */
+export function visualPanToLocal(visualX, visualY) {
+  return { x: visualY, y: -visualX };
 }
 
 /**

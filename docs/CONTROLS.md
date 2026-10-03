@@ -17,25 +17,29 @@ Implémentation : `portrait-remap.js` → `key-bindings.js` → `useGamepad.js`.
 
 ## Orientation automatique
 
-| Contexte | Fenêtre | Remap |
-|----------|---------|-------|
-| Menus / setup / biblio / import / fiche | 1920×1080 landscape | Aucun (physique = logique) |
-| Lecteur | 1080×1920 portrait | 90° CCW |
+| Contexte | Fenêtre | Contenu | Remap |
+|----------|---------|---------|-------|
+| Menus / setup / biblio / import / fiche | 1920×1080 landscape | inchangé | Aucun (physique = logique) |
+| Lecteur | **reste** 1920×1080 landscape | plan CSS **+90° CW** | 90° CCW hold |
+
+> Stratégie B : pas de `setBounds` portrait (sinon clamp Ally → shrink 1080×1080).
+> Ally tenue CCW (D-Pad en bas) → contenu tourné +90° pour planche à l’endroit.
 
 Plus de toggle setup/paramètres. IPC `app:set-session-mode` (`ui` | `reader`).
 
 ### Remap portrait (lecteur uniquement)
 
-Ally tenue **en portrait**, tournée de **90° anti-horaire** :
+Ally tenue **en portrait**, tournée de **90° anti-horaire** (D-Pad en bas) :
 
-| Physique (XInput) | Logique (écran portrait) |
-|-------------------|--------------------------|
-| D-Pad / stick ↑   | ← gauche                 |
-| D-Pad / stick ↓   | → droite                 |
-| D-Pad / stick ←   | ↑ haut                   |
-| D-Pad / stick →   | ↓ bas                    |
+| Physique (XInput) | Logique (écran utilisateur) |
+|-------------------|------------------------------|
+| D-Pad / stick ↑   | ← gauche                     |
+| D-Pad / stick ↓   | → droite                     |
+| D-Pad / stick ←   | ↓ bas                        |
+| D-Pad / stick →   | ↑ haut                       |
 
-Stick : `logicalX = physicalY`, `logicalY = physicalX`.
+Stick : `logicalX = physicalY`, `logicalY = −physicalX`.
+Pan dans le plan tourné : `local = visualPanToLocal(logical)` (`localX = visualY`, `localY = −visualX`).
 
 ## Mode Lecture *(directions = écran logique)*
 

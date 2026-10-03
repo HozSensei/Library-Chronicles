@@ -1,6 +1,5 @@
 /**
- * Vérifie les tailles fenêtre portrait / landscape + clamp workArea.
- * Défaut produit = landscape (menus) ; portrait = mode lecture.
+ * Vérifie les tailles fenêtre + stratégie B (landscape fixe + CSS rotate lecteur).
  */
 import {
   PORTRAIT_BOUNDS,
@@ -22,10 +21,11 @@ function assert(cond, msg) {
   }
 }
 
-assert(PORTRAIT_BOUNDS.width === 1080 && PORTRAIT_BOUNDS.height === 1920, 'portrait 1080×1920');
+assert(PORTRAIT_BOUNDS.width === 1080 && PORTRAIT_BOUNDS.height === 1920, 'portrait 1080×1920 (réf.)');
 assert(LANDSCAPE_BOUNDS.width === 1920 && LANDSCAPE_BOUNDS.height === 1080, 'landscape 1920×1080');
+// Stratégie B : bounds fenêtre toujours landscape
 assert(boundsForOrientation('landscape') === LANDSCAPE_BOUNDS, 'bounds landscape');
-assert(boundsForOrientation('portrait-ccw') === PORTRAIT_BOUNDS, 'bounds portrait-ccw');
+assert(boundsForOrientation('portrait-ccw') === LANDSCAPE_BOUNDS, 'bounds portrait-ccw → landscape (B)');
 assert(boundsForOrientation(undefined) === LANDSCAPE_BOUNDS, 'bounds défaut landscape');
 assert(boundsForOrientation(null) === LANDSCAPE_BOUNDS, 'bounds null → landscape');
 assert(LANDSCAPE_BOUNDS.minWidth >= 960, 'min landscape largeur');
@@ -42,32 +42,30 @@ const pos = centerInWorkArea(desktop, { x: 100, y: 50, width: 3840, height: 2160
 assert(pos.x === 100 + (3840 - 1920) / 2, 'centre X dans workArea');
 assert(pos.y === 50 + (2160 - 1080) / 2, 'centre Y dans workArea');
 
-const portraitClamped = clampSizeToWorkArea(PORTRAIT_BOUNDS, { width: 1080, height: 1920 });
-assert(
-  portraitClamped.width === 1080 && portraitClamped.height === 1920,
-  'portrait exact si workArea suffisant',
-);
+const ally = clampSizeToWorkArea(LANDSCAPE_BOUNDS, { width: 1920, height: 1080 });
+assert(ally.width === 1920 && ally.height === 1080, 'Ally landscape : fenêtre pleine 1920×1080');
 
-assert(
-  needsCssPortraitRotate('portrait-ccw', { width: 1080, height: 1920 }) === false,
-  'pas de CSS rotate si portrait vrai',
-);
-assert(
-  needsCssPortraitRotate('portrait-ccw', { width: 1080, height: 1080 }) === true,
-  'CSS rotate si carré clampé',
-);
+// CSS rotate actif dès que orientation logique = portrait-ccw (lecteur)
 assert(
   needsCssPortraitRotate('portrait-ccw', { width: 1920, height: 1080 }) === true,
-  'CSS rotate si workArea landscape Windows',
+  'lecteur → cssRotate toujours',
+);
+assert(
+  needsCssPortraitRotate('portrait-ccw', { width: 1080, height: 1920 }) === true,
+  'lecteur → cssRotate même si taille portrait',
 );
 assert(
   needsCssPortraitRotate('landscape', { width: 1920, height: 1080 }) === false,
   'pas de CSS rotate en menus landscape',
 );
 
-const winAlly = clampSizeToWorkArea(PORTRAIT_BOUNDS, { width: 1920, height: 1080 });
-assert(winAlly.height === 1080 && winAlly.width === 1080, 'portrait clampé Ally landscape → 1080×1080');
-assert(needsCssPortraitRotate('portrait-ccw', winAlly) === true, 'Ally landscape → cssRotate');
+// Ancien piège : setBounds portrait clampé → 1080×1080 (ne plus utiliser)
+const oldTrap = clampSizeToWorkArea(PORTRAIT_BOUNDS, { width: 1920, height: 1080 });
+assert(oldTrap.width === 1080 && oldTrap.height === 1080, 'preuve : portrait clampé = shrink');
+assert(
+  boundsForOrientation('portrait-ccw') !== PORTRAIT_BOUNDS,
+  'stratégie B évite setBounds portrait',
+);
 
 if (failed) {
   console.error(`\n${failed} échec(s)`);

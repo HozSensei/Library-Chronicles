@@ -10,6 +10,7 @@ const route = useRoute();
 const reader = useReaderStore();
 const ui = useUiStore();
 const stripEl = ref(null);
+const planeEl = ref(null);
 
 const stripStyle = computed(() => ({
   filter: reader.filterCss,
@@ -96,11 +97,12 @@ function onStripScroll() {
     :data-css-rotate="ui.readerCssRotate ? '1' : '0'"
   >
     <!--
-      Stage : en mode css-rotate (Windows landscape clampé), tourné −90°
-      pour lecture verticale Ally. Sinon plein cadre portrait natif.
+      Plan lecteur : en css-rotate (stratégie B, fenêtre landscape),
+      dimensions portrait (100vh × 100vw) puis rotate(+90° CW) pour Ally
+      tenue CCW (D-Pad en bas). Inclut HUD pour rester dans le même repère.
     -->
-    <div class="reader__viewport">
-      <div class="reader__stage-wrap">
+    <div ref="planeEl" class="reader__plane">
+      <div class="reader__viewport">
         <div
           v-if="reader.webtoonMode"
           ref="stripEl"
@@ -142,16 +144,16 @@ function onStripScroll() {
           </div>
         </div>
       </div>
-    </div>
 
-    <div v-if="reader.nextVolumeOffer && reader.isFinished" class="reader__next">
-      <p>Tome terminé</p>
-      <button type="button" class="ghost" @click="openNext">
-        RB · {{ reader.nextVolumeOffer.title }}
-      </button>
-    </div>
+      <div v-if="reader.nextVolumeOffer && reader.isFinished" class="reader__next">
+        <p>Tome terminé</p>
+        <button type="button" class="ghost" @click="openNext">
+          RB · {{ reader.nextVolumeOffer.title }}
+        </button>
+      </div>
 
-    <ReaderHud />
+      <ReaderHud />
+    </div>
   </section>
 </template>
 
@@ -168,33 +170,39 @@ function onStripScroll() {
   background: var(--reader-bg);
 }
 
+/* Plan plein cadre (fenêtre déjà portrait rare / tests). */
+.reader__plane {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  min-width: 0;
+  min-height: 0;
+}
+
+/*
+ * Stratégie B — fenêtre landscape fixe :
+ * plan local portrait (largeur = hauteur fenêtre, hauteur = largeur fenêtre),
+ * puis +90° CW pour lecture Ally CCW (D-Pad en bas).
+ * Après rotation le plan remplit exactement le viewport landscape.
+ */
+.reader[data-css-rotate='1'] .reader__plane {
+  inset: auto;
+  top: 50%;
+  left: 50%;
+  width: 100vh;
+  height: 100vw;
+  max-width: none;
+  max-height: none;
+  transform: translate(-50%, -50%) rotate(90deg);
+  transform-origin: center center;
+}
+
 .reader__viewport {
   position: absolute;
   inset: 0;
   overflow: hidden;
   min-width: 0;
   min-height: 0;
-}
-
-.reader__stage-wrap {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  min-width: 0;
-  min-height: 0;
-}
-
-/* Fallback Windows : fenêtre encore landscape → stage portrait tourné −90° (CCW) */
-.reader[data-css-rotate='1'] .reader__stage-wrap {
-  width: 100vh;
-  height: 100vw;
-  top: 50%;
-  left: 50%;
-  right: auto;
-  bottom: auto;
-  inset: auto;
-  transform: translate(-50%, -50%) rotate(-90deg);
-  transform-origin: center center;
 }
 
 .reader__stage {
@@ -212,6 +220,30 @@ function onStripScroll() {
   pointer-events: none;
   max-width: 100%;
   max-height: 100%;
+  object-fit: contain;
+}
+
+.reader__stage[data-fit='fit-height'] .reader__page {
+  height: 100%;
+  width: auto;
+  max-width: none;
+  object-fit: unset;
+}
+
+.reader__stage[data-fit='fit-width'] .reader__page {
+  width: 100%;
+  height: auto;
+  max-height: none;
+  object-fit: unset;
+}
+
+.reader__stage[data-fit='zoom-100'] .reader__page,
+.reader__stage[data-fit='custom'] .reader__page {
+  width: auto;
+  height: auto;
+  max-width: none;
+  max-height: none;
+  object-fit: unset;
 }
 
 .reader__strip {

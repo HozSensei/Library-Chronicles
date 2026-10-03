@@ -1,9 +1,13 @@
 /**
  * Tailles de fenêtre selon l’orientation session.
- * landscape (défaut UI) · portrait-ccw (mode lecture Ally verticale).
  *
- * Toujours clamper à workAreaSize pour ne jamais dépasser l’écran,
- * recentrer, et éviter un fullscreen involontaire.
+ * Stratégie B (Ally / Windows) :
+ * - Menus et lecteur gardent une fenêtre **landscape** pleine (workArea).
+ * - Le mode lecture « portrait » est une rotation CSS du plan lecteur,
+ *   jamais un setBounds 1080×1920 (sinon clamp Ally → shrink 1080×1080).
+ *
+ * PORTRAIT_BOUNDS reste disponible pour référence / tests, mais
+ * applySessionMode ne l’utilise plus pour la fenêtre Electron.
  */
 
 export const PORTRAIT_BOUNDS = Object.freeze({
@@ -21,11 +25,11 @@ export const LANDSCAPE_BOUNDS = Object.freeze({
 });
 
 /**
- * @param {string | undefined | null} orientation
+ * Taille fenêtre Electron. Stratégie B : toujours landscape (plein usage écran).
+ * @param {string | undefined | null} _orientation
  */
-export function boundsForOrientation(orientation) {
-  // Défaut produit = landscape (menus). Portrait uniquement en lecture.
-  return orientation === 'portrait-ccw' ? PORTRAIT_BOUNDS : LANDSCAPE_BOUNDS;
+export function boundsForOrientation(_orientation) {
+  return LANDSCAPE_BOUNDS;
 }
 
 /**
@@ -60,6 +64,7 @@ export function centerInWorkArea(size, workArea) {
 
 /**
  * Applique taille / minSize à une BrowserWindow sans maximiser ni fullscreen.
+ * Stratégie B : toujours landscape, quel que soit `orientation`.
  * @param {import('electron').BrowserWindow | null} win
  * @param {string | undefined | null} orientation
  * @param {{ width: number, height: number, x?: number, y?: number } | null | undefined} [workArea]
@@ -106,18 +111,13 @@ export function windowMatchesSize(win, target) {
 }
 
 /**
- * Sur Windows / Ally, le workArea reste souvent landscape (1920×1080) :
- * setBounds portrait est alors clampé et la fenêtre n’est pas vraiment verticale.
- * Dans ce cas le renderer doit appliquer une rotation CSS 90° du stage lecteur.
+ * Lecteur : toujours rotation CSS (stratégie B — fenêtre landscape fixe).
+ * Les menus n’activent jamais la rotation.
  *
  * @param {string | undefined | null} orientation
- * @param {{ width: number, height: number }} appliedSize taille réellement appliquée
+ * @param {{ width: number, height: number }} [_appliedSize]
  * @returns {boolean}
  */
-export function needsCssPortraitRotate(orientation, appliedSize) {
-  if (orientation !== 'portrait-ccw') return false;
-  const w = Number(appliedSize?.width) || 0;
-  const h = Number(appliedSize?.height) || 0;
-  // Portrait « vrai » = plus haut que large. Sinon fallback CSS.
-  return !(h > w);
+export function needsCssPortraitRotate(orientation, _appliedSize) {
+  return orientation === 'portrait-ccw';
 }

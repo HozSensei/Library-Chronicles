@@ -15,10 +15,13 @@ Application **100 % locale** — pas d’OPDS ni de dossier distant.
 
 ## Flux d’orientation (automatique)
 
-| Zone | Orientation | Manette |
-|------|-------------|---------|
-| Setup / Profils / Boot / Bibliothèque / Import / Fiche / Paramètres | **Landscape** 1920×1080 | Identity (Haut = Haut) |
-| Lecteur | **Portrait** 1080×1920 | Remap 90° CCW |
+| Zone | Fenêtre Electron | Contenu | Manette |
+|------|------------------|---------|---------|
+| Setup / Profils / Boot / Bibliothèque / Import / Fiche / Paramètres | **Landscape** 1920×1080 | inchangé | Identity (Haut = Haut) |
+| Lecteur | **Landscape** 1920×1080 (plein workArea) | plan CSS **+90° CW** | Remap hold 90° CCW |
+
+Stratégie B : la fenêtre ne passe **pas** en 1080×1920 (évite le shrink Windows/Ally).  
+Le portrait lecture = rotation CSS du plan (stage + HUD) dans le bon sens.
 
 Plus de choix « Portrait Ally / Landscape » au setup ni dans les paramètres.  
 L’app appelle `setSessionMode('reader'|'ui')` à l’entrée / sortie du lecteur.

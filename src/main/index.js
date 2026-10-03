@@ -100,10 +100,11 @@ function notifyOrientation(orientation) {
 }
 
 /**
- * Mode session UI (landscape) vs lecture (portrait).
- * Menus = toujours landscape ; portrait uniquement en reader.
- * Resize / setBounds UNIQUEMENT si l’orientation change — jamais à chaque
- * navigation de menu (sinon la fenêtre « saute »).
+ * Mode session UI vs lecture.
+ * Stratégie B : fenêtre toujours landscape (plein workArea).
+ * Lecteur = orientation logique portrait-ccw + rotation CSS +90° du plan
+ * (jamais setBounds 1080×1920 → évite le shrink Ally 1080×1080).
+ * setBounds uniquement si l’orientation session change ou force.
  */
 function applySessionMode(mode, { force = false } = {}) {
   const isReader = mode === 'reader';
@@ -116,12 +117,11 @@ function applySessionMode(mode, { force = false } = {}) {
     setConfig({ orientation });
   }
 
-  let applied = clampSizeToWorkArea(boundsForOrientation(orientation), workArea);
+  // Toujours viser landscape plein écran (stratégie B).
+  let applied = clampSizeToWorkArea(boundsForOrientation('landscape'), workArea);
 
-  // Resize uniquement si l’orientation change (entrée/sortie lecteur) ou force boot.
-  // Jamais de setBounds sur un appel ui→ui (navigation menus / fiche livre).
   if (changed || force) {
-    applied = applyWindowOrientation(mainWindow, orientation, workArea) || applied;
+    applied = applyWindowOrientation(mainWindow, 'landscape', workArea) || applied;
     notifyOrientation(orientation);
   } else if (mainWindow && !mainWindow.isDestroyed()) {
     const [w, h] = mainWindow.getSize();

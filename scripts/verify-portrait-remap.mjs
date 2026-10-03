@@ -8,6 +8,7 @@ import {
   readingActionForLogicalDpad,
   sessionOrientationForRoute,
   sessionModeForRoute,
+  visualPanToLocal,
 } from '../src/shared/portrait-remap.js';
 import {
   resolveKeyBindings,
@@ -33,15 +34,25 @@ const o = DeviceOrientation.PORTRAIT_CCW;
 
 assert(remapDpad(o, 'up') === 'left', 'physique ↑ → logique ←');
 assert(remapDpad(o, 'down') === 'right', 'physique ↓ → logique →');
-assert(remapDpad(o, 'left') === 'up', 'physique ← → logique ↑');
-assert(remapDpad(o, 'right') === 'down', 'physique → → logique ↓');
+assert(remapDpad(o, 'left') === 'down', 'physique ← → logique ↓ (CCW D-Pad bas)');
+assert(remapDpad(o, 'right') === 'up', 'physique → → logique ↑ (CCW ABXY haut)');
 assert(remapDpad(DeviceOrientation.LANDSCAPE, 'up') === 'up', 'landscape inchangé');
 assert(remapDpad(DeviceOrientation.LANDSCAPE, 'left') === 'left', 'landscape ← inchangé');
 
 const stickUp = remapStick(o, 0, -1);
 assert(stickUp.x === -1 && stickUp.y === 0, 'stick physique ↑ → logique ←');
 const stickLeft = remapStick(o, -1, 0);
-assert(stickLeft.x === 0 && stickLeft.y === -1, 'stick physique ← → logique ↑');
+assert(stickLeft.x === 0 && stickLeft.y === 1, 'stick physique ← → logique ↓');
+const stickRight = remapStick(o, 1, 0);
+assert(stickRight.x === 0 && stickRight.y === -1, 'stick physique → → logique ↑');
+
+// Pan : axes utilisateur → local du plan rotate(+90°)
+const panRight = visualPanToLocal(1, 0);
+assert(panRight.x === 0 && panRight.y === -1, 'pan visuel → → local ↑ (−Y)');
+const panUp = visualPanToLocal(0, -1);
+assert(panUp.x === -1 && panUp.y === 0, 'pan visuel ↑ → local ← (−X)');
+const panDown = visualPanToLocal(0, 1);
+assert(panDown.x === 1 && panDown.y === 0, 'pan visuel ↓ → local → (+X)');
 
 const landStick = remapStick(DeviceOrientation.LANDSCAPE, 0.5, -0.7);
 assert(
