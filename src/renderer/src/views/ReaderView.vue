@@ -202,19 +202,24 @@ function onStripScroll() {
   position: absolute;
   inset: 0;
   overflow: hidden;
+  overscroll-behavior: none;
   min-width: 0;
   min-height: 0;
+  touch-action: none;
 }
 
 .reader__stage {
   position: absolute;
   inset: 0;
   overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: none;
   display: grid;
   place-items: center;
 }
 
 .reader__page {
+  /* Zoom D-Pad : ancre au centre du viewport (pas coin haut-gauche). */
   transform-origin: center center;
   will-change: transform, filter;
   user-select: none;
@@ -254,10 +259,15 @@ function onStripScroll() {
   object-fit: unset;
 }
 
+/*
+ * custom / zoom-100 : même gabarit que fit-height (base 1×).
+ * Le zoom manuel ne doit PAS basculer en taille naturelle (saut vertical).
+ * L’échelle réelle = transform scale, origin centre.
+ */
 .reader__stage[data-fit='zoom-100'] .reader__page,
 .reader__stage[data-fit='custom'] .reader__page {
+  height: 100%;
   width: auto;
-  height: auto;
   max-width: none;
   max-height: none;
   object-fit: unset;
