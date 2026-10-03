@@ -31,23 +31,22 @@
   "dependencies": {
     "@fontsource/figtree": "^5.2.5",
     "@fontsource/syne": "^5.2.5",
-    "better-sqlite3": "^11.7.0",
     "jszip": "^3.10.1",
     "node-unrar-js": "^2.0.2",
     "pdfjs-dist": "^4.10.38",
-    "pinia": "^2.3.0",
+    "pinia": "^2.3.1",
     "vue": "^3.5.13",
-    "vue-router": "^4.5.0"
+    "vue-router": "^4.6.4"
   },
   "devDependencies": {
-    "@vitejs/plugin-vue": "^5.2.1",
-    "electron": "^33.2.1",
-    "electron-builder": "^25.1.8",
-    "electron-vite": "^2.3.0",
-    "vite": "^5.4.11"
+    "@vitejs/plugin-vue": "^6.0.9",
+    "electron": "^41.10.7",
+    "electron-builder": "^26.17.0",
+    "electron-vite": "^5.0.0",
+    "vite": "^6.4.3"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22.12.0"
   },
   "build": {
     "appId": "com.librarychronicles.verticaldeckreader",
@@ -102,5 +101,11 @@
       "fr",
       "en-US"
     ]
+  },
+  "optionalDependencies": {
+    "better-sqlite3": "^11.10.0"
+  },
+  "overrides": {
+    "@electron/get": "^5.1.0"
   }
 }

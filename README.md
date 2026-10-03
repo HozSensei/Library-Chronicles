@@ -4,6 +4,8 @@ Lecteur de BD, comics et mangas **vertical**, pensé manette pour **ROG Ally X**
 
 **Electron + Vue 3 + Vite + Pinia** — *Library Chronicles*.
 
+Prérequis : **Node ≥ 22.12.0**. Sécurité deps : [`docs/SECURITY.md`](./docs/SECURITY.md).
+
 ## Démarrage
 
 ```bash

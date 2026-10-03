@@ -6,7 +6,7 @@ Cible principale : **ROG Ally X** (Windows 11, x64).
 
 Sur la machine de **build Windows** (recommandé) :
 
-- Node ≥ 20
+- Node ≥ 22.12.0 (exigence Electron ≥ 41 ; voir [`SECURITY.md`](./SECURITY.md))
 - Visual Studio Build Tools (C++ / Desktop) pour compiler `better-sqlite3`
 - `npm install` puis rebuild natif Electron
 
