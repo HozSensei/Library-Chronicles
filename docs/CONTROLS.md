@@ -118,15 +118,26 @@ Navigation D-Pad **et stick** (identité landscape).
 
 ### Import
 
+**Liste**
+
 | Contrôle | Action |
 |----------|--------|
-| ↑↓ | Naviguer la liste / basculer vers le footer |
-| ←→ | Focus barre d’actions (Importer / Tout / Enrichir / Rescanner / Retour) |
-| A | Liste = cocher/décocher · Footer = valider l’action focus |
-| Y | Enrichir métadonnées (tome focus) |
+| ↑↓ | Naviguer les fichiers / footer Rescanner · Retour |
+| A | Ouvrir la **fiche détail** (méta) — pas d’import immédiat |
+| Y | **Tout importer** (méta détectées / draft) |
 | B | Retour bibliothèque |
 
-Footer **toujours visible** (hors scroll). Scrollbar collée au bord droit de la fenêtre.
+**Fiche détail**
+
+| Contrôle | Action |
+|----------|--------|
+| ↑↓ | Champs méta → mots-clés → Rechercher → résultats → footer |
+| ←→ sur provider | Changer de provider |
+| A | Éditer champ (clavier virtuel) / lancer recherche / appliquer un résultat / Importer ce tome |
+| Y | Lancer la **recherche API** (mots-clés) |
+| B | Retour liste |
+
+Footer compact (pas d’overflow boutons). Scroll `.shell-scroll`.
 
 ### Paramètres
 

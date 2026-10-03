@@ -22,7 +22,7 @@ séparées de `vdr-config.json`. **Jamais** commités dans le dépôt.
 ## UI
 
 - **Paramètres → API métadonnées** : liste des providers, badge gratuit / clé requise, champ clé seulement si `requiresApiKey`, texte d’aide + lien (`shell.openExternal`, pas de webview).
-- **Import** : sélecteur de provider + même lien d’aide ; « Enrichir » utilise le provider actif.
+- **Import (fiche détail)** : sélecteur de provider + champ **mots-clés** éditable (clavier virtuel) ; `search(query)` via le provider actif ; choisir un résultat pour appliquer les méta, puis Importer ce tome.
 - **Défaut** : `anilist` (gratuit, sans clé) — plus `stub` par défaut.
 - Warnings visibles si réseau / clé / résultats vides ; synopsis appliquée au draft.
 

@@ -28,6 +28,15 @@ import {
   clampBookFocus,
   isBookActionFocus,
 } from '../../../shared/book-focus.js';
+import {
+  IMPORT_DETAIL_ACTIONS,
+  IMPORT_DETAIL_FIELDS,
+  IMPORT_LIST_ACTIONS,
+  clampDetailActionFocus,
+  clampDetailFieldFocus,
+  clampListActionFocus,
+  importFieldDomId,
+} from '../../../shared/import-focus.js';
 import { createStickMenuNav } from '../../../shared/stick-menu-nav.js';
 import {
   isTextInputFocused,
@@ -492,76 +501,231 @@ function createLoop(ctx) {
     }
 
     if (route === 'import') {
-      const footerMax = 4; // Importer / Tout / Enrichir / Rescanner / Retour
+      // ——— Fiche détail import (méta + search API) ———
+      if (imp.isDetail) {
+        if (action === 'back') {
+          vibe('light');
+          imp.closeDetail();
+          ui.setImportFocusZone('list');
+          ui.setImportFocus(0);
+          afterFocusMove();
+          return;
+        }
+
+        const resultCount = imp.enrichResults.length;
+        const zone = ui.importFocusZone;
+        const onProvider =
+          zone === 'fields' &&
+          ui.importFocusIndex === IMPORT_DETAIL_FIELDS.PROVIDER;
+
+        // Sur provider : ←→ cycle les providers (sans changer de focus)
+        if (onProvider && (action === 'cursor-left' || action === 'cursor-right')) {
+          void imp.cycleProvider(action === 'cursor-left' ? -1 : 1);
+          afterFocusMove();
+          return;
+        }
+
+        const goPrev = action === 'cursor-up' || action === 'cursor-left';
+        const goNext = action === 'cursor-down' || action === 'cursor-right';
+
+        if (goPrev) {
+          if (zone === 'actions') {
+            if (ui.importFocusIndex > 0) {
+              ui.setImportFocus(clampDetailActionFocus(ui.importFocusIndex - 1));
+            } else if (resultCount > 0) {
+              ui.setImportFocusZone('results');
+              ui.setImportFocus(resultCount - 1);
+              imp.enrichResultCursor = resultCount - 1;
+            } else {
+              ui.setImportFocusZone('fields');
+              ui.setImportFocus(IMPORT_DETAIL_FIELDS.SEARCH);
+            }
+          } else if (zone === 'results') {
+            if (ui.importFocusIndex > 0) {
+              const next = ui.importFocusIndex - 1;
+              ui.setImportFocus(next);
+              imp.enrichResultCursor = next;
+            } else {
+              ui.setImportFocusZone('fields');
+              ui.setImportFocus(IMPORT_DETAIL_FIELDS.SEARCH);
+            }
+          } else {
+            ui.setImportFocusZone('fields');
+            ui.setImportFocus(clampDetailFieldFocus(ui.importFocusIndex - 1));
+          }
+          afterFocusMove();
+        }
+
+        if (goNext) {
+          if (zone === 'fields') {
+            if (ui.importFocusIndex < IMPORT_DETAIL_FIELDS.MAX) {
+              ui.setImportFocus(clampDetailFieldFocus(ui.importFocusIndex + 1));
+            } else if (resultCount > 0) {
+              ui.setImportFocusZone('results');
+              ui.setImportFocus(0);
+              imp.enrichResultCursor = 0;
+            } else {
+              ui.setImportFocusZone('actions');
+              ui.setImportFocus(IMPORT_DETAIL_ACTIONS.COMMIT);
+            }
+          } else if (zone === 'results') {
+            if (ui.importFocusIndex < resultCount - 1) {
+              const next = ui.importFocusIndex + 1;
+              ui.setImportFocus(next);
+              imp.enrichResultCursor = next;
+            } else {
+              ui.setImportFocusZone('actions');
+              ui.setImportFocus(IMPORT_DETAIL_ACTIONS.COMMIT);
+            }
+          } else {
+            ui.setImportFocusZone('actions');
+            ui.setImportFocus(
+              clampDetailActionFocus(ui.importFocusIndex + 1),
+            );
+          }
+          afterFocusMove();
+        }
+
+        if (action === 'confirm') {
+          if (zone === 'actions') {
+            if (ui.importFocusIndex === IMPORT_DETAIL_ACTIONS.COMMIT) {
+              vibe('confirm');
+              void (async () => {
+                await imp.commitSelected({ copyToLibrary: true });
+                imp.closeDetail();
+                ui.setImportFocusZone('list');
+                ui.setImportFocus(0);
+                afterFocusMove();
+              })();
+            } else {
+              vibe('light');
+              imp.closeDetail();
+              ui.setImportFocusZone('list');
+              ui.setImportFocus(0);
+              afterFocusMove();
+            }
+          } else if (zone === 'results') {
+            vibe('confirm');
+            imp.enrichResultCursor = ui.importFocusIndex;
+            imp.applyEnrichCursor();
+            afterFocusMove();
+          } else {
+            const idx = clampDetailFieldFocus(ui.importFocusIndex);
+            if (idx === IMPORT_DETAIL_FIELDS.SEARCH) {
+              void (async () => {
+                await imp.enrich();
+                if (imp.enrichResults.length) {
+                  ui.setImportFocusZone('results');
+                  ui.setImportFocus(0);
+                  imp.enrichResultCursor = 0;
+                }
+                afterFocusMove();
+              })();
+            } else if (idx === IMPORT_DETAIL_FIELDS.PROVIDER) {
+              document
+                .querySelector('.import [data-import-field="provider"] select')
+                ?.focus?.();
+              vibe('light');
+            } else {
+              const id = importFieldDomId(idx);
+              const el = document.querySelector(
+                `.import [data-import-field="${id}"] input, .import [data-import-field="${id}"] textarea`,
+              );
+              void focusTextInputForEdit(el);
+              vibe('light');
+            }
+          }
+        }
+
+        // Y sur fiche = lancer la recherche API (mots-clés)
+        if (action === 'import-all' || action === 'enrich') {
+          void (async () => {
+            await imp.enrich();
+            if (imp.enrichResults.length) {
+              ui.setImportFocusZone('results');
+              ui.setImportFocus(0);
+              imp.enrichResultCursor = 0;
+            }
+            afterFocusMove();
+          })();
+        }
+
+        return;
+      }
+
+      // ——— Liste fichiers ———
       if (action === 'back') {
         vibe('light');
         router.push({ name: 'library' });
       }
-      // Navigation liste/actions : pas de haptic (évite spam stick / scan refresh).
+      // Navigation liste : pas de haptic (évite spam stick).
       if (action === 'cursor-up') {
         if (ui.importFocusZone === 'actions') {
           ui.setImportFocusZone('list');
         } else {
           imp.moveCursor(-1);
+          ui.setImportFocusZone('list');
         }
         afterFocusMove();
       }
       if (action === 'cursor-down') {
         if (ui.importFocusZone === 'list') {
-          // Dernier item → barre d’actions (toujours visible)
           if (!imp.items.length || imp.cursor >= imp.items.length - 1) {
             ui.setImportFocusZone('actions');
-            ui.setImportFocus(0);
+            ui.setImportFocus(IMPORT_LIST_ACTIONS.RESCAN);
           } else {
             imp.moveCursor(1);
           }
         } else {
-          ui.setImportFocus(Math.min(footerMax, ui.importFocusIndex + 1));
+          ui.setImportFocus(clampListActionFocus(ui.importFocusIndex + 1));
         }
         afterFocusMove();
       }
       if (action === 'cursor-left') {
         if (ui.importFocusZone !== 'actions') {
           ui.setImportFocusZone('actions');
+          ui.setImportFocus(IMPORT_LIST_ACTIONS.RESCAN);
+        } else {
+          ui.setImportFocus(clampListActionFocus(ui.importFocusIndex - 1));
         }
-        ui.setImportFocus(Math.max(0, ui.importFocusIndex - 1));
         afterFocusMove();
       }
       if (action === 'cursor-right') {
         if (ui.importFocusZone !== 'actions') {
           ui.setImportFocusZone('actions');
+          ui.setImportFocus(IMPORT_LIST_ACTIONS.RESCAN);
+        } else {
+          ui.setImportFocus(clampListActionFocus(ui.importFocusIndex + 1));
         }
-        ui.setImportFocus(Math.min(footerMax, ui.importFocusIndex + 1));
         afterFocusMove();
       }
       if (action === 'confirm') {
         if (ui.importFocusZone === 'actions') {
-          const idx = ui.importFocusIndex;
-          // Haptic discret : toggle / import done seulement — pas scan / enrich bulk
-          if (idx === 0) {
-            vibe('confirm');
-            imp.commitSelection({ copyToLibrary: true });
-          } else if (idx === 1) {
-            vibe('confirm');
-            imp.commitAll({ copyToLibrary: true });
-          } else if (idx === 2) {
-            imp.enrich();
-          } else if (idx === 3) {
-            imp.scan();
+          if (ui.importFocusIndex === IMPORT_LIST_ACTIONS.RESCAN) {
+            void imp.scan();
           } else {
             vibe('light');
             router.push({ name: 'library' });
           }
         } else {
-          // Liste : A = toggle sélection multi
+          // Liste : A = ouvrir fiche détail (pas import immédiat)
           vibe('confirm');
-          imp.toggleSelect();
+          void (async () => {
+            const ok = await imp.openDetail();
+            if (ok) {
+              ui.setImportFocusZone('fields');
+              ui.setImportFocus(IMPORT_DETAIL_FIELDS.TITLE);
+              afterFocusMove();
+            }
+          })();
         }
-        afterFocusMove();
       }
-      if (action === 'enrich') {
-        // Enrichissement = bulk async — pas de rumble
-        imp.enrich();
+      // Y = tout importer (méta détectées / draft)
+      if (action === 'import-all' || action === 'enrich') {
+        if (imp.items.length) {
+          vibe('confirm');
+          void imp.commitAll({ copyToLibrary: true });
+        }
       }
       return;
     }

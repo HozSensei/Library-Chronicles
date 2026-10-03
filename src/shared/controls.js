@@ -65,5 +65,6 @@ export const Actions = Object.freeze({
   IMPORT: 'import',
   SETTINGS: 'settings',
   ENRICH: 'enrich',
+  IMPORT_ALL: 'import-all',
   TOGGLE_PAUSE: 'toggle-pause',
 });
