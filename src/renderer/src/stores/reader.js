@@ -1,7 +1,14 @@
 import { defineStore } from 'pinia';
+import { ZOOM_STEP } from '../../../shared/gamepad-codes.js';
 
 const NIGHT_PRESET = { brightness: 0.78, contrast: 1.12, sepia: 0.35 };
 const RESET_FILTERS = { brightness: 1, contrast: 1, sepia: 0 };
+/** Durée d’interpolation zoom D-Pad / L3 (ms), ease-out. */
+const ZOOM_ANIM_MS = 200;
+
+function clampScale(value) {
+  return Math.min(4, Math.max(0.25, value));
+}
 
 export const useReaderStore = defineStore('reader', {
   state: () => ({
@@ -15,7 +22,12 @@ export const useReaderStore = defineStore('reader', {
     pageCount: 0,
     direction: 'ltr',
     fitMode: 'fit-height',
+    /** Échelle affichée (interpolée). */
     scale: 1,
+    /** Cible logique du zoom (±15 % par pas). */
+    targetScale: 1,
+    /** Pulse CSS pour transition fit L3 (width/height). */
+    zoomTransition: false,
     panX: 0,
     panY: 0,
     /** Modal pause Select (persistante jusqu’à B / Select). */
@@ -41,6 +53,8 @@ export const useReaderStore = defineStore('reader', {
     error: null,
     renderEngine: null,
     _hudTimer: null,
+    _zoomRaf: null,
+    _zoomTransitionTimer: null,
   }),
   getters: {
     pageLabel: (s) => `${s.pageCount ? s.pageIndex + 1 : 0} / ${s.pageCount}`,
@@ -291,6 +305,9 @@ export const useReaderStore = defineStore('reader', {
     async close() {
       await this.persistProgress();
       this.closeHud();
+      this.clearZoomAnim();
+      this.scale = 1;
+      this.targetScale = 1;
       await this.revokeStrip();
       if (this.pageUrl) {
         // peut déjà être révoqué via strip
@@ -316,10 +333,64 @@ export const useReaderStore = defineStore('reader', {
       this.error = null;
       this.renderEngine = null;
     },
+    clearZoomAnim() {
+      if (this._zoomRaf != null && typeof cancelAnimationFrame === 'function') {
+        cancelAnimationFrame(this._zoomRaf);
+      }
+      this._zoomRaf = null;
+      if (this._zoomTransitionTimer) {
+        clearTimeout(this._zoomTransitionTimer);
+        this._zoomTransitionTimer = null;
+      }
+      this.zoomTransition = false;
+    },
+    /**
+     * Interpole `scale` → `targetScale` en ~200 ms ease-out (rAF).
+     * Le pas logique reste ±ZOOM_STEP ; seul le rendu est lissé.
+     */
+    animateScaleTo(target, { duration = ZOOM_ANIM_MS } = {}) {
+      const to = clampScale(target);
+      this.targetScale = to;
+      if (typeof requestAnimationFrame !== 'function') {
+        this.scale = to;
+        return;
+      }
+      if (this._zoomRaf != null) cancelAnimationFrame(this._zoomRaf);
+      const from = this.scale;
+      if (Math.abs(to - from) < 0.0005) {
+        this.scale = to;
+        this._zoomRaf = null;
+        return;
+      }
+      const t0 = performance.now();
+      const step = (now) => {
+        const t = Math.min(1, (now - t0) / duration);
+        const ease = 1 - (1 - t) ** 3;
+        this.scale = from + (to - from) * ease;
+        if (t < 1) {
+          this._zoomRaf = requestAnimationFrame(step);
+        } else {
+          this.scale = to;
+          this._zoomRaf = null;
+        }
+      };
+      this._zoomRaf = requestAnimationFrame(step);
+    },
+    /** Transition CSS width/height pour toggle fit L3. */
+    pulseZoomTransition(ms = ZOOM_ANIM_MS + 40) {
+      this.zoomTransition = true;
+      if (this._zoomTransitionTimer) clearTimeout(this._zoomTransitionTimer);
+      this._zoomTransitionTimer = setTimeout(() => {
+        this.zoomTransition = false;
+        this._zoomTransitionTimer = null;
+      }, ms);
+    },
     resetTransform() {
+      this.clearZoomAnim();
       this.panX = 0;
       this.panY = 0;
       this.scale = 1;
+      this.targetScale = 1;
     },
     pan(dx, dy, speed = 14) {
       if (this.webtoonMode) {
@@ -345,25 +416,28 @@ export const useReaderStore = defineStore('reader', {
     },
     zoomBy(steps) {
       if (this.webtoonMode) return;
-      this.scale = Math.min(4, Math.max(0.25, this.scale + steps * 0.15));
       this.fitMode = 'custom';
+      this.animateScaleTo(this.targetScale + Number(steps) * ZOOM_STEP);
     },
     toggleZoom() {
       if (this.webtoonMode) return;
+      this.pulseZoomTransition();
       if (this.fitMode === 'fit-height') {
         this.fitMode = 'zoom-100';
-        this.scale = 1;
       } else {
         this.fitMode = 'fit-height';
-        this.scale = 1;
       }
       this.panX = 0;
       this.panY = 0;
+      // L3 : retour échelle 1 avec le même ease-out si on venait d’un zoom custom.
+      this.animateScaleTo(1);
     },
     setFitWidth() {
       if (this.webtoonMode) return;
+      this.clearZoomAnim();
       this.fitMode = 'fit-width';
       this.scale = 1;
+      this.targetScale = 1;
       this.panX = 0;
       this.panY = 0;
     },
