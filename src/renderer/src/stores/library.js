@@ -106,8 +106,16 @@ export const useLibraryStore = defineStore('library', {
         18,
       );
     },
-    /** Onglets + actions header (focus manette). */
+    /** Onglets + actions header (focus manette). Bibliothèque vide → actions seules. */
     headerNav() {
+      if (!this.books.length) {
+        return [
+          { id: 'import', kind: 'action', action: 'import', label: 'Import' },
+          { id: 'scan', kind: 'action', action: 'scan', label: 'Scanner' },
+          { id: 'settings', kind: 'action', action: 'settings', label: 'Paramètres' },
+          { id: 'profile', kind: 'action', action: 'profile', label: 'Profil' },
+        ];
+      }
       return [
         { id: 'tab-board', kind: 'tab', tab: 'board', label: 'Bibliothèque' },
         { id: 'tab-all', kind: 'tab', tab: 'all', label: 'Tous les livres' },
@@ -278,10 +286,11 @@ export const useLibraryStore = defineStore('library', {
             this.navIndex,
             Math.max(0, this.headerNav.length - 1),
           );
-          if (this.focusZone === 'nav' || this.focusZone === 'filters') {
+          if (!this.books.length) {
+            this.catalogTab = 'board';
+            this.focusEmptyImport();
+          } else if (this.focusZone === 'nav' || this.focusZone === 'filters') {
             /* keep */
-          } else if (!this.books.length) {
-            this.focusZone = this.catalogTab === 'board' ? 'continue' : 'filters';
           } else if (
             this.focusZone === 'continue' &&
             !this.readingBooks.length &&
@@ -384,11 +393,19 @@ export const useLibraryStore = defineStore('library', {
       }
     },
     cycleCatalogTab(dir = 1) {
+      if (!this.books.length) return;
       const tabs = ['board', 'all', 'recent', 'series'];
       const i = tabs.indexOf(this.catalogTab);
       const safe = i >= 0 ? i : 0;
       const keepNav = this.focusZone === 'nav';
       this.setCatalogTab(tabs[(safe + dir + tabs.length) % tabs.length], { keepNav });
+    },
+    /** Bibliothèque vide : focus Import (header / CTA). */
+    focusEmptyImport() {
+      this.focusZone = 'nav';
+      const importIdx = this.headerNav.findIndex((n) => n.id === 'import');
+      this.navIndex = importIdx >= 0 ? importIdx : 0;
+      return true;
     },
     focusNav(index = 0) {
       this.focusZone = 'nav';
@@ -460,6 +477,10 @@ export const useLibraryStore = defineStore('library', {
     },
     /** Première zone contenu selon l’onglet courant. */
     enterCatalogContent() {
+      if (!this.books.length) {
+        this.focusEmptyImport();
+        return;
+      }
       if (this.catalogTab === 'series') {
         if (this.seriesList.length) this.focusSeries(this.seriesCursor);
         else this.focusZone = 'series';
@@ -477,6 +498,10 @@ export const useLibraryStore = defineStore('library', {
       this.enterBoardContent();
     },
     enterBoardContent() {
+      if (!this.books.length) {
+        this.focusEmptyImport();
+        return;
+      }
       if (this.focusContinue(this.readingCursor)) return;
       this.focusZone = 'filters';
     },
