@@ -37,7 +37,7 @@ Au **premier lancement**, un wizard configure dossiers (library / import), langu
 2. **Import** — déposer des CBZ/CBR/PDF dans le dossier import → review métadonnées → bibliothèque (rafraîchi aussi via watcher FS)
 3. **Bibliothèque** — grille couvertures, filtres, Continuer
 4. **Lecteur** — pan / zoom / pages manette, HUD (Y), Fit Width (X), Manga (A) ; PDF fidèle via Chromium
-5. **Paramètres** — thème, haptics manette, remapping touches, clé API ComicVine
+5. **Paramètres** — thème, haptics, remapping, providers métadonnées (clés en userData)
 
 ## Stack
 
@@ -60,6 +60,7 @@ Au **premier lancement**, un wizard configure dossiers (library / import), langu
 | [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) | Main / preload / renderer |
 | [`docs/CONTROLS.md`](./docs/CONTROLS.md) | Mapping manette + remap |
 | [`docs/UX.md`](./docs/UX.md) | Principes UX |
+| [`docs/METADATA.md`](./docs/METADATA.md) | Providers méta (gratuit / clé) |
 | [`docs/NATIVE.md`](./docs/NATIVE.md) | better-sqlite3 / PDF / rebuild |
 | [`docs/PACKAGING.md`](./docs/PACKAGING.md) | Build Windows |
 

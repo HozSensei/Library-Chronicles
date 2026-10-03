@@ -95,7 +95,7 @@ Voir [`docs/UX.md`](./docs/UX.md), [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.
 - [x] Grille couvertures, progression, Continuer, statuts
 - [x] **UX catalogue** — héro « Lecture en cours », rail « Ajouts récents », grille « Tous les livres » (lazy covers + skeletons)
 - [x] Flux import (scan → review métadonnées → commit)
-- [x] Provider métadonnées pluggable (stub + ComicVine câblé)
+- [x] Provider métadonnées pluggable (stub + Open Library + AniList + MangaDex + ComicVine + Google Books)
 - [x] Watcher FS library/import (debounce → refresh liste / file d’import ; poll fallback)
 
 ### Phase 4 — Features locales *(fait)*
@@ -121,6 +121,7 @@ Voir [`docs/UX.md`](./docs/UX.md), [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.
 - **PR #2** polish haptics/watcher mergée dans `main`.
 - **PR #3** catalogue UI mergée dans `main`.
 - **PR #4** features locales mergée dans `main`.
+- **PR #5** providers métadonnées mergée dans `main`.
 
 ### Hors scope (volontairement)
 
@@ -139,7 +140,7 @@ Setup (1ʳᵉ fois)
   → Import (dossier import → métadonnées → bibliothèque)
   → Bibliothèque (catalogue : héro / récents / grille / séries)
   → Lecteur (CBZ/CBR/PDF + webtoon + filtres + signets)
-  → Paramètres (thème / profils / remap / clé API)
+  → Paramètres (thème / profils / remap / providers méta)
 ```
 
 ---
@@ -154,7 +155,7 @@ Setup (1ʳᵉ fois)
 | PDF | pdfjs-dist (+ canvas Chromium / optionnel node-canvas) |
 | DB | better-sqlite3 (fallback JSON) |
 | Rendu zoom/pan/filtres | CSS transform + filter GPU |
-| Métadonnées | stub + ComicVine (clé en userData) |
+| Métadonnées | stub, Open Library, AniList, MangaDex (sans clé) ; ComicVine, Google Books (clé userData) — voir [`docs/METADATA.md`](./docs/METADATA.md) |
 | Packaging | electron-builder (win nsis + portable) |
 
 ---

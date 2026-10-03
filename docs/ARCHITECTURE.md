@@ -10,10 +10,10 @@
 │ useGamepad  remap → key-bindings     │          │   bookmarks · series     │
 │ CSS GPU  translate3d / scale / filter│          │ library/ scan+import     │
 └──────────────────────────────────────┘          │ library/ watcher FS      │
-         ▲                                        │ metadata/ stub|comicvine │
-         │ contextBridge                          │ config + secrets userData│
-┌────────┴────────┐                               └──────────────────────────┘
-│ preload         │  → window.vdr.* (+ watch events)
+         ▲                                        │ metadata/ providers/*    │
+         │ contextBridge                          │ pdf-electron-canvas      │
+┌────────┴────────┐                               │ config + secrets userData│
+│ preload         │  → window.vdr.* (+ watch)     └──────────────────────────┘
 └─────────────────┘
 ```
 
@@ -43,7 +43,7 @@ Build unifié via **electron-vite** :
 3. **Import** → scan dossier import → review meta → copie library + SQLite
 4. **Library** → catalogue + vue séries (+ refresh auto via watcher)
 5. **Reader** → `open` → `getPage` → blob URL + transforms/filtres GPU (+ webtoon strip)
-6. **Settings** → thème, profils, remapping, clé API
+6. **Settings** → thème, profils, remapping, providers métadonnées (+ clés si besoin)
 
 ## Données locales
 
@@ -80,3 +80,4 @@ Build unifié via **electron-vite** :
 - `npm run test:watcher` — snapshot / diff FS (+ présence poll fallback)
 - `npm run test:haptics` — no-op / dual-rumble / pulse legacy
 - `npm run test:series` — détection série/tome + regroupement
+- `npm run test:metadata` — providers méta (stub + parse mock Open Library / AniList / MangaDex / ComicVine / Google Books)

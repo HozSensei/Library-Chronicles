@@ -29,9 +29,27 @@ interface VdrApi {
   };
   metadata: {
     detect: (filePath: string) => Promise<unknown>;
-    search: (query: string, provider?: string) => Promise<{ results: unknown[] }>;
+    search: (
+      query: string,
+      provider?: string,
+    ) => Promise<{ results: unknown[]; providers?: unknown[]; activeProvider?: string }>;
+    listProviders: () => Promise<{
+      providers: Array<{
+        id: string;
+        label: string;
+        requiresApiKey: boolean;
+        freeLabel: string;
+        helpText?: string | null;
+        helpUrl?: string | null;
+        helpLinkLabel?: string | null;
+        hasKey?: boolean;
+      }>;
+      activeProvider: string;
+    }>;
+    setProvider: (provider: string) => Promise<{ ok: boolean; provider?: unknown }>;
     setApiKey: (provider: string, key: string) => Promise<unknown>;
-    hasApiKey: (provider: string) => Promise<{ hasKey: boolean }>;
+    hasApiKey: (provider: string) => Promise<{ hasKey: boolean; providers?: unknown[] }>;
+    openHelp: (payload: { provider?: string; url?: string }) => Promise<{ ok: boolean }>;
   };
   reader: {
     open: (filePath: string) => Promise<{

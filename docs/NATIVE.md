@@ -69,4 +69,4 @@ Setting `hapticsEnabled` (défaut on) — no-op si API / matériel absent.
 
 ## Secrets API
 
-Clés (ex. ComicVine) dans `userData/vdr-secrets.json`, séparées de `vdr-config.json`, `chmod 600` si possible. **Jamais** commités.
+Les clés (ComicVine, Google Books, …) sont stockées dans `userData/vdr-secrets.json`, séparées de `vdr-config.json`, avec `chmod 600` quand le FS le permet. **Jamais** commités dans le dépôt. Voir [`METADATA.md`](./METADATA.md).
