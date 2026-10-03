@@ -38,10 +38,11 @@ assert(
 // --- faux DOM minimal ---
 function fakeEl(tag, attrs = {}, props = {}) {
   const upper = tag.toUpperCase();
-  return {
+  const el = {
     tagName: upper,
     disabled: Boolean(props.disabled),
     isContentEditable: Boolean(props.isContentEditable),
+    _focused: false,
     getAttribute(name) {
       return attrs[name] ?? null;
     },
@@ -49,9 +50,10 @@ function fakeEl(tag, attrs = {}, props = {}) {
       contains: () => false,
     },
     focus() {
-      props._focused = true;
+      el._focused = true;
     },
   };
+  return el;
 }
 
 assert(isTextInputElement(fakeEl('input')) === true, 'input sans type → texte');
