@@ -102,21 +102,25 @@ export function remapStick(orientation, physicalX, physicalY) {
  * Convertit un pan en repère utilisateur (visuel / logique) vers le repère
  * local du plan lecteur tourné de +90° CSS (CW).
  *
- * Spec pan stick lecture (directions = écran logique) :
- *   Haut    → la page glisse vers la droite
- *   Bas     → la page glisse vers la gauche
- *   Gauche  → la page glisse vers le haut
- *   Droite  → la page glisse vers le bas
+ * Spec pan stick lecture — identité visuelle (directions = écran) :
+ *   Haut    → la planche/vue se déplace vers le haut
+ *   Bas     → vers le bas
+ *   Gauche  → vers la gauche
+ *   Droite  → vers la droite
  *
- * Sous rotate(90deg) CW, local(+X) apparaît à droite écran utilisateur et
- * local(+Y) vers le bas. La spec ci-dessus impose donc :
+ * Sous rotate(90deg) CW, un translate local apparaît à l’écran ainsi :
+ *   local(+X) → bas écran
+ *   local(+Y) → gauche écran
+ *   donc screenX = −localY, screenY = localX
  *
- *   localX = −visualY
- *   localY =  visualX
+ * Pour un glissement écran = stick logique (identité), il faut :
+ *
+ *   localX =  visualY
+ *   localY = −visualX
  *
  * Chaîne Ally CCW (D-Pad en bas), stick vers le haut de l’écran :
  *   physique → (1,0) → remapStick → logique ↑ (0,−1)
- *   → visualPanToLocal → local (+1, 0) → page glisse à droite
+ *   → visualPanToLocal → local (−1, 0) → page glisse vers le haut
  *
  * Ne pas toucher remapStick ici : menus / modal pause / D-Pad en dépendent.
  *
@@ -125,7 +129,7 @@ export function remapStick(orientation, physicalX, physicalY) {
  * @returns {{ x: number, y: number }}
  */
 export function visualPanToLocal(visualX, visualY) {
-  return { x: -visualY, y: visualX };
+  return { x: visualY, y: -visualX };
 }
 
 /**
@@ -137,12 +141,14 @@ export function visualPanToLocal(visualX, visualY) {
  */
 export function pageSlideFromVisualPan(visualX, visualY) {
   const local = visualPanToLocal(visualX, visualY);
-  // local(+X) → droite écran ; local(+Y) → bas écran (plan +90° Ally CCW)
-  const ax = Math.abs(local.x);
-  const ay = Math.abs(local.y);
+  // rotate(90deg) CW : screenX = −localY, screenY = localX
+  const screenX = -local.y;
+  const screenY = local.x;
+  const ax = Math.abs(screenX);
+  const ay = Math.abs(screenY);
   if (ax < 1e-9 && ay < 1e-9) return null;
-  if (ax >= ay) return local.x > 0 ? LogicalDir.RIGHT : LogicalDir.LEFT;
-  return local.y > 0 ? LogicalDir.DOWN : LogicalDir.UP;
+  if (ax >= ay) return screenX > 0 ? LogicalDir.RIGHT : LogicalDir.LEFT;
+  return screenY > 0 ? LogicalDir.DOWN : LogicalDir.UP;
 }
 
 /**

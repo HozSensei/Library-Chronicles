@@ -48,53 +48,54 @@ assert(stickLeft.x === 0 && stickLeft.y === 1, 'stick physique ← → logique �
 const stickRight = remapStick(o, 1, 0);
 assert(stickRight.x === 0 && stickRight.y === -1, 'stick physique → → logique ↑');
 
-// Pan stick lecture (+90° CSS) — formules locales
-//   localX = −visualY ; localY = visualX
+// Pan stick lecture (+90° CSS) — identité visuelle
+//   localX = visualY ; localY = −visualX
+//   (rotate 90° CW : screenX = −localY, screenY = localX)
 const panRight = visualPanToLocal(1, 0);
-assert(panRight.x === 0 && panRight.y === 1, 'pan visuel → → local +Y');
+assert(panRight.x === 0 && panRight.y === -1, 'pan visuel → → local −Y');
 const panUp = visualPanToLocal(0, -1);
-assert(panUp.x === 1 && panUp.y === 0, 'pan visuel ↑ → local +X');
+assert(panUp.x === -1 && panUp.y === 0, 'pan visuel ↑ → local −X');
 const panDown = visualPanToLocal(0, 1);
-assert(panDown.x === -1 && panDown.y === 0, 'pan visuel ↓ → local −X');
+assert(panDown.x === 1 && panDown.y === 0, 'pan visuel ↓ → local +X');
 const panLeft = visualPanToLocal(-1, 0);
-assert(panLeft.x === 0 && panLeft.y === -1, 'pan visuel ← → local −Y');
+assert(panLeft.x === 0 && panLeft.y === 1, 'pan visuel ← → local +Y');
 
-// Spec exacte : stick logique → glissement page (écran utilisateur)
-assert(pageSlideFromVisualPan(0, -1) === 'right', 'spec stick ↑ → page glisse droite');
-assert(pageSlideFromVisualPan(0, 1) === 'left', 'spec stick ↓ → page glisse gauche');
-assert(pageSlideFromVisualPan(-1, 0) === 'up', 'spec stick ← → page glisse haut');
-assert(pageSlideFromVisualPan(1, 0) === 'down', 'spec stick → → page glisse bas');
+// Spec identité : stick logique → glissement page (même direction écran)
+assert(pageSlideFromVisualPan(0, -1) === 'up', 'spec stick ↑ → page glisse haut');
+assert(pageSlideFromVisualPan(0, 1) === 'down', 'spec stick ↓ → page glisse bas');
+assert(pageSlideFromVisualPan(-1, 0) === 'left', 'spec stick ← → page glisse gauche');
+assert(pageSlideFromVisualPan(1, 0) === 'right', 'spec stick → → page glisse droite');
 
 // Chaîne complète Ally CCW : physique → remapStick → visualPanToLocal → glissement
 // Stick vers le haut écran = physique → (vers ABXY)
 const stickScreenUp = remapStick(o, 1, 0);
 assert(stickScreenUp.x === 0 && stickScreenUp.y === -1, 'physique → → logique ↑ (haut écran)');
 const localScreenUp = visualPanToLocal(stickScreenUp.x, stickScreenUp.y);
-assert(localScreenUp.x === 1 && localScreenUp.y === 0, 'haut écran → pan local +X (plan +90°)');
+assert(localScreenUp.x === -1 && localScreenUp.y === 0, 'haut écran → pan local −X (plan +90°)');
 assert(
-  pageSlideFromVisualPan(stickScreenUp.x, stickScreenUp.y) === 'right',
-  'chaîne haut écran → page glisse droite',
+  pageSlideFromVisualPan(stickScreenUp.x, stickScreenUp.y) === 'up',
+  'chaîne haut écran → page glisse haut',
 );
 
 const stickScreenDown = remapStick(o, -1, 0);
 assert(stickScreenDown.x === 0 && stickScreenDown.y === 1, 'physique ← → logique ↓');
 assert(
-  pageSlideFromVisualPan(stickScreenDown.x, stickScreenDown.y) === 'left',
-  'chaîne bas écran → page glisse gauche',
+  pageSlideFromVisualPan(stickScreenDown.x, stickScreenDown.y) === 'down',
+  'chaîne bas écran → page glisse bas',
 );
 
 const stickScreenLeft = remapStick(o, 0, -1);
 assert(stickScreenLeft.x === -1 && stickScreenLeft.y === 0, 'physique ↑ → logique ←');
 assert(
-  pageSlideFromVisualPan(stickScreenLeft.x, stickScreenLeft.y) === 'up',
-  'chaîne gauche écran → page glisse haut',
+  pageSlideFromVisualPan(stickScreenLeft.x, stickScreenLeft.y) === 'left',
+  'chaîne gauche écran → page glisse gauche',
 );
 
 const stickScreenRight = remapStick(o, 0, 1);
 assert(stickScreenRight.x === 1 && stickScreenRight.y === 0, 'physique ↓ → logique →');
 assert(
-  pageSlideFromVisualPan(stickScreenRight.x, stickScreenRight.y) === 'down',
-  'chaîne droite écran → page glisse bas',
+  pageSlideFromVisualPan(stickScreenRight.x, stickScreenRight.y) === 'right',
+  'chaîne droite écran → page glisse droite',
 );
 
 const landStick = remapStick(DeviceOrientation.LANDSCAPE, 0.5, -0.7);

@@ -731,7 +731,7 @@ function createLoop(ctx) {
       }
       if ((action === 'pan' || action === 'stick') && payload) {
         // payload = axes logiques (repère écran). Sous rotate(+90°) :
-        // visualPanToLocal — Haut→page droite, Bas→gauche, Gauche→haut, Droite→bas.
+        // visualPanToLocal — identité visuelle Haut/Bas/Gauche/Droite.
         // remapStick inchangé (modal pause / menus).
         const local = ui.readerCssRotate
           ? visualPanToLocal(payload.x, payload.y)
