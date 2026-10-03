@@ -125,28 +125,23 @@ export function clearSetupGate() {
 router.beforeEach(async (to) => {
   // 1) Toujours choisir un profil en premier
   const hasProfile = await ensureProfileGate();
-  if (!hasProfile && to.name !== 'profiles') {
-    return { name: 'profiles' };
-  }
-  if (hasProfile && to.name === 'profiles' && to.query.manage !== '1') {
-    // profil déjà choisi cette session → continuer le flux
-  } else if (!hasProfile) {
+  if (!hasProfile) {
+    if (to.name !== 'profiles') return { name: 'profiles' };
     return true;
   }
 
-  // Gestion profils depuis Paramètres
+  // Gestion profils depuis Paramètres (?manage=1)
   if (to.name === 'profiles' && to.query.manage === '1') {
     return true;
   }
-  if (to.name === 'profiles' && hasProfile && to.query.manage !== '1') {
-    // Après sélection on redirige depuis la vue ; si refresh → setup/boot
+  if (to.name === 'profiles') {
+    const done = await ensureSetupGate();
+    return { name: done ? 'library' : 'setup' };
   }
-
-  if (!hasProfile) return true;
 
   // 2) Setup du profil actif
   const done = await ensureSetupGate();
-  if (!done && to.name !== 'setup' && to.name !== 'profiles') {
+  if (!done && to.name !== 'setup') {
     return { name: 'setup' };
   }
   if (done && to.name === 'setup') {

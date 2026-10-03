@@ -41,6 +41,12 @@ L’app appelle `setSessionMode('reader'|'ui')` à l’entrée / sortie du lecte
 - Progression, signets, prefs lecture **par profil**
 - Pas de sync cloud
 - Reset : `npm run reset:library` · `npm run reset:app -- --all`
+
+## Thèmes
+
+Tokens CSS `data-theme="dark|light"` — direction Steam (encre bleutée + accent cyan).  
+Persistance via prefs profil + miroir config `theme`.
+
 ## Principes
 
 1. Zéro dépendance souris — focus toujours visible
