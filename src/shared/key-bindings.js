@@ -22,7 +22,6 @@ export const BINDABLE_ACTIONS = Object.freeze({
     { id: 'fit-width', label: 'Fit Width' },
     { id: 'pan', label: 'Pan / scroll (stick)' },
     { id: 'add-bookmark', label: 'Ajouter un signet' },
-    { id: 'toggle-webtoon', label: 'Mode webtoon' },
     { id: 'toggle-pause', label: 'Menu pause lecture' },
     { id: 'next-volume', label: 'Tome suivant (série)' },
     { id: 'prev-volume', label: 'Tome précédent (série)' },

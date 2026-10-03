@@ -95,23 +95,17 @@ assert(store.includes('moveHudFocus'), 'store moveHudFocus');
 assert(store.includes('animateScaleTo'), 'zoom smooth animateScaleTo (rAF)');
 assert(store.includes('targetScale'), 'zoom targetScale');
 assert(store.includes('ZOOM_STEP'), 'zoom pas logique ±15 %');
+assert(readerView.includes('reader__strip'), 'strip vertical DOM');
+assert(readerView.includes('data-strip'), 'reader data-strip défaut');
 assert(
-  readerView.includes('is-zoom-smooth'),
-  'L3 fit toggle : classe transition CSS',
+  /\.reader__strip-page\s*\{[\s\S]*?width:\s*100%/.test(readerView),
+  'strip pages fit-width implicite (width 100%)',
 );
-assert(
-  /toggleZoom\(\)\s*\{[\s\S]*?fit-width[\s\S]*?fit-height/.test(store),
-  'L3 toggleZoom : Fit Width ↔ Fit Height',
-);
-assert(
-  store.includes("fitMode === 'fit-width' ? 'fit-height' : 'fit-width'"),
-  'L3 : déjà fit-width → fit-height, sinon → fit-width',
-);
-assert(
-  readerView.includes("data-fit='fit-width'") &&
-    /fit-width[\s\S]*?width:\s*100%/.test(readerView),
-  'Fit Width CSS : width 100% (largeur locale = largeur utilisateur sous +90°)',
-);
+assert(store.includes('loadStripWindow'), 'store loadStripWindow');
+assert(store.includes('setPageFromStripScroll'), 'store setPageFromStripScroll');
+assert(!store.includes('toggleWebtoon'), 'plus de toggleWebtoon');
+assert(!hud.includes('Mode webtoon'), 'HUD sans bouton Mode webtoon');
+assert(hud.includes('strip vertical'), 'HUD meta strip vertical');
 
 assert(gamepad.includes('reader.hudVisible'), 'gamepad branche modal pause');
 assert(gamepad.includes('closeHud()'), 'B/Select → closeHud en pause');
