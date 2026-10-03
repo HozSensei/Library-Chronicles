@@ -6,6 +6,9 @@
   --ink-900: #1a1d22;
   --ink-800: #24282f;
   --ink-700: #323842;
+  /* Alias sémantiques — fond UI / encre de surface (échelle --ink-*) */
+  --bg: var(--ink-950);
+  --ink: var(--ink-950);
   --paper: #ece8e2;
   --paper-dim: #9a948a;
   --danger: #e36a5d;
@@ -14,7 +17,8 @@
   --surface-strong: rgba(36, 40, 47, 0.96);
   --border: rgba(236, 232, 226, 0.12);
   --reader-bg: #000000;
-  --hud-fade: rgba(18, 20, 24, 0.94);
+  /* Voile modal pause — sombre en thème sombre */
+  --hud-fade: color-mix(in srgb, var(--bg) 62%, transparent);
 }
 
 [data-theme='light'] {
@@ -22,6 +26,8 @@
   --ink-900: #e8e4dc;
   --ink-800: #d9d3c8;
   --ink-700: #c4bdb0;
+  --bg: var(--ink-950);
+  --ink: var(--ink-950);
   --paper: #1a1d22;
   --paper-dim: #5a564e;
   --danger: #c44b3f;
@@ -30,7 +36,8 @@
   --surface-strong: rgba(255, 255, 255, 0.96);
   --border: rgba(26, 29, 34, 0.12);
   --reader-bg: #111111;
-  --hud-fade: rgba(18, 20, 24, 0.9);
+  /* Voile modal pause — clair en thème clair */
+  --hud-fade: color-mix(in srgb, var(--bg) 58%, transparent);
 }
 
 /* Accents — sombres (défaut / data-theme=dark) */
