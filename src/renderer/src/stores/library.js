@@ -1,16 +1,11 @@
 import { defineStore } from 'pinia';
+import {
+  findSeriesGroup,
+  listRecentSeries,
+} from '../../../shared/series.js';
 
 const RECENT_LIMIT = 14;
 const CONTINUE_LIMIT = 18;
-
-function sortByCreatedDesc(a, b) {
-  const ca = a.createdAt || '';
-  const cb = b.createdAt || '';
-  if (ca && cb) return String(cb).localeCompare(String(ca));
-  if (ca) return -1;
-  if (cb) return 1;
-  return Number(b.id) - Number(a.id);
-}
 
 function sortByTitle(a, b) {
   return String(a.title || '').localeCompare(String(b.title || ''), 'fr', {
@@ -20,6 +15,15 @@ function sortByTitle(a, b) {
 
 function sortByAccess(a, b) {
   return String(b.lastAccess || '').localeCompare(String(a.lastAccess || ''));
+}
+
+function sortByCreatedDesc(a, b) {
+  const ca = a.createdAt || '';
+  const cb = b.createdAt || '';
+  if (ca && cb) return String(cb).localeCompare(String(ca));
+  if (ca) return -1;
+  if (cb) return 1;
+  return Number(b.id) - Number(a.id);
 }
 
 /** En cours : status reading, ou progression > 0 non terminé. */
@@ -67,8 +71,16 @@ export const useLibraryStore = defineStore('library', {
       }
       return list.slice().sort(sortByTitle);
     },
-    recentBooks(s) {
-      return s.books.slice().sort(sortByCreatedDesc).slice(0, RECENT_LIMIT);
+    /**
+     * Récents dédupliqués : une entrée par série (dernier tome touché).
+     * Singles / série 1 tome → kind 'tome' ; multi-tomes → kind 'series'.
+     */
+    recentSeries(s) {
+      return listRecentSeries(s.books, RECENT_LIMIT);
+    },
+    /** @deprecated alias couverture — préférer recentSeries */
+    recentBooks() {
+      return this.recentSeries.map((e) => e.lastBook).filter(Boolean);
     },
     readingBooks(s) {
       return s.books
@@ -111,11 +123,16 @@ export const useLibraryStore = defineStore('library', {
       if (s.filter === 'all') return groups;
       return groups.filter((g) => g.status === s.filter);
     },
+    selectedRecent() {
+      return this.recentSeries[this.recentCursor] || null;
+    },
     selected() {
       if (this.focusZone === 'continue') {
         return this.readingBooks[this.readingCursor] || null;
       }
-      if (this.focusZone === 'recent') return this.recentBooks[this.recentCursor] || null;
+      if (this.focusZone === 'recent') {
+        return this.selectedRecent?.lastBook || null;
+      }
       if (this.focusZone === 'trending') return this.trendingBooks[this.cursor] || null;
       if (this.focusZone === 'grid') return this.filtered[this.cursor] || null;
       if (this.focusZone === 'series') {
@@ -131,6 +148,16 @@ export const useLibraryStore = defineStore('library', {
     },
     getBookById() {
       return (id) => this.books.find((b) => String(b.id) === String(id)) || null;
+    },
+    getSeriesById() {
+      return (seriesId) => {
+        if (!seriesId) return null;
+        const fromList = (this.seriesGroups || []).find(
+          (g) => g.seriesId === String(seriesId),
+        );
+        if (fromList) return fromList;
+        return findSeriesGroup(this.books, String(seriesId));
+      };
     },
     filters() {
       return [
@@ -189,7 +216,7 @@ export const useLibraryStore = defineStore('library', {
         }
         this.recentCursor = Math.min(
           this.recentCursor,
-          Math.max(0, this.recentBooks.length - 1),
+          Math.max(0, this.recentSeries.length - 1),
         );
         this.seriesCursor = Math.min(
           this.seriesCursor,
@@ -314,10 +341,37 @@ export const useLibraryStore = defineStore('library', {
       return true;
     },
     focusRecent(index = 0) {
-      if (!this.recentBooks.length) return false;
+      if (!this.recentSeries.length) return false;
       this.focusZone = 'recent';
-      this.recentCursor = Math.max(0, Math.min(index, this.recentBooks.length - 1));
+      this.recentCursor = Math.max(0, Math.min(index, this.recentSeries.length - 1));
+      const entry = this.recentSeries[this.recentCursor];
+      if (entry?.coverBookId != null) this.ensureCover(entry.coverBookId);
       return true;
+    },
+    /**
+     * Cible d’ouverture pour une entrée Récents :
+     * multi-tomes → fiche série ; sinon fiche tome.
+     * @param {object|null} [entry]
+     * @returns {{ type: 'series'|'book', seriesId?: string, bookId?: string|number }|null}
+     */
+    resolveRecentOpen(entry = null) {
+      const e = entry || this.selectedRecent;
+      if (!e) return null;
+      if (e.kind === 'series' && e.seriesId && e.volumeCount > 1) {
+        return { type: 'series', seriesId: e.seriesId };
+      }
+      const bookId = e.lastBook?.id;
+      if (bookId == null) return null;
+      return { type: 'book', bookId };
+    },
+    /**
+     * Cible d’ouverture onglet Séries → toujours fiche série.
+     * @param {object|null} [group]
+     */
+    resolveSeriesOpen(group = null) {
+      const g = group || this.selectedSeries || this.seriesList[this.seriesCursor];
+      if (!g?.seriesId) return null;
+      return { type: 'series', seriesId: g.seriesId };
     },
     focusGrid(index = 0) {
       if (!this.filtered.length) return false;
@@ -341,7 +395,7 @@ export const useLibraryStore = defineStore('library', {
         return;
       }
       if (this.catalogTab === 'recent') {
-        if (this.recentBooks.length) this.focusRecent(0);
+        if (this.recentSeries.length) this.focusRecent(0);
         else this.focusZone = 'recent';
         return;
       }
@@ -473,7 +527,7 @@ export const useLibraryStore = defineStore('library', {
       }
 
       if (this.catalogTab === 'recent') {
-        const list = this.recentBooks;
+        const list = this.recentSeries;
         const cols = Math.max(1, this.columns || 6);
         if (!list.length) {
           if (dy < 0) {
@@ -494,7 +548,8 @@ export const useLibraryStore = defineStore('library', {
           0,
           Math.min(list.length - 1, this.recentCursor + dx + dy * cols),
         );
-        this.ensureCover(list[this.recentCursor]?.id);
+        const coverId = list[this.recentCursor]?.coverBookId;
+        if (coverId != null) this.ensureCover(coverId);
         return;
       }
 
@@ -538,10 +593,10 @@ export const useLibraryStore = defineStore('library', {
       if (dy > 0) {
         if (this.focusZone === 'filters') {
           if (this.trendingBooks.length) this.focusTrending(0);
-          else if (this.recentBooks.length) this.focusRecent(0);
+          else if (this.recentSeries.length) this.focusRecent(0);
           return;
         }
-        if (this.focusZone === 'trending' && this.recentBooks.length) {
+        if (this.focusZone === 'trending' && this.recentSeries.length) {
           this.focusRecent(0);
           return;
         }
@@ -561,13 +616,14 @@ export const useLibraryStore = defineStore('library', {
       }
 
       if (this.focusZone === 'recent') {
-        const list = this.recentBooks;
+        const list = this.recentSeries;
         if (!list.length) return;
         this.recentCursor = Math.max(
           0,
           Math.min(list.length - 1, this.recentCursor + dx),
         );
-        this.ensureCover(list[this.recentCursor]?.id);
+        const coverId = list[this.recentCursor]?.coverBookId;
+        if (coverId != null) this.ensureCover(coverId);
       }
     },
   },

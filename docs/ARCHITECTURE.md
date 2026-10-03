@@ -79,6 +79,7 @@ Build unifié via **electron-vite** :
 - `npm run test:pdf` — extracteur PDF (placeholder hors Electron)
 - `npm run test:watcher` — snapshot / diff FS (+ présence poll fallback)
 - `npm run test:haptics` — no-op / dual-rumble / pulse legacy
-- `npm run test:series` — détection série/tome + regroupement
+- `npm run test:series` — détection série/tome + regroupement + `listRecentSeries`
+- `npm run test:series-tome` — routes `/series/:id` + `/book/:id`, nav Récents/Séries
 - `npm run test:metadata` — providers méta (stub + parse mock Open Library / AniList / MangaDex / ComicVine / Google Books)
 - `npm run test:bounds` — tailles fenêtre portrait 1080×1920 / landscape 1920×1080

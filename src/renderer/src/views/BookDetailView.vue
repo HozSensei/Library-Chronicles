@@ -137,6 +137,21 @@ function openSibling(id) {
   router.push({ name: 'book', params: { id: String(id) } });
 }
 
+function openSeriesPage() {
+  const b = book.value;
+  if (!b) return;
+  const sid =
+    b.seriesId ||
+    library.seriesGroups.find(
+      (g) =>
+        String(g.series || '')
+          .trim()
+          .toLowerCase() === String(b.series || '').trim().toLowerCase(),
+    )?.seriesId;
+  if (!sid) return;
+  router.push({ name: 'series', params: { seriesId: String(sid) } });
+}
+
 function focusField(index) {
   ui.setBookFocus(index);
 }
@@ -388,8 +403,14 @@ function display(value) {
             aria-label="Autres tomes de la série"
           >
             <div class="book-detail__rail-head">
-              <h2 class="book-detail__rail-title">{{ display(book.series) }}</h2>
-              <p class="book-detail__rail-sub">{{ seriesRail.length }} tomes</p>
+              <button
+                type="button"
+                class="book-detail__rail-title book-detail__rail-link"
+                @click="openSeriesPage"
+              >
+                {{ display(book.series) }}
+              </button>
+              <p class="book-detail__rail-sub">{{ seriesRail.length }} tomes · fiche série</p>
             </div>
             <div class="book-detail__rail-track">
               <button
@@ -793,6 +814,26 @@ function display(value) {
   font-size: 1.05rem;
   font-weight: 700;
   color: var(--paper);
+}
+
+.book-detail__rail-link {
+  appearance: none;
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--paper);
+  text-align: left;
+}
+
+.book-detail__rail-link:hover,
+.book-detail__rail-link:focus-visible {
+  color: var(--brass-bright);
+  outline: none;
 }
 
 .book-detail__rail-sub {

@@ -29,6 +29,10 @@ import {
   isBookActionFocus,
 } from '../../../shared/book-focus.js';
 import {
+  clampSeriesFocus,
+  seriesFocusKind,
+} from '../../../shared/series-focus.js';
+import {
   IMPORT_DETAIL_ACTIONS,
   IMPORT_DETAIL_FIELDS,
   IMPORT_LIST_ACTIONS,
@@ -174,6 +178,8 @@ function createLoop(ctx) {
     if (route === 'boot') return 'boot';
     if (route === 'library') return 'library';
     if (route === 'book') return 'book';
+    // Fiche série : mêmes bindings que fiche tome (A ouvrir, B retour, ↑↓)
+    if (route === 'series') return 'book';
     if (route === 'reader') return 'reader';
     if (route === 'setup') return 'setup';
     if (route === 'import') return 'import';
@@ -448,11 +454,30 @@ function createLoop(ctx) {
           return;
         }
         if (library.focusZone === 'series') {
-          library.nextUnreadForSelected().then((book) => {
-            if (book?.id) {
-              router.push({ name: 'book', params: { id: String(book.id) } });
-            }
-          });
+          const target = library.resolveSeriesOpen();
+          if (target?.type === 'series' && target.seriesId) {
+            vibe('confirm');
+            router.push({
+              name: 'series',
+              params: { seriesId: String(target.seriesId) },
+            });
+          }
+          return;
+        }
+        if (library.focusZone === 'recent') {
+          const target = library.resolveRecentOpen();
+          if (target?.type === 'series' && target.seriesId) {
+            vibe('confirm');
+            router.push({
+              name: 'series',
+              params: { seriesId: String(target.seriesId) },
+            });
+            return;
+          }
+          if (target?.type === 'book' && target.bookId != null) {
+            vibe('confirm');
+            router.push({ name: 'book', params: { id: String(target.bookId) } });
+          }
           return;
         }
         const book = library.selected;
@@ -522,6 +547,59 @@ function createLoop(ctx) {
           document
             .querySelector(`.book-detail [data-book-action="${BOOK_FOCUS.READ}"]`)
             ?.click();
+        }
+      }
+      if (action === 'settings') {
+        router.push({ name: 'settings' });
+      }
+      if (action === 'import') {
+        router.push({ name: 'import' });
+      }
+      return;
+    }
+
+    if (route === 'series') {
+      const seriesId = router.currentRoute.value.params.seriesId;
+      const group = library.getSeriesById(seriesId);
+      const volumeCount = group?.volumes?.length || 0;
+
+      if (action === 'back') {
+        vibe('light');
+        router.push({ name: 'library' });
+        return;
+      }
+      if (action === 'cursor-left' || action === 'cursor-up') {
+        ui.setSeriesFocus(
+          clampSeriesFocus(ui.seriesFocusIndex - 1, volumeCount),
+          volumeCount,
+        );
+        navVibe();
+        afterFocusMove();
+      }
+      if (action === 'cursor-right' || action === 'cursor-down') {
+        ui.setSeriesFocus(
+          clampSeriesFocus(ui.seriesFocusIndex + 1, volumeCount),
+          volumeCount,
+        );
+        navVibe();
+        afterFocusMove();
+      }
+      if (action === 'open-book' || action === 'confirm') {
+        const kind = seriesFocusKind(ui.seriesFocusIndex, volumeCount);
+        if (kind === 'back') {
+          vibe('light');
+          router.push({ name: 'library' });
+          return;
+        }
+        let book = null;
+        if (kind === 'volume') {
+          book = group?.volumes?.[ui.seriesFocusIndex] || null;
+        } else {
+          book = group?.nextUnread || group?.volumes?.[0] || null;
+        }
+        if (book?.id) {
+          vibe('confirm');
+          router.push({ name: 'book', params: { id: String(book.id) } });
         }
       }
       if (action === 'settings') {

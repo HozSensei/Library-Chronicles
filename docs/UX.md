@@ -32,10 +32,22 @@ L’app appelle `setSessionMode('reader'|'ui')` à l’entrée / sortie du lecte
 2. **Setup** — wizard **par profil** (dossiers, thème, langue) — pas d’orientation
 3. **Boot** — marque + actions (Continuer / Bibliothèque / Import / Paramètres)
 4. **Import** — liste simple (A = fiche détail, X = importer ce tome, Y = tout importer) + pastilles méta (bleu / rouge / vert) + check « déjà importé »
-5. **Bibliothèque** — catalogue TV (héro large, sidebar En cours, pills, rails posters verticaux)
-6. **Fiche livre** — layout type streaming (cover portrait + méta labels/valeurs + synopsis) · rail série sous le contenu · Lire / Retour / Options (footer fixe)
-7. **Lecteur** — portrait (+90° CSS), menu pause Select en **modal** (quitter, signets, filtres, webtoon, sens)
-8. **Paramètres** — thème, profils, haptics, remap, API (orientation info seule)
+5. **Bibliothèque** — catalogue TV (Continuer par tome, pills, rails, onglets Tous / Récents / Séries)
+6. **Récents** — **une entrée par série** (dernier tome touché) ; A → fiche série si multi-tomes, sinon fiche tome
+7. **Fiche série** (`/series/:seriesId`) — cover 1er tome, méta agrégées, grille des tomes (ordre volume) → A ouvre la fiche tome
+8. **Fiche tome** (`/book/:id`) — cover + méta + synopsis · Lire / Retour / Options (footer fixe) ; accessible depuis série ou grille
+9. **Lecteur** — portrait (+90° CSS), menu pause Select en **modal** (quitter, signets, filtres, webtoon, sens)
+10. **Paramètres** — thème, profils, haptics, remap, API (orientation info seule)
+
+### Série vs tome
+
+| Surface | Ouverture (A) | Notes |
+|---------|---------------|--------|
+| Onglet **Séries** | Fiche série | Liste des séries détectées |
+| Onglet **Récents** | Fiche série si ≥2 tomes, sinon fiche tome | Dédup `listRecentSeries` |
+| **Continuer** | Fiche tome | Toujours le tome commencé |
+| Grille **Tous** | Fiche tome | Un poster = un fichier |
+| Fiche série → tome | Fiche tome | Puis **Lire** → lecteur |
 
 ## Profils locaux
 
@@ -68,6 +80,7 @@ L’app appelle `setSessionMode('reader'|'ui')` à l’entrée / sortie du lecte
 - [x] Setup sans choix orientation
 - [x] Bibliothèque vide → un seul CTA Importer
 - [x] Grille store + fiche livre détail
+- [x] Récents dédupliqués par série · fiche série `/series/:id` · fiche tome `/book/:id`
 - [x] Import liste → fiche détail (méta + search API) · X un tome · Y tous · pastilles metaSource
 - [x] Enrichir métadonnées (warning + AniList défaut)
 - [x] Select → menu pause lecture

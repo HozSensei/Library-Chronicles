@@ -94,22 +94,31 @@ En **lecteur**, le stick reste en **pan** analogique (remap portrait) — sauf m
 | Contrôle | Action |
 |----------|--------|
 | D-Pad / stick | Curseur grille / rails |
-| A | Ouvrir **fiche livre** |
+| A | **Continuer / Tous** → fiche tome · **Séries** → fiche série · **Récents** → fiche série (≥2 tomes) ou tome |
 | B | No-op (biblio = accueil) |
 | X | Import |
-| LB / RB | Onglets Bibliothèque / Récents / Séries |
+| LB / RB | Onglets Bibliothèque / Tous / Récents / Séries |
 | Select | Onglet suivant (raccourci) |
 | Start | Paramètres |
 | LT / RT | Filtre statut |
 
-Bibliothèque vide : A → Import. Icône engrenage dans le header = Paramètres.
+Bibliothèque vide : A → Import. Icône engrenage dans le header = Paramètres.  
+Récents : une entrée par série (dernier tome touché). Continuer reste par tome.
 
 ## Mode Fiche livre (landscape)
 
 | Contrôle | Action |
 |----------|--------|
-| ←→ / ↑↓ | Focus actions (Lire / Retour / Options) |
-| A | Valider l’action focus |
+| ←→ / ↑↓ | Focus champs méta + actions (Lire / Retour / Options) |
+| A | Valider l’action focus (méta → Lire) |
+| B | Retour bibliothèque |
+
+## Mode Fiche série (landscape)
+
+| Contrôle | Action |
+|----------|--------|
+| ←→ / ↑↓ | Focus tomes → Ouvrir → Retour |
+| A | Ouvrir la **fiche tome** focus (ou suivant non lu) |
 | B | Retour bibliothèque |
 
 ## Mode Profils / Setup / Import / Boot / Paramètres
