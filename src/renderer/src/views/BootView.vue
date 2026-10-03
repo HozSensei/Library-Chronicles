@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router';
 import FocusButton from '../components/FocusButton.vue';
 import GamepadBadge from '../components/GamepadBadge.vue';
 import ControlHint from '../components/ControlHint.vue';
+import AppBrandLogo from '../components/AppBrandLogo.vue';
 import { useUiStore } from '../stores/ui';
 import { useLibraryStore } from '../stores/library';
 
@@ -71,7 +72,7 @@ function select(index) {
 </script>
 
 <template>
-  <section class="boot" aria-label="Accueil Vertical Deck Reader">
+  <section class="boot" aria-label="Accueil Library Chronicles">
     <div class="boot__atmosphere" aria-hidden="true">
       <div class="boot__wash" />
       <div class="boot__grain" />
@@ -79,7 +80,7 @@ function select(index) {
     </div>
 
     <header class="boot__brand">
-      <p class="boot__mark">Vertical Deck Reader</p>
+      <AppBrandLogo size="hero" class="boot__mark" />
       <h1 class="boot__headline">La planche, à la verticale.</h1>
       <p class="boot__lead">
         Lecture BD & manga pensée manette — menus en paysage, lecture en portrait.
@@ -183,12 +184,6 @@ function select(index) {
 
 .boot__mark {
   margin: 0 0 1.1rem;
-  font-family: var(--font-display);
-  font-weight: 800;
-  font-size: clamp(2.4rem, 8vw, 3.4rem);
-  line-height: 0.95;
-  letter-spacing: -0.03em;
-  color: var(--paper);
 }
 
 .boot__headline {

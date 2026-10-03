@@ -3,6 +3,7 @@ import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import ControlHint from '../components/ControlHint.vue';
 import FocusButton from '../components/FocusButton.vue';
+import AppBrandLogo from '../components/AppBrandLogo.vue';
 import { useUiStore } from '../stores/ui';
 import { useProfilesStore } from '../stores/profiles';
 import {
@@ -204,7 +205,7 @@ const listeningLabel = computed(() => {
 <template>
   <section class="settings">
     <header>
-      <p class="brand">Vertical Deck Reader</p>
+      <AppBrandLogo size="sm" class="brand" />
       <h1>Paramètres</h1>
       <p class="lead">
         Apparence (mode + accent), profils, haptics, remapping lecture, providers.
@@ -497,10 +498,6 @@ const listeningLabel = computed(() => {
 
 .brand {
   margin: 0 0 0.35rem;
-  font-family: var(--font-display);
-  font-weight: 700;
-  color: var(--brass);
-  font-size: 0.95rem;
 }
 
 h1 {
