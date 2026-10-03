@@ -13,6 +13,8 @@ interface VdrApi {
     getCover: (bookId: number) => Promise<string | null>;
     updateBook: (id: number, patch: Record<string, unknown>) => Promise<unknown>;
     continue: () => Promise<unknown>;
+    recent: (limit?: number) => Promise<unknown[]>;
+    lastAccessed: (excludeId?: number | null) => Promise<unknown>;
   };
   import: {
     scan: (importRoot?: string) => Promise<unknown>;

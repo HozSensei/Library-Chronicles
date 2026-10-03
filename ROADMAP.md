@@ -115,7 +115,7 @@ Voir [`docs/UX.md`](./docs/UX.md), [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.
 Setup (1ʳᵉ fois)
   → Boot
   → Import (dossier import → métadonnées → bibliothèque)
-  → Bibliothèque (grille / Continuer)
+  → Bibliothèque (catalogue : héro / récents / grille)
   → Lecteur (CBZ/CBR/PDF + manette)
   → Paramètres (thème / remap / clé API)
 ```

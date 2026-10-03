@@ -1,13 +1,12 @@
 <script setup>
-import { computed, onMounted, watch } from 'vue';
+import { computed, nextTick, onMounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import ControlHint from '../components/ControlHint.vue';
+import LazyCover from '../components/LazyCover.vue';
 import { useLibraryStore } from '../stores/library';
-import { useUiStore } from '../stores/ui';
 
 const router = useRouter();
 const library = useLibraryStore();
-const ui = useUiStore();
 
 const hints = [
   { key: 'A', label: 'ouvrir' },
@@ -27,8 +26,42 @@ const filterLabel = computed(() => {
   return map[library.filter] || 'Tous';
 });
 
+const heroTitle = computed(() => {
+  if (library.heroMode === 'reading') return 'Lecture en cours';
+  if (library.heroMode === 'last') return 'Dernier lu';
+  if (library.heroMode === 'empty') return 'Bibliothèque vide';
+  return 'Continuer';
+});
+
+const heroCta = computed(() => {
+  if (library.heroMode === 'reading') return 'A · Reprendre';
+  if (library.heroMode === 'last') return 'A · Rouvrir';
+  if (library.heroMode === 'empty') return 'A · Importer';
+  return 'A · Parcourir';
+});
+
+const heroLead = computed(() => {
+  if (library.heroMode === 'reading' && library.heroBook) {
+    const b = library.heroBook;
+    return `p. ${b.pageCurrent + 1}/${b.pageTotal || '?'}`;
+  }
+  if (library.heroMode === 'last' && library.heroBook) {
+    return library.heroBook.title;
+  }
+  if (library.heroMode === 'empty') {
+    return 'Importe un CBZ, CBR ou PDF pour commencer.';
+  }
+  return 'Choisis un tome dans les ajouts récents.';
+});
+
+const showRecent = computed(() => library.recentBooks.length > 0);
+const showGrid = computed(() => library.filtered.length > 0);
+
 onMounted(() => {
-  library.refresh();
+  library.refresh().then(() => {
+    library.focusHero();
+    scrollFocusIntoView();
+  });
 });
 
 watch(
@@ -38,9 +71,45 @@ watch(
   },
 );
 
+watch(
+  () => [library.focusZone, library.cursor, library.recentCursor],
+  () => {
+    nextTick(scrollFocusIntoView);
+  },
+);
+
+function scrollFocusIntoView() {
+  const el = document.querySelector('.library .is-focused');
+  el?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+}
+
 function openSelected() {
+  if (library.focusZone === 'hero' && library.heroMode === 'empty') {
+    router.push({ name: 'import' });
+    return;
+  }
+  if (library.focusZone === 'hero' && library.heroMode === 'invite' && !library.heroBook) {
+    if (showRecent.value) library.focusRecent(0);
+    else if (showGrid.value) library.focusGrid(0);
+    return;
+  }
   const book = library.selected;
   if (!book) return;
+  router.push({ name: 'reader', query: { path: book.filePath } });
+}
+
+function openBook(book, zone, index) {
+  if (zone === 'recent') {
+    library.focusRecent(index);
+  } else if (zone === 'grid') {
+    library.focusGrid(index);
+  } else {
+    library.focusHero();
+  }
+  if (!book?.filePath) {
+    if (library.heroMode === 'empty') router.push({ name: 'import' });
+    return;
+  }
   router.push({ name: 'reader', query: { path: book.filePath } });
 }
 
@@ -52,64 +121,153 @@ function statusBadge(status) {
 </script>
 
 <template>
-  <section class="library">
-    <header class="library__header">
-      <p class="library__brand">Vertical Deck Reader</p>
-      <h1>Bibliothèque</h1>
-      <p class="library__lead">
-        {{ filterLabel }} · {{ library.filtered.length }} tome(s)
-        <template v-if="library.continueBook">
-          · Reprendre « {{ library.continueBook.title }} »
-        </template>
-      </p>
-    </header>
+  <section class="library" aria-label="Catalogue Vertical Deck Reader">
+    <div class="library__scroll">
+      <!-- Héro catalogue -->
+      <header
+        class="hero"
+        :class="{
+          'is-focused': library.focusZone === 'hero',
+          'hero--empty': library.heroMode === 'empty',
+          'hero--idle': library.heroMode === 'invite',
+        }"
+        @click="library.focusHero(); openSelected()"
+      >
+        <div class="hero__media" aria-hidden="true">
+          <LazyCover
+            v-if="library.heroBook"
+            :book-id="library.heroBook.id"
+            :alt="library.heroBook.title"
+            :format="library.heroBook.format"
+            eager
+          />
+          <div v-else class="hero__void" />
+          <div class="hero__veil" />
+        </div>
 
-    <div class="library__toolbar">
-      <button type="button" class="ghost" @click="library.scan()">Scanner</button>
-      <button type="button" class="ghost" @click="router.push({ name: 'import' })">Import</button>
-      <button type="button" class="ghost" @click="library.cycleFilter(1)">{{ filterLabel }}</button>
-    </div>
+        <div class="hero__content">
+          <p class="hero__brand">Vertical Deck Reader</p>
+          <p class="hero__eyebrow">{{ heroTitle }}</p>
+          <h1 class="hero__title">
+            <template v-if="library.heroBook && library.heroMode !== 'invite'">
+              {{ library.heroBook.title }}
+            </template>
+            <template v-else-if="library.heroMode === 'empty'">
+              Aucun tome encore
+            </template>
+            <template v-else>
+              Prêt à lire
+            </template>
+          </h1>
+          <p class="hero__lead">{{ heroLead }}</p>
+          <p class="hero__cta" :class="{ 'is-pulse': library.focusZone === 'hero' }">
+            {{ heroCta }}
+          </p>
+        </div>
+      </header>
 
-    <div class="library__body">
-      <div v-if="library.loading" class="library__empty">Chargement…</div>
-      <div v-else-if="!library.filtered.length" class="library__empty">
-        <p class="library__empty-title">Aucun tome ici</p>
-        <p class="dim">
-          <template v-if="library.filter !== 'all'">
-            Change de filtre (LT/RT) ou importe un album.
-          </template>
-          <template v-else>
-            Importe des CBZ/CBR/PDF ou scanne le dossier bibliothèque.
-          </template>
-        </p>
-        <button type="button" class="ghost library__empty-cta" @click="router.push({ name: 'import' })">
-          Ouvrir l’import
-        </button>
+      <div class="library__toolbar">
+        <button type="button" class="ghost" @click="library.scan()">Scanner</button>
+        <button type="button" class="ghost" @click="router.push({ name: 'import' })">Import</button>
+        <button type="button" class="ghost" @click="library.cycleFilter(1)">{{ filterLabel }}</button>
       </div>
-      <div v-else class="library__grid">
-        <button
-          v-for="(book, index) in library.filtered"
-          :key="book.id"
-          type="button"
-          class="tile"
-          :class="{ 'is-focused': index === library.cursor }"
-          @click="library.cursor = index; openSelected()"
-        >
-          <div class="tile__cover">
-            <img
-              v-if="library.covers[book.id]"
-              :src="library.covers[book.id]"
-              :alt="book.title"
-            />
-            <div v-else class="tile__placeholder">{{ book.format || '?' }}</div>
-            <span class="tile__badge">{{ statusBadge(book.status) }}</span>
+
+      <!-- Skeleton chargement liste -->
+      <div v-if="library.loading" class="catalog-skel" aria-busy="true" aria-label="Chargement">
+        <div class="catalog-skel__rail">
+          <div v-for="n in 4" :key="'r' + n" class="catalog-skel__tile" />
+        </div>
+        <div class="catalog-skel__grid">
+          <div v-for="n in 6" :key="'g' + n" class="catalog-skel__tile" />
+        </div>
+      </div>
+
+      <template v-else>
+        <!-- Ajouts récents -->
+        <section v-if="showRecent" class="rail-section" aria-label="Ajouts récents">
+          <div class="section-head">
+            <h2>Ajouts récents</h2>
+            <p>Derniers tomes indexés</p>
           </div>
-          <span class="tile__title">{{ book.title }}</span>
-          <span v-if="book.status === 'reading'" class="tile__prog">
-            p. {{ book.pageCurrent + 1 }}/{{ book.pageTotal || '?' }}
-          </span>
-        </button>
-      </div>
+          <div class="rail" role="list">
+            <button
+              v-for="(book, index) in library.recentBooks"
+              :key="'recent-' + book.id"
+              type="button"
+              class="rail__item"
+              :class="{
+                'is-focused':
+                  library.focusZone === 'recent' && index === library.recentCursor,
+              }"
+              role="listitem"
+              @click="openBook(book, 'recent', index)"
+            >
+              <div class="rail__cover">
+                <LazyCover
+                  :book-id="book.id"
+                  :alt="book.title"
+                  :format="book.format"
+                  :eager="index < 4"
+                />
+              </div>
+              <span class="rail__title">{{ book.title }}</span>
+            </button>
+          </div>
+        </section>
+
+        <!-- Tous les livres -->
+        <section class="grid-section" aria-label="Tous les livres">
+          <div class="section-head">
+            <h2>Tous les livres</h2>
+            <p>{{ filterLabel }} · {{ library.filtered.length }} tome(s)</p>
+          </div>
+
+          <div v-if="!showGrid" class="library__empty">
+            <p class="library__empty-title">Aucun tome ici</p>
+            <p class="dim">
+              <template v-if="library.filter !== 'all'">
+                Change de filtre (LT/RT) ou importe un album.
+              </template>
+              <template v-else>
+                Importe des CBZ/CBR/PDF ou scanne le dossier bibliothèque.
+              </template>
+            </p>
+            <button
+              type="button"
+              class="ghost library__empty-cta"
+              @click="router.push({ name: 'import' })"
+            >
+              Ouvrir l’import
+            </button>
+          </div>
+
+          <div v-else class="library__grid">
+            <button
+              v-for="(book, index) in library.filtered"
+              :key="book.id"
+              type="button"
+              class="tile"
+              :class="{
+                'is-focused': library.focusZone === 'grid' && index === library.cursor,
+              }"
+              @click="openBook(book, 'grid', index)"
+            >
+              <div class="tile__cover">
+                <LazyCover
+                  :book-id="book.id"
+                  :alt="book.title"
+                  :format="book.format"
+                />
+                <span class="tile__badge">{{ statusBadge(book.status) }}</span>
+              </div>
+              <span class="tile__title">{{ book.title }}</span>
+              <span v-if="book.status === 'reading'" class="tile__prog">
+                p. {{ book.pageCurrent + 1 }}/{{ book.pageTotal || '?' }}
+              </span>
+            </button>
+          </div>
+        </section>
+      </template>
     </div>
 
     <footer class="library__footer">
@@ -124,51 +282,242 @@ function statusBadge(status) {
   height: 100%;
   display: flex;
   flex-direction: column;
-  padding: var(--pad);
-  background:
-    radial-gradient(ellipse 80% 40% at 20% 0%, var(--wash-a), transparent 50%),
-    var(--ink-950);
+  background: var(--ink-950);
 }
 
-.library__brand {
-  margin: 0 0 0.35rem;
+.library__scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding-bottom: 0.5rem;
+}
+
+/* —— Héro full-bleed —— */
+.hero {
+  position: relative;
+  min-height: min(52vh, 28rem);
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+  cursor: pointer;
+  border: none;
+  text-align: left;
+  color: inherit;
+  isolation: isolate;
+}
+
+.hero__media {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+.hero__void {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 80% 60% at 30% 20%, var(--wash-a), transparent 55%),
+    radial-gradient(ellipse 60% 50% at 90% 80%, var(--wash-b), transparent 50%),
+    linear-gradient(165deg, var(--ink-900), var(--ink-950));
+}
+
+.hero__veil {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.15) 0%, transparent 28%, rgba(0, 0, 0, 0.72) 78%, var(--ink-950) 100%),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.45) 0%, transparent 55%);
+  pointer-events: none;
+}
+
+[data-theme='light'] .hero__veil {
+  background:
+    linear-gradient(180deg, rgba(243, 238, 228, 0.2) 0%, transparent 30%, rgba(28, 24, 18, 0.55) 78%, var(--ink-950) 100%),
+    linear-gradient(90deg, rgba(28, 24, 18, 0.35) 0%, transparent 55%);
+}
+
+.hero__content {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  padding: calc(var(--pad) + 0.5rem) var(--pad) 1.35rem;
+  animation: hero-in 420ms var(--ease-out);
+}
+
+.hero__brand {
+  margin: 0 0 0.65rem;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(1.35rem, 4.2vw, 1.85rem);
+  color: var(--brass-bright);
+  letter-spacing: 0.03em;
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.45);
+}
+
+.hero__eyebrow {
+  margin: 0;
+  font-size: 0.78rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--brass);
+}
+
+.hero__title {
+  margin: 0.35rem 0 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.55rem, 5vw, 2.15rem);
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  max-width: 16ch;
+  text-shadow: 0 2px 20px rgba(0, 0, 0, 0.5);
+}
+
+.hero__lead {
+  margin: 0.55rem 0 0;
+  color: var(--paper-dim);
+  max-width: 22rem;
+  line-height: 1.4;
+  font-size: 0.95rem;
+}
+
+.hero__cta {
+  display: inline-block;
+  margin: 1rem 0 0;
+  padding: 0.55rem 1.1rem;
+  border: 1px solid var(--brass);
+  border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, rgba(212, 163, 92, 0.28), rgba(154, 107, 47, 0.14));
   font-family: var(--font-display);
   font-weight: 700;
   font-size: 0.95rem;
-  color: var(--brass);
-  letter-spacing: 0.04em;
+  letter-spacing: 0.02em;
+  transition:
+    box-shadow 180ms var(--ease-soft),
+    border-color 180ms var(--ease-soft),
+    transform 180ms var(--ease-soft);
 }
 
-.library__header h1 {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: 2rem;
-  letter-spacing: -0.02em;
+.hero.is-focused .hero__cta,
+.hero__cta.is-pulse {
+  border-color: var(--brass-bright);
+  box-shadow: 0 0 0 3px var(--focus-glow);
+  transform: translate3d(0, -1px, 0);
 }
 
-.library__lead {
-  margin: 0.55rem 0 0;
-  color: var(--paper-dim);
-  max-width: 26rem;
-  line-height: 1.4;
+.hero.is-focused {
+  outline: none;
+}
+
+.hero.is-focused::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  box-shadow: inset 0 0 0 2px var(--brass-bright);
+  pointer-events: none;
+  z-index: 2;
+  animation: focus-ring 480ms var(--ease-out);
+}
+
+.hero--empty .hero__title,
+.hero--idle .hero__title {
+  max-width: 14ch;
 }
 
 .library__toolbar {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
-  margin-top: 1rem;
+  padding: 0.85rem var(--pad) 0;
 }
 
-.library__body {
-  flex: 1;
-  margin-top: 1rem;
-  min-height: 0;
-  overflow: auto;
+.section-head {
+  padding: 0 var(--pad);
+  margin-bottom: 0.75rem;
+}
+
+.section-head h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  letter-spacing: -0.01em;
+}
+
+.section-head p {
+  margin: 0.25rem 0 0;
+  color: var(--paper-dim);
+  font-size: 0.85rem;
+}
+
+/* —— Rail horizontal —— */
+.rail-section {
+  margin-top: 1.35rem;
+  animation: section-in 360ms var(--ease-out);
+}
+
+.rail {
+  display: flex;
+  gap: 0.75rem;
+  overflow-x: auto;
+  padding: 0.15rem var(--pad) 0.5rem;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+
+.rail::-webkit-scrollbar {
+  display: none;
+}
+
+.rail__item {
+  appearance: none;
+  border: none;
+  background: transparent;
+  padding: 0;
+  width: 7.25rem;
+  flex: 0 0 auto;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+  scroll-snap-align: start;
+}
+
+.rail__cover {
+  position: relative;
+  aspect-ratio: 2 / 3;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  transition: transform 160ms var(--ease-soft), box-shadow 160ms var(--ease-soft);
+}
+
+.rail__item.is-focused .rail__cover {
+  box-shadow: 0 0 0 3px var(--focus-glow);
+  border-color: var(--brass-bright);
+  transform: translate3d(0, -2px, 0) scale(1.03);
+}
+
+.rail__title {
+  display: block;
+  margin-top: 0.4rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rail__item.is-focused .rail__title {
+  color: var(--brass-bright);
+}
+
+/* —— Grille —— */
+.grid-section {
+  margin-top: 1.5rem;
+  padding: 0 var(--pad) 1rem;
+  animation: section-in 420ms var(--ease-out);
 }
 
 .library__empty {
-  height: 100%;
   display: grid;
   place-content: center;
   text-align: center;
@@ -178,7 +527,8 @@ function statusBadge(status) {
   border-radius: var(--radius-md);
   background: var(--surface);
   padding: 1.5rem;
-  animation: empty-in 280ms var(--ease-out);
+  min-height: 10rem;
+  animation: section-in 280ms var(--ease-out);
 }
 
 .library__empty-title {
@@ -201,7 +551,6 @@ function statusBadge(status) {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 0.75rem;
-  padding-bottom: 1rem;
 }
 
 .tile {
@@ -239,26 +588,11 @@ function statusBadge(status) {
   transition: transform 160ms var(--ease-soft), box-shadow 160ms var(--ease-soft);
 }
 
-.tile__cover img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.tile__placeholder {
-  height: 100%;
-  display: grid;
-  place-items: center;
-  color: var(--paper-dim);
-  text-transform: uppercase;
-  font-size: 0.75rem;
-  letter-spacing: 0.08em;
-}
-
 .tile__badge {
   position: absolute;
   left: 0.35rem;
   bottom: 0.35rem;
+  z-index: 1;
   font-size: 0.65rem;
   padding: 0.15rem 0.4rem;
   border-radius: 4px;
@@ -283,12 +617,104 @@ function statusBadge(status) {
   color: var(--brass);
 }
 
+/* —— Skeletons catalogue —— */
+.catalog-skel {
+  padding: 1.25rem var(--pad);
+}
+
+.catalog-skel__rail {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.catalog-skel__grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+}
+
+.catalog-skel__tile {
+  aspect-ratio: 2 / 3;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(
+    110deg,
+    var(--ink-800) 0%,
+    var(--ink-700) 42%,
+    var(--ink-800) 78%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.1s var(--ease-soft) infinite;
+  flex: 0 0 7.25rem;
+}
+
+.catalog-skel__grid .catalog-skel__tile {
+  flex: none;
+  width: auto;
+}
+
 .library__footer {
-  margin-top: 1rem;
+  flex-shrink: 0;
+  padding: 0.75rem var(--pad) var(--pad);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.85rem;
+  gap: 0.65rem;
+  background: linear-gradient(180deg, transparent, var(--ink-950) 30%);
+}
+
+@keyframes hero-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 12px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes section-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes focus-ring {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero__content,
+  .rail-section,
+  .grid-section,
+  .library__empty,
+  .hero.is-focused::after,
+  .catalog-skel__tile,
+  .rail__cover,
+  .tile__cover {
+    animation: none;
+    transition: none;
+  }
 }
 
 @keyframes empty-in {
