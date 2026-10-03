@@ -102,14 +102,24 @@ export function remapStick(orientation, physicalX, physicalY) {
  * Convertit un pan en repère utilisateur (visuel) vers le repère local
  * du plan lecteur tourné de +90° CSS (CW).
  *
- * rotate(90deg) : (x, y) → (−y, x)  ⇒  localX = visualY, localY = −visualX
+ * Signes corrigés (anti-joystick-inversé) par rapport à l’inverse
+ * mathématique brut de rotate(90deg) :
+ *
+ *   localX = −visualY
+ *   localY =  visualX
+ *
+ * Chaîne Ally CCW (D-Pad en bas), stick vers le haut de l’écran :
+ *   physique → (1,0) → remapStick → logique ↑ (0,−1)
+ *   → visualPanToLocal → local (+1, 0)
+ *
+ * Ne pas toucher remapStick ici : menus / modal pause / D-Pad en dépendent.
  *
  * @param {number} visualX
  * @param {number} visualY
  * @returns {{ x: number, y: number }}
  */
 export function visualPanToLocal(visualX, visualY) {
-  return { x: visualY, y: -visualX };
+  return { x: -visualY, y: visualX };
 }
 
 /**

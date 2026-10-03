@@ -127,6 +127,7 @@ function onStripScroll() {
           <img
             v-if="reader.pageUrl"
             class="reader__page"
+            :class="{ 'is-zoom-smooth': reader.zoomTransition }"
             :src="reader.pageUrl"
             alt="Page courante"
             draggable="false"
@@ -221,6 +222,15 @@ function onStripScroll() {
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
+}
+
+/* L3 fit toggle : transition width/height (le scale D-Pad est lerp rAF). */
+.reader__page.is-zoom-smooth {
+  transition:
+    width 200ms ease-out,
+    height 200ms ease-out,
+    max-width 200ms ease-out,
+    max-height 200ms ease-out;
 }
 
 .reader__stage[data-fit='fit-height'] .reader__page {

@@ -69,6 +69,13 @@ assert(store.includes('closeHud'), 'store closeHud');
 assert(store.includes('toastVisible'), 'store toastVisible (flash ≠ modal)');
 assert(store.includes('hudFocusIndex'), 'store hudFocusIndex');
 assert(store.includes('moveHudFocus'), 'store moveHudFocus');
+assert(store.includes('animateScaleTo'), 'zoom smooth animateScaleTo (rAF)');
+assert(store.includes('targetScale'), 'zoom targetScale');
+assert(store.includes('ZOOM_STEP'), 'zoom pas logique ±15 %');
+assert(
+  readerView.includes('is-zoom-smooth'),
+  'L3 fit toggle : classe transition CSS',
+);
 
 assert(gamepad.includes('reader.hudVisible'), 'gamepad branche modal pause');
 assert(gamepad.includes('closeHud()'), 'B/Select → closeHud en pause');

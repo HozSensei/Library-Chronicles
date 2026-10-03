@@ -47,13 +47,21 @@ assert(stickLeft.x === 0 && stickLeft.y === 1, 'stick physique ← → logique �
 const stickRight = remapStick(o, 1, 0);
 assert(stickRight.x === 0 && stickRight.y === -1, 'stick physique → → logique ↑');
 
-// Pan : axes utilisateur → local du plan rotate(+90°)
+// Pan : axes utilisateur → local du plan rotate(+90°) — signes corrigés (anti-inversion)
 const panRight = visualPanToLocal(1, 0);
-assert(panRight.x === 0 && panRight.y === -1, 'pan visuel → → local ↑ (−Y)');
+assert(panRight.x === 0 && panRight.y === 1, 'pan visuel → → local +Y');
 const panUp = visualPanToLocal(0, -1);
-assert(panUp.x === -1 && panUp.y === 0, 'pan visuel ↑ → local ← (−X)');
+assert(panUp.x === 1 && panUp.y === 0, 'pan visuel ↑ → local +X');
 const panDown = visualPanToLocal(0, 1);
-assert(panDown.x === 1 && panDown.y === 0, 'pan visuel ↓ → local → (+X)');
+assert(panDown.x === -1 && panDown.y === 0, 'pan visuel ↓ → local −X');
+const panLeft = visualPanToLocal(-1, 0);
+assert(panLeft.x === 0 && panLeft.y === -1, 'pan visuel ← → local −Y');
+
+// Chaîne Ally CCW : stick vers le haut écran = physique → (ABXY)
+const stickScreenUp = remapStick(o, 1, 0);
+assert(stickScreenUp.x === 0 && stickScreenUp.y === -1, 'physique → → logique ↑ (haut écran)');
+const localScreenUp = visualPanToLocal(stickScreenUp.x, stickScreenUp.y);
+assert(localScreenUp.x === 1 && localScreenUp.y === 0, 'haut écran → pan local +X (plan +90°)');
 
 const landStick = remapStick(DeviceOrientation.LANDSCAPE, 0.5, -0.7);
 assert(
