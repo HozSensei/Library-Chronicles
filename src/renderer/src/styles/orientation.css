@@ -1,31 +1,43 @@
 /**
  * Layouts selon orientation session.
  * landscape = menus (défaut) · portrait-ccw = lecteur.
+ * data-reader-rotate=1 = fallback CSS quand setBounds portrait est clampé (Windows).
  */
 
 [data-orientation='landscape'] {
-  --pad: clamp(1.5rem, 3vw, 2.5rem);
+  --pad: clamp(1.25rem, 3vw, 2.5rem);
 }
 
-/* Lecteur : HUD bas plein largeur en portrait */
+html,
+body,
+#app {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* Lecteur : HUD bas plein largeur en portrait (natif ou CSS-rotate) */
 [data-orientation='portrait-ccw'] .hud {
   left: 0;
   right: 0;
   bottom: 0;
   top: auto;
   width: 100%;
+  max-width: 100%;
   max-height: 55%;
   padding: 1rem 1.25rem 1.35rem;
   background: linear-gradient(0deg, var(--hud-fade) 60%, transparent);
+  box-sizing: border-box;
 }
 
 [data-orientation='landscape'] .hud {
   left: auto;
   right: 0;
   width: min(26rem, 38vw);
+  max-width: 100%;
   max-height: 100%;
   padding: 1.25rem 1.35rem 1.5rem;
   background: linear-gradient(270deg, var(--hud-fade) 55%, transparent);
+  box-sizing: border-box;
 }
 
 .hud__pause-title {
@@ -42,6 +54,12 @@
   grid-template-columns: 1fr 1fr;
 }
 
+[data-orientation='portrait-ccw'] .hud__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
 [data-orientation='portrait-ccw'] .reader__strip-page {
   width: 100%;
 }
@@ -49,4 +67,11 @@
 [data-orientation='landscape'] .reader__strip-page {
   max-width: min(52vw, 720px);
   margin-inline: auto;
+}
+
+/* Quand la rotation CSS est active, le stage est déjà en repère portrait */
+[data-reader-rotate='1'] .reader__strip-page {
+  max-width: none;
+  width: 100%;
+  margin-inline: 0;
 }

@@ -104,3 +104,20 @@ export function windowMatchesSize(win, target) {
   const [w, h] = win.getSize();
   return w === target.width && h === target.height;
 }
+
+/**
+ * Sur Windows / Ally, le workArea reste souvent landscape (1920×1080) :
+ * setBounds portrait est alors clampé et la fenêtre n’est pas vraiment verticale.
+ * Dans ce cas le renderer doit appliquer une rotation CSS 90° du stage lecteur.
+ *
+ * @param {string | undefined | null} orientation
+ * @param {{ width: number, height: number }} appliedSize taille réellement appliquée
+ * @returns {boolean}
+ */
+export function needsCssPortraitRotate(orientation, appliedSize) {
+  if (orientation !== 'portrait-ccw') return false;
+  const w = Number(appliedSize?.width) || 0;
+  const h = Number(appliedSize?.height) || 0;
+  // Portrait « vrai » = plus haut que large. Sinon fallback CSS.
+  return !(h > w);
+}

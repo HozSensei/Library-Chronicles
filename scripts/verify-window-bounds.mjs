@@ -8,6 +8,7 @@ import {
   boundsForOrientation,
   clampSizeToWorkArea,
   centerInWorkArea,
+  needsCssPortraitRotate,
 } from '../src/main/window-bounds.js';
 
 let failed = 0;
@@ -46,6 +47,27 @@ assert(
   portraitClamped.width === 1080 && portraitClamped.height === 1920,
   'portrait exact si workArea suffisant',
 );
+
+assert(
+  needsCssPortraitRotate('portrait-ccw', { width: 1080, height: 1920 }) === false,
+  'pas de CSS rotate si portrait vrai',
+);
+assert(
+  needsCssPortraitRotate('portrait-ccw', { width: 1080, height: 1080 }) === true,
+  'CSS rotate si carré clampé',
+);
+assert(
+  needsCssPortraitRotate('portrait-ccw', { width: 1920, height: 1080 }) === true,
+  'CSS rotate si workArea landscape Windows',
+);
+assert(
+  needsCssPortraitRotate('landscape', { width: 1920, height: 1080 }) === false,
+  'pas de CSS rotate en menus landscape',
+);
+
+const winAlly = clampSizeToWorkArea(PORTRAIT_BOUNDS, { width: 1920, height: 1080 });
+assert(winAlly.height === 1080 && winAlly.width === 1080, 'portrait clampé Ally landscape → 1080×1080');
+assert(needsCssPortraitRotate('portrait-ccw', winAlly) === true, 'Ally landscape → cssRotate');
 
 if (failed) {
   console.error(`\n${failed} échec(s)`);

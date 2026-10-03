@@ -9,6 +9,7 @@ import {
   clearSetupGate,
   ensureSetupGate,
 } from '../router';
+import { scheduleScrollFocusedIntoView } from '../../../shared/focus-scroll.js';
 
 const router = useRouter();
 const profiles = useProfilesStore();
@@ -61,6 +62,11 @@ watch(isNaming, async (on) => {
   nameInput.value?.focus?.();
   nameInput.value?.select?.();
 });
+
+watch(
+  () => [profiles.focusIndex, formFocus.value, phase.value],
+  () => nextTick(() => scheduleScrollFocusedIntoView('.profiles')),
+);
 
 function onRenameEvent() {
   renameFocused();

@@ -1,10 +1,11 @@
 <script setup>
-import { computed, onMounted } from 'vue';
+import { computed, nextTick, onMounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import ControlHint from '../components/ControlHint.vue';
 import FocusButton from '../components/FocusButton.vue';
 import { useImportStore } from '../stores/import';
 import { useUiStore } from '../stores/ui';
+import { scheduleScrollFocusedIntoView } from '../../../shared/focus-scroll.js';
 
 const router = useRouter();
 const imp = useImportStore();
@@ -34,7 +35,13 @@ onMounted(async () => {
   await imp.loadProviders();
   await imp.scan();
   ui.setImportFocus(0);
+  nextTick(() => scheduleScrollFocusedIntoView('.import'));
 });
+
+watch(
+  () => [imp.cursor, ui.importFocusIndex],
+  () => nextTick(() => scheduleScrollFocusedIntoView('.import')),
+);
 
 async function doImport() {
   if (!imp.selected) return;
@@ -47,7 +54,7 @@ async function doEnrich() {
 </script>
 
 <template>
-  <section class="import relative h-full" aria-label="Import">
+  <section class="import relative h-full min-h-0 min-w-0 overflow-hidden overflow-x-hidden" aria-label="Import">
     <div
       class="pointer-events-none absolute inset-0"
       aria-hidden="true"
@@ -58,16 +65,16 @@ async function doEnrich() {
       "
     />
 
-    <div class="relative z-10 flex h-full flex-col px-8 py-8 sm:px-10">
-      <header class="mb-4">
+    <div class="relative z-10 flex h-full min-h-0 min-w-0 flex-col overflow-x-hidden px-6 py-6 sm:px-10 sm:py-8">
+      <header class="mb-4 min-w-0 shrink-0">
         <p class="m-0 text-sm font-semibold text-[var(--brass)]">Vertical Deck Reader</p>
         <h1 class="m-0 mt-1 font-[family-name:var(--font-display)] text-3xl font-bold">Import</h1>
         <p class="m-0 mt-2 text-[var(--paper-dim)]">{{ statusLabel }}</p>
         <p v-if="imp.root" class="m-0 mt-1 break-all text-xs text-[var(--paper-dim)]">{{ imp.root }}</p>
       </header>
 
-      <div class="import__layout grid min-h-0 flex-1 gap-5" style="grid-template-columns: minmax(18rem, 38%) minmax(0, 1fr)">
-        <aside class="list flex min-h-0 flex-col gap-2 overflow-auto pr-1">
+      <div class="import__layout grid min-h-0 min-w-0 flex-1 gap-5 overflow-x-hidden" style="grid-template-columns: minmax(12rem, 38%) minmax(0, 1fr)">
+        <aside class="list flex min-h-0 min-w-0 flex-col gap-2 overflow-auto overflow-x-hidden pr-1">
           <button
             v-for="(item, index) in imp.items"
             :key="item.filePath"
@@ -114,7 +121,7 @@ async function doEnrich() {
           </div>
         </div>
 
-        <div v-else-if="imp.selected" class="detail flex min-h-0 flex-col gap-4 overflow-auto">
+        <div v-else-if="imp.selected" class="detail flex min-h-0 min-w-0 flex-col gap-4 overflow-auto overflow-x-hidden">
           <div class="flex gap-5">
             <div class="w-28 shrink-0">
               <img

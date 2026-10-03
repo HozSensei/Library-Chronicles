@@ -16,8 +16,11 @@ const stripStyle = computed(() => ({
   transform: `translate3d(${reader.panX}px, ${reader.panY}px, 0)`,
 }));
 
+/**
+ * Ouverture fichier uniquement.
+ * Le resize / setSessionMode est géré UNE FOIS par App.vue (watch route → reader).
+ */
 onMounted(async () => {
-  await ui.enterReaderMode();
   const filePath = route.query.path;
   try {
     if (filePath) {
@@ -35,9 +38,9 @@ onMounted(async () => {
   }
 });
 
-onUnmounted(async () => {
+onUnmounted(() => {
   reader.close();
-  await ui.exitReaderMode();
+  // Pas d’exitReaderMode ici — App.vue watch (reader → autre) le fait une seule fois.
 });
 
 watch(
@@ -59,7 +62,6 @@ watch(
 
 async function leave() {
   await reader.close();
-  await ui.exitReaderMode();
   router.push({ name: 'library' });
 }
 
@@ -87,45 +89,58 @@ function onStripScroll() {
 </script>
 
 <template>
-  <section class="reader" aria-label="Lecteur" :data-webtoon="reader.webtoonMode">
-    <div
-      v-if="reader.webtoonMode"
-      ref="stripEl"
-      class="reader__strip"
-      @scroll.passive="onStripScroll"
-    >
-      <div class="reader__strip-inner" :style="stripStyle">
-        <img
-          v-for="page in reader.stripPages"
-          :key="page.index"
-          class="reader__strip-page"
-          :class="{ 'is-current': page.index === reader.pageIndex }"
-          :src="page.url"
-          :data-page="page.index"
-          :alt="`Page ${page.index + 1}`"
-          draggable="false"
-        />
-      </div>
-    </div>
+  <section
+    class="reader"
+    aria-label="Lecteur"
+    :data-webtoon="reader.webtoonMode"
+    :data-css-rotate="ui.readerCssRotate ? '1' : '0'"
+  >
+    <!--
+      Stage : en mode css-rotate (Windows landscape clampé), tourné −90°
+      pour lecture verticale Ally. Sinon plein cadre portrait natif.
+    -->
+    <div class="reader__viewport">
+      <div class="reader__stage-wrap">
+        <div
+          v-if="reader.webtoonMode"
+          ref="stripEl"
+          class="reader__strip"
+          @scroll.passive="onStripScroll"
+        >
+          <div class="reader__strip-inner" :style="stripStyle">
+            <img
+              v-for="page in reader.stripPages"
+              :key="page.index"
+              class="reader__strip-page"
+              :class="{ 'is-current': page.index === reader.pageIndex }"
+              :src="page.url"
+              :data-page="page.index"
+              :alt="`Page ${page.index + 1}`"
+              draggable="false"
+            />
+          </div>
+        </div>
 
-    <div v-else class="reader__stage" :data-fit="reader.fitMode">
-      <img
-        v-if="reader.pageUrl"
-        class="reader__page"
-        :src="reader.pageUrl"
-        alt="Page courante"
-        draggable="false"
-        :style="reader.imageStyle"
-      />
-      <div v-else class="reader__placeholder">
-        <p class="reader__brand">Vertical Deck Reader</p>
-        <p v-if="reader.loading">Chargement…</p>
-        <p v-else-if="reader.error">{{ reader.error }}</p>
-        <template v-else>
-          <p>Aucun livre chargé</p>
-          <p class="dim">Ouvre un tome depuis la bibliothèque ou l’import.</p>
-        </template>
-        <button type="button" class="ghost" @click="leave">Retour</button>
+        <div v-else class="reader__stage" :data-fit="reader.fitMode">
+          <img
+            v-if="reader.pageUrl"
+            class="reader__page"
+            :src="reader.pageUrl"
+            alt="Page courante"
+            draggable="false"
+            :style="reader.imageStyle"
+          />
+          <div v-else class="reader__placeholder">
+            <p class="reader__brand">Vertical Deck Reader</p>
+            <p v-if="reader.loading">Chargement…</p>
+            <p v-else-if="reader.error">{{ reader.error }}</p>
+            <template v-else>
+              <p>Aucun livre chargé</p>
+              <p class="dim">Ouvre un tome depuis la bibliothèque ou l’import.</p>
+            </template>
+            <button type="button" class="ghost" @click="leave">Retour</button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -144,7 +159,42 @@ function onStripScroll() {
 .reader {
   position: relative;
   height: 100%;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  overflow-x: hidden;
   background: var(--reader-bg);
+}
+
+.reader__viewport {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  min-width: 0;
+  min-height: 0;
+}
+
+.reader__stage-wrap {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* Fallback Windows : fenêtre encore landscape → stage portrait tourné −90° (CCW) */
+.reader[data-css-rotate='1'] .reader__stage-wrap {
+  width: 100vh;
+  height: 100vw;
+  top: 50%;
+  left: 50%;
+  right: auto;
+  bottom: auto;
+  inset: auto;
+  transform: translate(-50%, -50%) rotate(-90deg);
+  transform-origin: center center;
 }
 
 .reader__stage {
@@ -160,6 +210,8 @@ function onStripScroll() {
   will-change: transform, filter;
   user-select: none;
   pointer-events: none;
+  max-width: 100%;
+  max-height: 100%;
 }
 
 .reader__strip {
@@ -192,6 +244,7 @@ function onStripScroll() {
   text-align: center;
   color: var(--paper);
   padding: 2rem;
+  min-width: 0;
 }
 
 .reader__brand {
@@ -214,12 +267,14 @@ function onStripScroll() {
   background: color-mix(in srgb, var(--ink) 82%, transparent);
   color: var(--paper);
   border: 1px solid color-mix(in srgb, var(--brass) 45%, transparent);
+  min-width: 0;
 }
 
 .reader__next p {
   margin: 0;
   font-size: 0.8rem;
   color: var(--paper-dim);
+  overflow-wrap: anywhere;
 }
 
 .dim {

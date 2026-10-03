@@ -23,6 +23,7 @@ import {
   boundsForOrientation,
   clampSizeToWorkArea,
   centerInWorkArea,
+  needsCssPortraitRotate,
 } from './window-bounds.js';
 
 let mainWindow = null;
@@ -109,21 +110,31 @@ function applySessionMode(mode, { force = false } = {}) {
   const orientation = isReader ? 'portrait-ccw' : 'landscape';
   const prev = getConfig();
   const changed = prev.orientation !== orientation;
+  const workArea = primaryWorkArea();
 
   if (changed) {
     setConfig({ orientation });
   }
 
+  let applied = clampSizeToWorkArea(boundsForOrientation(orientation), workArea);
+
   // Resize uniquement si l’orientation change (entrée/sortie lecteur) ou force boot.
-  // Jamais de setBounds sur un appel ui→ui (navigation menus).
+  // Jamais de setBounds sur un appel ui→ui (navigation menus / fiche livre).
   if (changed || force) {
-    applyWindowOrientation(mainWindow, orientation, primaryWorkArea());
+    applied = applyWindowOrientation(mainWindow, orientation, workArea) || applied;
     notifyOrientation(orientation);
+  } else if (mainWindow && !mainWindow.isDestroyed()) {
+    const [w, h] = mainWindow.getSize();
+    applied = { width: w, height: h };
   }
+
+  const cssRotate = needsCssPortraitRotate(orientation, applied);
 
   return {
     mode: isReader ? 'reader' : 'ui',
     orientation,
+    bounds: { width: applied.width, height: applied.height },
+    cssRotate,
   };
 }
 

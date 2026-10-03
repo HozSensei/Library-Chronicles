@@ -17,6 +17,16 @@ const { start, stop, refreshOrientation } = useGamepad();
 /** @type {Array<() => void>} */
 let unsubs = [];
 
+/** Évite double enter/exit (watch + autre appel concurrent). */
+let sessionTransition = Promise.resolve();
+
+function queueSession(fn) {
+  sessionTransition = sessionTransition.then(fn).catch((err) => {
+    console.warn('[VDR] session mode:', err);
+  });
+  return sessionTransition;
+}
+
 function syncOrientationSideEffects(orientation) {
   // Ne jamais appliquer un portrait pushé par le main si on n’est pas en lecteur
   const expected = sessionOrientationForRoute(ui.routeName);
@@ -25,6 +35,7 @@ function syncOrientationSideEffects(orientation) {
       ? 'landscape'
       : expected;
   ui.applyOrientation(safe);
+  if (safe !== 'portrait-ccw') ui.setReaderCssRotate(false);
   library.syncColumns('landscape');
   refreshOrientation();
 }
@@ -38,6 +49,7 @@ onMounted(async () => {
     if (ui.routeName !== 'reader') {
       await ui.setSessionMode('ui');
       ui.applyOrientation('landscape');
+      ui.setReaderCssRotate(false);
     }
     library.syncColumns('landscape');
     refreshOrientation();
@@ -110,19 +122,24 @@ router.afterEach((to) => {
 
 /**
  * Resize portrait/landscape UNIQUEMENT entrée/sortie lecteur.
- * Pas de setSessionMode sur les autres changements de route.
+ * Pas de setSessionMode sur fiche livre, grille, import, setup, etc.
  */
 watch(
   () => ui.routeName,
-  async (name, prev) => {
+  (name, prev) => {
     if (name === 'reader' && prev !== 'reader') {
-      await ui.enterReaderMode();
-      refreshOrientation();
+      queueSession(async () => {
+        await ui.enterReaderMode();
+        refreshOrientation();
+      });
     } else if (prev === 'reader' && name !== 'reader') {
-      await ui.exitReaderMode();
-      ui.applyOrientation('landscape');
-      refreshOrientation();
-      library.syncColumns('landscape');
+      queueSession(async () => {
+        await ui.exitReaderMode();
+        ui.applyOrientation('landscape');
+        ui.setReaderCssRotate(false);
+        refreshOrientation();
+        library.syncColumns('landscape');
+      });
     } else {
       refreshOrientation();
     }
@@ -136,6 +153,7 @@ watch(
     :data-route="ui.routeName"
     :data-theme="ui.theme"
     :data-orientation="ui.orientation"
+    :data-reader-rotate="ui.readerCssRotate ? '1' : '0'"
     :data-input="ui.inputContext"
   >
     <RouterView v-slot="{ Component, route }">
@@ -150,7 +168,11 @@ watch(
 .app-shell {
   width: 100%;
   height: 100%;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 0;
   overflow: hidden;
+  overflow-x: hidden;
   position: relative;
 }
 </style>
