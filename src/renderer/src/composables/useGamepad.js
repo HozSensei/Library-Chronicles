@@ -1036,6 +1036,35 @@ function createLoop(ctx) {
         return;
       }
 
+      // Écran fin de tome (série) : focus sur boutons adjacent (↑↓ / A).
+      // page-prev / zoom / pan restent gérés plus bas pour quitter la dernière page.
+      if (reader.showEndSeriesNav) {
+        if (
+          action === 'cursor-up' ||
+          action === 'cursor-left' ||
+          action === 'cursor-down' ||
+          action === 'cursor-right'
+        ) {
+          reader.moveEndFocus(
+            action === 'cursor-up' || action === 'cursor-left' ? -1 : 1,
+          );
+          navVibe();
+          afterFocusMove();
+          return;
+        }
+        if (
+          action === 'confirm' ||
+          action === 'toggle-direction' ||
+          action === 'open-book'
+        ) {
+          vibe('confirm');
+          const items = document.querySelectorAll('.reader__next [data-end-focus]');
+          const el = items[reader.endFocusIndex];
+          el?.click();
+          return;
+        }
+      }
+
       if (action === 'close-book' || action === 'back') {
         vibe('light');
         // Sortie lecture : navigation seule → App.vue fait exitReaderMode une fois.
@@ -1058,6 +1087,13 @@ function createLoop(ctx) {
       if (action === 'add-bookmark') reader.addBookmark();
       if (action === 'next-volume') {
         reader.openNextVolume().then((ok) => {
+          if (ok && reader.filePath) {
+            router.replace({ name: 'reader', query: { path: reader.filePath } });
+          }
+        });
+      }
+      if (action === 'prev-volume') {
+        reader.openPrevVolume().then((ok) => {
           if (ok && reader.filePath) {
             router.replace({ name: 'reader', query: { path: reader.filePath } });
           }

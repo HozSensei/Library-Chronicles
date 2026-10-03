@@ -7,5 +7,7 @@ export {
   bookTouchTime,
   listRecentSeries,
   findSeriesGroup,
+  listSeriesVolumes,
   findNextUnreadVolume,
+  findAdjacentVolume,
 } from '../../shared/series.js';

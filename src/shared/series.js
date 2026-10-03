@@ -174,20 +174,31 @@ export function findSeriesGroup(books, seriesId) {
 }
 
 /**
- * Trouve le prochain tome non terminé d’une série, après un volume donné.
+ * Tomes d’une série, triés par volume puis id.
  * @param {Array<object>} books
- * @param {object} opts
+ * @param {string} seriesId
  */
-export function findNextUnreadVolume(books, { seriesId, afterVolume = null, afterBookId = null } = {}) {
-  if (!seriesId) return null;
-  const volumes = books
-    .filter((b) => (b.seriesId || seriesIdFromName(b.series)) === seriesId)
+export function listSeriesVolumes(books, seriesId) {
+  if (!seriesId) return [];
+  const sid = String(seriesId);
+  return books
+    .filter((b) => (b.seriesId || seriesIdFromName(b.series)) === sid)
     .sort((a, b) => {
       const va = a.volume ?? Number.POSITIVE_INFINITY;
       const vb = b.volume ?? Number.POSITIVE_INFINITY;
       if (va !== vb) return va - vb;
       return Number(a.id) - Number(b.id);
     });
+}
+
+/**
+ * Trouve le prochain tome non terminé d’une série, après un volume donné.
+ * @param {Array<object>} books
+ * @param {object} opts
+ */
+export function findNextUnreadVolume(books, { seriesId, afterVolume = null, afterBookId = null } = {}) {
+  if (!seriesId) return null;
+  const volumes = listSeriesVolumes(books, seriesId);
 
   if (!volumes.length) return null;
 
@@ -205,4 +216,35 @@ export function findNextUnreadVolume(books, { seriesId, afterVolume = null, afte
   }
   // Reprise : premier non terminé de la série
   return volumes.find((v) => v.status !== 'finished') || null;
+}
+
+/**
+ * Tome adjacent d’une série (volume ±1, sinon voisin d’index si volume absent).
+ * @param {Array<object>} books
+ * @param {{ seriesId?: string|null, volume?: number|null, bookId?: number|string|null, delta?: number }} opts
+ * @returns {object|null}
+ */
+export function findAdjacentVolume(
+  books,
+  { seriesId = null, volume = null, bookId = null, delta = 1 } = {},
+) {
+  const step = Number(delta);
+  if (!seriesId || !Number.isFinite(step) || step === 0) return null;
+
+  const volumes = listSeriesVolumes(books, seriesId);
+  if (!volumes.length) return null;
+
+  if (volume != null && Number.isFinite(Number(volume))) {
+    const target = Number(volume) + step;
+    const hit = volumes.find(
+      (v) => v.volume != null && Number(v.volume) === target && v.id !== bookId,
+    );
+    if (hit) return hit;
+    return null;
+  }
+
+  if (bookId == null) return null;
+  const idx = volumes.findIndex((v) => v.id === bookId);
+  if (idx < 0) return null;
+  return volumes[idx + step] || null;
 }

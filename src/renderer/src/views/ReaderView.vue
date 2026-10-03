@@ -66,10 +66,18 @@ async function leave() {
   router.push({ name: 'library' });
 }
 
-async function openNext() {
-  const ok = await reader.openNextVolume();
+async function openAdjacent(delta) {
+  const ok =
+    delta < 0 ? await reader.openPrevVolume() : await reader.openNextVolume();
   if (!ok) return;
   router.replace({ name: 'reader', query: { path: reader.filePath } });
+}
+
+function endFocusId(id) {
+  const ids = [];
+  if (reader.prevVolumeOffer) ids.push('prev-volume');
+  if (reader.nextVolumeOffer) ids.push('next-volume');
+  return ids[reader.endFocusIndex] === id;
 }
 
 function onStripScroll() {
@@ -155,11 +163,42 @@ function onStripScroll() {
         </div>
       </div>
 
-      <div v-if="reader.nextVolumeOffer && reader.isFinished" class="reader__next">
-        <p>Tome terminé</p>
-        <button type="button" class="ghost" @click="openNext">
-          RB · {{ reader.nextVolumeOffer.title }}
-        </button>
+      <div
+        v-if="reader.showEndSeriesNav && !reader.hudVisible"
+        class="reader__next"
+        role="dialog"
+        aria-label="Fin de tome — navigation série"
+      >
+        <p class="reader__next-label">Tome terminé</p>
+        <p v-if="reader.series" class="reader__next-series">
+          {{ reader.series }}
+          <template v-if="reader.volume != null"> · T{{ reader.volume }}</template>
+        </p>
+        <div class="reader__next-actions">
+          <button
+            v-if="reader.prevVolumeOffer"
+            type="button"
+            class="ghost"
+            data-end-focus
+            :class="{ 'is-focused': endFocusId('prev-volume') }"
+            @click="openAdjacent(-1)"
+          >
+            Tome précédent
+            <span class="reader__next-title">{{ reader.prevVolumeOffer.title }}</span>
+          </button>
+          <button
+            v-if="reader.nextVolumeOffer"
+            type="button"
+            class="btn-primary"
+            data-end-focus
+            :class="{ 'is-focused': endFocusId('next-volume') }"
+            @click="openAdjacent(1)"
+          >
+            Tome suivant
+            <span class="reader__next-title">{{ reader.nextVolumeOffer.title }}</span>
+          </button>
+        </div>
+        <p class="reader__next-hint">A ouvrir · ↑↓ focus · Select pause · B quitter</p>
       </div>
 
       <ReaderHud />
@@ -340,19 +379,67 @@ function onStripScroll() {
   top: 1.25rem;
   z-index: calc(var(--z-hud) + 1);
   display: grid;
-  gap: 0.35rem;
-  padding: 0.85rem 1rem;
-  background: color-mix(in srgb, var(--ink) 82%, transparent);
+  gap: 0.45rem;
+  padding: 0.95rem 1rem;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
   color: var(--paper);
   border: 1px solid color-mix(in srgb, var(--brass) 45%, transparent);
   min-width: 0;
+  max-width: min(26rem, calc(100% - 2rem));
+  margin-inline: auto;
+  box-sizing: border-box;
 }
 
-.reader__next p {
+.reader__next-label,
+.reader__next-series,
+.reader__next-hint {
   margin: 0;
   font-size: 0.8rem;
   color: var(--paper-dim);
   overflow-wrap: anywhere;
+}
+
+.reader__next-label {
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: var(--paper);
+  font-size: 0.95rem;
+}
+
+.reader__next-actions {
+  display: grid;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.reader__next-actions > * {
+  display: grid;
+  gap: 0.15rem;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  text-align: center;
+}
+
+.reader__next-actions .is-focused {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--focus-glow);
+  border-color: var(--brass-bright);
+}
+
+.reader__next-title {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--paper-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reader__next-hint {
+  text-align: center;
+  letter-spacing: 0.02em;
+  font-size: 0.72rem;
 }
 
 .dim {

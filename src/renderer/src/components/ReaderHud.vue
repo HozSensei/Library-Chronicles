@@ -12,6 +12,7 @@ const focusIds = computed(() => {
   const ids = ['tab-main', 'tab-filters', 'tab-bookmarks'];
   if (reader.hudPanel === 'main') {
     ids.push('quit', 'direction', 'webtoon', 'bookmark');
+    if (reader.prevVolumeOffer) ids.push('prev-volume');
     if (reader.nextVolumeOffer) ids.push('next-volume');
   } else if (reader.hudPanel === 'filters') {
     ids.push(
@@ -34,7 +35,13 @@ const focusIds = computed(() => {
 });
 
 watch(
-  () => [reader.hudVisible, reader.hudPanel, reader.bookmarks.length, reader.nextVolumeOffer],
+  () => [
+    reader.hudVisible,
+    reader.hudPanel,
+    reader.bookmarks.length,
+    reader.prevVolumeOffer,
+    reader.nextVolumeOffer,
+  ],
   async ([visible]) => {
     if (!visible) return;
     await nextTick();
@@ -42,6 +49,13 @@ watch(
     if (reader.hudFocusIndex > max) reader.setHudFocus(0);
   },
 );
+
+async function openAdjacent(delta) {
+  const ok =
+    delta < 0 ? await reader.openPrevVolume() : await reader.openNextVolume();
+  if (!ok) return;
+  router.replace({ name: 'reader', query: { path: reader.filePath } });
+}
 
 function isFocused(id) {
   return focusIds.value[reader.hudFocusIndex] === id;
@@ -215,14 +229,30 @@ async function quitReading() {
               Signet (X)
             </button>
             <button
+              v-if="reader.prevVolumeOffer"
+              type="button"
+              class="ghost"
+              data-hud-focus
+              :class="{ 'is-focused': isFocused('prev-volume') }"
+              @click="openAdjacent(-1)"
+            >
+              Tome précédent
+              <template v-if="reader.prevVolumeOffer.volume != null">
+                · T{{ reader.prevVolumeOffer.volume }}
+              </template>
+            </button>
+            <button
               v-if="reader.nextVolumeOffer"
               type="button"
               class="ghost"
               data-hud-focus
               :class="{ 'is-focused': isFocused('next-volume') }"
-              @click="reader.openNextVolume()"
+              @click="openAdjacent(1)"
             >
               Tome suivant
+              <template v-if="reader.nextVolumeOffer.volume != null">
+                · T{{ reader.nextVolumeOffer.volume }}
+              </template>
             </button>
           </div>
         </div>
