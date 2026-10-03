@@ -4,6 +4,8 @@
  * Confirm/A active l’item (ex. Parcourir) — jamais ←→.
  */
 
+import { accentFocusIds } from './theme-accents.js';
+
 /** @typedef {string} FocusId */
 
 /**
@@ -14,7 +16,14 @@
 export function setupFocusRows(step) {
   if (step === 0) return [['next']];
   if (step === 1) return [['library', 'import'], ['next']];
-  if (step === 2) return [['theme-dark', 'theme-light'], ['lang-fr'], ['next']];
+  if (step === 2) {
+    return [
+      ['theme-dark', 'theme-light'],
+      accentFocusIds(),
+      ['lang-fr'],
+      ['next'],
+    ];
+  }
   return [['finish']];
 }
 

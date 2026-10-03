@@ -9,6 +9,8 @@ const DEFAULTS = {
   importRoot: null,
   language: 'fr',
   theme: 'dark',
+  /** Accent de contraste : blue | orange | green | amber | rose | violet */
+  accent: 'amber',
   readingDirection: 'ltr',
   defaultFitMode: 'fit-height',
   /**

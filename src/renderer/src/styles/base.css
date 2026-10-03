@@ -76,7 +76,11 @@ textarea:focus-visible {
 .btn-primary {
   appearance: none;
   border: 1px solid var(--brass);
-  background: linear-gradient(135deg, rgba(212, 163, 92, 0.22), rgba(154, 107, 47, 0.12));
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--brass) 22%, transparent),
+    color-mix(in srgb, var(--brass-deep) 12%, transparent)
+  );
   color: var(--paper);
   border-radius: var(--radius-md);
   padding: 0.75rem 1.2rem;
