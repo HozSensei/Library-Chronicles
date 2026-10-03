@@ -10,13 +10,17 @@ import {
   getLastAccessedBook,
   listRecentBooks,
   getBookById,
+  getBookByPath,
   upsertBook,
   pruneMissingBooks,
+  listSeries,
+  getNextUnreadInSeries,
 } from '../database/books.js';
 import { coverToDataUrl } from '../library/thumbnails.js';
 import { openBook } from '../extractors/index.js';
 import { ensureCover } from '../library/thumbnails.js';
 import { syncWatchersFromConfig } from '../library/watcher.js';
+import { detectFromFilename } from '../metadata/parse-filename.js';
 
 export function registerLibraryIpc() {
   ipcMain.handle(IpcChannels.LIBRARY_SELECT_ROOT, async () => {
@@ -50,7 +54,7 @@ export function registerLibraryIpc() {
     if (!libraryRoot) return { found: [], error: 'Aucun dossier racine' };
     const scan = await scanLibraryRoot(libraryRoot);
 
-    // Indexer les nouveaux fichiers
+    // Indexer les nouveaux fichiers (+ détection série/tome depuis le nom)
     for (const file of scan.found) {
       try {
         const book = await openBook(file.filePath);
@@ -60,9 +64,18 @@ export function registerLibraryIpc() {
         } catch {
           // ignore cover errors
         }
+        const detected = detectFromFilename(file.filePath);
+        const existing = getBookByPath(file.filePath);
+        // Préserver métadonnées manuelles si déjà présentes
         upsertBook({
           filePath: file.filePath,
-          title: book.title || file.name,
+          title: existing?.series
+            ? existing.title
+            : detected.title || book.title || file.name,
+          series: existing?.series ?? detected.series ?? null,
+          volume: existing?.volume ?? detected.volume ?? null,
+          year: existing?.year ?? detected.year ?? null,
+          author: existing?.author ?? detected.author ?? null,
           format: file.format,
           coverPath,
           pageTotal: book.pageCount,
@@ -98,5 +111,13 @@ export function registerLibraryIpc() {
 
   ipcMain.handle(IpcChannels.LIBRARY_LAST_ACCESSED, async (_e, excludeId = null) =>
     getLastAccessedBook(excludeId),
+  );
+
+  ipcMain.handle(IpcChannels.LIBRARY_SERIES, async () => listSeries());
+
+  ipcMain.handle(
+    IpcChannels.LIBRARY_NEXT_UNREAD,
+    async (_e, { seriesId, afterVolume, afterBookId } = {}) =>
+      getNextUnreadInSeries(seriesId, { afterVolume, afterBookId }),
   );
 }

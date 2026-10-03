@@ -29,6 +29,10 @@ const DEFAULTS = {
    * No-op si l’API ou le matériel est absent.
    */
   hapticsEnabled: true,
+  /** Profil local actif (progression / signets / prefs). */
+  activeProfileId: null,
+  /** Choix profil effectué pour cette session (gate UI). */
+  profileSelected: false,
 };
 
 let cache = null;

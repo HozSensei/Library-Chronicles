@@ -4,15 +4,15 @@
 
 ```
 ┌────────── Renderer (Vue 3) ──────────┐   IPC    ┌────────── Main ──────────┐
-│ Setup / Boot / Library / Import      │ ───────► │ extractors/ CBZ CBR PDF  │
-│ Settings / Reader                    │ ◄─────── │ database/ SQLite|JSON    │
-│ Pinia  ui · reader · library · import│          │ library/ scan+import     │
-│ useGamepad  remap → key-bindings     │          │ library/ watcher FS      │
-│ CSS GPU  translate3d / scale         │          │ metadata/ stub|comicvine │
-└──────────────────────────────────────┘          │ pdf-electron-canvas      │
-         ▲                                        │ config + secrets userData│
-         │ contextBridge                          └──────────────────────────┘
-┌────────┴────────┐
+│ Setup / Profiles / Boot / Library    │ ───────► │ extractors/ CBZ CBR PDF  │
+│ Import / Settings / Reader           │ ◄─────── │ database/ SQLite|JSON    │
+│ Pinia  ui · reader · library · …     │          │   books · profiles       │
+│ useGamepad  remap → key-bindings     │          │   bookmarks · series     │
+│ CSS GPU  translate3d / scale / filter│          │ library/ scan+import     │
+└──────────────────────────────────────┘          │ library/ watcher FS      │
+         ▲                                        │ metadata/ stub|comicvine │
+         │ contextBridge                          │ config + secrets userData│
+┌────────┴────────┐                               └──────────────────────────┘
 │ preload         │  → window.vdr.* (+ watch events)
 └─────────────────┘
 ```
@@ -29,19 +29,28 @@ Build unifié via **electron-vite** :
 | Chemin | Responsabilité |
 |--------|----------------|
 | `src/main/` | Cycle de vie, IPC, extracteurs, DB, import, metadata, watcher |
+| `src/main/database/` | books, profiles, bookmarks, series helpers |
 | `src/main/extractors/pdf-electron-canvas.js` | Rendu PDF fidèle via Chromium |
 | `src/preload/` | API `window.vdr` |
-| `src/renderer/src/views/` | Setup, Boot, Library, Import, Settings, Reader |
+| `src/renderer/src/views/` | Setup, Profiles, Boot, Library, Import, Settings, Reader |
 | `src/renderer/src/stores/` | Pinia |
 | `src/shared/` | IPC, portrait-remap, key-bindings, gamepad-codes |
 
 ## Flux produit
 
 1. **Setup** (si `!setupCompleted`) → dossiers / thème / orientation
-2. **Import** → scan dossier import → review meta → copie library + SQLite
-3. **Library** → grille + Continuer (+ refresh auto via watcher)
-4. **Reader** → `open` → `getPage` → blob URL + transforms GPU
-5. **Settings** → thème, remapping, clé API
+2. **Profils** (chaque lancement) → choix profil local actif
+3. **Import** → scan dossier import → review meta → copie library + SQLite
+4. **Library** → catalogue + vue séries (+ refresh auto via watcher)
+5. **Reader** → `open` → `getPage` → blob URL + transforms/filtres GPU (+ webtoon strip)
+6. **Settings** → thème, profils, remapping, clé API
+
+## Données locales
+
+- SQLite `vdr-library.sqlite` (fallback `vdr-library.json`)
+- Tables : `profiles`, `books` (+ `series_id` / `volume`), `reading_progress` (composite profil+livre), `bookmarks`, `profile_prefs`
+- Progression / signets / prefs lecture **scopés par profil**
+- **Pas de sync cloud**, pas d’OPDS, pas de dossier distant
 
 ## Watcher FS
 
@@ -70,3 +79,4 @@ Build unifié via **electron-vite** :
 - `npm run test:pdf` — extracteur PDF (placeholder hors Electron)
 - `npm run test:watcher` — snapshot / diff FS (+ présence poll fallback)
 - `npm run test:haptics` — no-op / dual-rumble / pulse legacy
+- `npm run test:series` — détection série/tome + regroupement

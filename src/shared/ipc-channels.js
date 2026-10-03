@@ -11,6 +11,8 @@ export const IpcChannels = Object.freeze({
   LIBRARY_CONTINUE: 'library:continue',
   LIBRARY_RECENT: 'library:recent',
   LIBRARY_LAST_ACCESSED: 'library:last-accessed',
+  LIBRARY_SERIES: 'library:series',
+  LIBRARY_NEXT_UNREAD: 'library:next-unread',
 
   IMPORT_SCAN: 'import:scan',
   IMPORT_COMMIT: 'import:commit',
@@ -28,6 +30,21 @@ export const IpcChannels = Object.freeze({
 
   PROGRESS_SAVE: 'progress:save',
   PROGRESS_LOAD: 'progress:load',
+
+  PROFILES_LIST: 'profiles:list',
+  PROFILES_CREATE: 'profiles:create',
+  PROFILES_UPDATE: 'profiles:update',
+  PROFILES_DELETE: 'profiles:delete',
+  PROFILES_SET_ACTIVE: 'profiles:set-active',
+  PROFILES_GET_ACTIVE: 'profiles:get-active',
+  PROFILES_GET_PREFS: 'profiles:get-prefs',
+  PROFILES_SET_PREFS: 'profiles:set-prefs',
+
+  BOOKMARKS_LIST: 'bookmarks:list',
+  BOOKMARKS_LIST_ALL: 'bookmarks:list-all',
+  BOOKMARKS_ADD: 'bookmarks:add',
+  BOOKMARKS_REMOVE: 'bookmarks:remove',
+  BOOKMARKS_REMOVE_AT: 'bookmarks:remove-at',
 
   APP_GET_CONFIG: 'app:get-config',
   APP_SET_CONFIG: 'app:set-config',

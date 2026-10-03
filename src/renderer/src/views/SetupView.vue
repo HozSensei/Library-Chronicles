@@ -91,7 +91,7 @@ async function finish() {
   ui.applyTheme(form.theme);
   ui.orientation = form.orientation;
   ui.language = form.language;
-  router.replace({ name: 'boot' });
+  router.replace({ name: 'profiles' });
 }
 
 function activateFocused() {

@@ -20,12 +20,19 @@ function sortByTitle(a, b) {
 export const useLibraryStore = defineStore('library', {
   state: () => ({
     books: [],
+    seriesGroups: [],
+    seriesSingles: [],
     covers: {},
     coverPending: {},
     cursor: 0,
     recentCursor: 0,
-    /** @type {'hero' | 'recent' | 'grid'} */
+    seriesCursor: 0,
+    /** @type {'hero' | 'recent' | 'grid' | 'series'} */
     focusZone: 'hero',
+    /** @type {'books' | 'series'} */
+    viewMode: 'books',
+    /** Série dépliée (seriesId) ou null */
+    expandedSeriesId: null,
     loading: false,
     root: null,
     importRoot: null,
@@ -58,13 +65,30 @@ export const useLibraryStore = defineStore('library', {
       if (s.lastAccessedBook) return s.lastAccessedBook;
       return s.books.slice().sort(sortByCreatedDesc)[0] || null;
     },
+    seriesList(s) {
+      const groups = s.seriesGroups || [];
+      if (s.filter === 'all') return groups;
+      return groups.filter((g) => g.status === s.filter);
+    },
     selected() {
       if (this.focusZone === 'hero') return this.heroBook;
       if (this.focusZone === 'recent') {
         return this.recentBooks[this.recentCursor] || null;
       }
+      if (this.focusZone === 'series') {
+        const g = this.seriesList[this.seriesCursor];
+        if (!g) return null;
+        if (this.expandedSeriesId === g.seriesId) {
+          return g.nextUnread || g.volumes[0] || null;
+        }
+        return g.nextUnread || g.volumes[0] || null;
+      }
       const list = this.filtered;
       return list[this.cursor] || null;
+    },
+    selectedSeries() {
+      if (this.focusZone !== 'series') return null;
+      return this.seriesList[this.seriesCursor] || null;
     },
   },
   actions: {
@@ -75,6 +99,14 @@ export const useLibraryStore = defineStore('library', {
         this.root = config.libraryRoot;
         this.importRoot = config.importRoot;
         this.books = (await window.vdr.library.list()) || [];
+        try {
+          const series = await window.vdr.library.series();
+          this.seriesGroups = series?.groups || [];
+          this.seriesSingles = series?.singles || [];
+        } catch {
+          this.seriesGroups = [];
+          this.seriesSingles = [];
+        }
         this.continueBook = (await window.vdr.library.continue()) || null;
         const excludeId = this.continueBook?.id ?? null;
         this.lastAccessedBook =
@@ -88,14 +120,22 @@ export const useLibraryStore = defineStore('library', {
           this.recentCursor,
           Math.max(0, this.recentBooks.length - 1),
         );
-        if (!this.heroBook && this.filtered.length) this.focusZone = 'grid';
-        else if (this.focusZone === 'recent' && !this.recentBooks.length) {
+        this.seriesCursor = Math.min(
+          this.seriesCursor,
+          Math.max(0, this.seriesList.length - 1),
+        );
+        if (!this.heroBook && this.filtered.length) {
+          this.focusZone = this.viewMode === 'series' ? 'series' : 'grid';
+        } else if (this.focusZone === 'recent' && !this.recentBooks.length) {
           this.focusZone = this.heroBook ? 'hero' : 'grid';
         }
         // Prefetch discret : héro + premiers récents (le reste via LazyCover)
         const warm = [];
         if (this.heroBook) warm.push(this.heroBook.id);
         for (const b of this.recentBooks.slice(0, 6)) warm.push(b.id);
+        for (const g of this.seriesList.slice(0, 6)) {
+          if (g.coverBookId) warm.push(g.coverBookId);
+        }
         await Promise.all(warm.map((id) => this.ensureCover(id)));
       } finally {
         this.loading = false;
@@ -168,15 +208,83 @@ export const useLibraryStore = defineStore('library', {
       // Compat : délègue à la navigation catalogue
       this.moveCatalog(dx, dy);
     },
-    /**
-     * Navigation console-first entre héro / rail / grille.
-     * @param {number} dx
-     * @param {number} dy
-     */
+    setFilter(filter) {
+      this.filter = filter;
+      this.cursor = 0;
+      if (this.focusZone === 'grid' && !this.filtered.length) {
+        this.focusZone = this.heroBook ? 'hero' : 'recent';
+      }
+    },
+    cycleFilter(dir = 1) {
+      const order = ['all', 'reading', 'unread', 'finished'];
+      const i = order.indexOf(this.filter);
+      this.setFilter(order[(i + dir + order.length) % order.length]);
+    },
+    toggleViewMode() {
+      this.viewMode = this.viewMode === 'books' ? 'series' : 'books';
+      this.expandedSeriesId = null;
+      if (this.viewMode === 'series') {
+        this.focusZone = this.seriesList.length ? 'series' : 'hero';
+        this.seriesCursor = 0;
+      } else if (this.focusZone === 'series') {
+        this.focusZone = this.filtered.length ? 'grid' : 'hero';
+      }
+    },
+    focusSeries(index = 0) {
+      if (!this.seriesList.length) return false;
+      this.viewMode = 'series';
+      this.focusZone = 'series';
+      this.seriesCursor = Math.max(0, Math.min(index, this.seriesList.length - 1));
+      return true;
+    },
+    toggleExpandSeries() {
+      const g = this.seriesList[this.seriesCursor];
+      if (!g) return;
+      this.expandedSeriesId =
+        this.expandedSeriesId === g.seriesId ? null : g.seriesId;
+    },
+    async nextUnreadForSelected() {
+      const g = this.selectedSeries;
+      if (!g?.seriesId) return this.selected;
+      try {
+        const next = await window.vdr.library.nextUnread({
+          seriesId: g.seriesId,
+        });
+        return next || g.nextUnread || g.volumes[0] || null;
+      } catch {
+        return g.nextUnread || g.volumes[0] || null;
+      }
+    },
     moveCatalog(dx, dy) {
+      if (this.viewMode === 'series' && this.focusZone === 'series') {
+        const list = this.seriesList;
+        if (!list.length) {
+          this.focusZone = 'hero';
+          return;
+        }
+        if (dy < 0 && this.seriesCursor < 1) {
+          this.focusZone = 'hero';
+          return;
+        }
+        if (dy !== 0) {
+          this.seriesCursor = Math.max(
+            0,
+            Math.min(list.length - 1, this.seriesCursor + dy),
+          );
+        }
+        if (dx !== 0) {
+          this.toggleExpandSeries();
+        }
+        const g = list[this.seriesCursor];
+        if (g?.coverBookId) this.ensureCover(g.coverBookId);
+        return;
+      }
+
       if (this.focusZone === 'hero') {
         if (dy > 0) {
-          if (!this.focusRecent(0)) this.focusGrid(0);
+          if (this.viewMode === 'series') {
+            if (!this.focusSeries(0)) this.focusGrid(0);
+          } else if (!this.focusRecent(0)) this.focusGrid(0);
         }
         return;
       }
@@ -231,18 +339,6 @@ export const useLibraryStore = defineStore('library', {
       if (next >= list.length) next = list.length - 1;
       this.cursor = next;
       this.ensureCover(list[next]?.id);
-    },
-    setFilter(filter) {
-      this.filter = filter;
-      this.cursor = 0;
-      if (this.focusZone === 'grid' && !this.filtered.length) {
-        this.focusZone = this.heroBook ? 'hero' : 'recent';
-      }
-    },
-    cycleFilter(dir = 1) {
-      const order = ['all', 'reading', 'unread', 'finished'];
-      const i = order.indexOf(this.filter);
-      this.setFilter(order[(i + dir + order.length) % order.length]);
     },
   },
 });

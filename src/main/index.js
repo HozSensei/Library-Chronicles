@@ -7,8 +7,11 @@ import { registerReaderIpc } from './ipc/reader.js';
 import { registerProgressIpc } from './ipc/progress.js';
 import { registerImportIpc } from './ipc/import.js';
 import { registerMetadataIpc } from './ipc/metadata.js';
+import { registerProfilesIpc } from './ipc/profiles.js';
+import { registerBookmarksIpc } from './ipc/bookmarks.js';
 import { getConfig, setConfig, getDefaultPaths } from './config.js';
 import { initDatabase, closeDatabase } from './database/db.js';
+import { getActiveProfileId } from './database/profiles.js';
 import {
   syncWatchersFromConfig,
   stopAllWatchers,
@@ -86,6 +89,10 @@ function registerAppIpc() {
 
 app.whenReady().then(() => {
   initDatabase();
+  // Garantit un profil actif dès le démarrage
+  getActiveProfileId();
+  // Choix profil à chaque lancement (après setup)
+  setConfig({ profileSelected: false });
 
   registerAppIpc();
   registerLibraryIpc();
@@ -93,6 +100,8 @@ app.whenReady().then(() => {
   registerProgressIpc();
   registerImportIpc();
   registerMetadataIpc();
+  registerProfilesIpc();
+  registerBookmarksIpc();
 
   syncWatchersFromConfig();
   createWindow();

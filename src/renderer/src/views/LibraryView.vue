@@ -11,6 +11,7 @@ const library = useLibraryStore();
 const hints = [
   { key: 'A', label: 'ouvrir' },
   { key: 'X', label: 'import' },
+  { key: 'Select', label: 'séries' },
   { key: 'Start', label: 'réglages' },
   { key: 'B', label: 'retour' },
   { key: 'LT/RT', label: 'filtre' },
@@ -54,8 +55,18 @@ const heroLead = computed(() => {
   return 'Choisis un tome dans les ajouts récents.';
 });
 
-const showRecent = computed(() => library.recentBooks.length > 0);
-const showGrid = computed(() => library.filtered.length > 0);
+const showRecent = computed(
+  () => library.viewMode === 'books' && library.recentBooks.length > 0,
+);
+const showGrid = computed(
+  () => library.viewMode === 'books' && library.filtered.length > 0,
+);
+const showSeries = computed(
+  () => library.viewMode === 'series' && library.seriesList.length > 0,
+);
+const viewLabel = computed(() =>
+  library.viewMode === 'series' ? 'Séries' : 'Livres',
+);
 
 onMounted(() => {
   library.refresh().then(() => {
@@ -83,18 +94,39 @@ function scrollFocusIntoView() {
   el?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
 }
 
-function openSelected() {
+async function openSelected() {
   if (library.focusZone === 'hero' && library.heroMode === 'empty') {
     router.push({ name: 'import' });
     return;
   }
   if (library.focusZone === 'hero' && library.heroMode === 'invite' && !library.heroBook) {
     if (showRecent.value) library.focusRecent(0);
+    else if (showSeries.value) library.focusSeries(0);
     else if (showGrid.value) library.focusGrid(0);
+    return;
+  }
+  if (library.focusZone === 'series') {
+    const book = await library.nextUnreadForSelected();
+    if (book?.filePath) {
+      router.push({ name: 'reader', query: { path: book.filePath } });
+    }
     return;
   }
   const book = library.selected;
   if (!book) return;
+  router.push({ name: 'reader', query: { path: book.filePath } });
+}
+
+async function openSeriesGroup(index) {
+  library.focusSeries(index);
+  const book = await library.nextUnreadForSelected();
+  if (book?.filePath) {
+    router.push({ name: 'reader', query: { path: book.filePath } });
+  }
+}
+
+function openVolume(book) {
+  if (!book?.filePath) return;
   router.push({ name: 'reader', query: { path: book.filePath } });
 }
 
@@ -170,6 +202,7 @@ function statusBadge(status) {
         <button type="button" class="ghost" @click="library.scan()">Scanner</button>
         <button type="button" class="ghost" @click="router.push({ name: 'import' })">Import</button>
         <button type="button" class="ghost" @click="library.cycleFilter(1)">{{ filterLabel }}</button>
+        <button type="button" class="ghost" @click="library.toggleViewMode()">{{ viewLabel }}</button>
       </div>
 
       <!-- Skeleton chargement liste -->
@@ -183,90 +216,160 @@ function statusBadge(status) {
       </div>
 
       <template v-else>
-        <!-- Ajouts récents -->
-        <section v-if="showRecent" class="rail-section" aria-label="Ajouts récents">
+        <!-- Vue séries -->
+        <section v-if="library.viewMode === 'series'" class="grid-section" aria-label="Séries">
           <div class="section-head">
-            <h2>Ajouts récents</h2>
-            <p>Derniers tomes indexés</p>
+            <h2>Séries</h2>
+            <p>{{ filterLabel }} · {{ library.seriesList.length }} série(s)</p>
           </div>
-          <div class="rail" role="list">
-            <button
-              v-for="(book, index) in library.recentBooks"
-              :key="'recent-' + book.id"
-              type="button"
-              class="rail__item"
+
+          <div v-if="!showSeries" class="library__empty">
+            <p class="library__empty-title">Aucune série détectée</p>
+            <p class="dim">
+              Les tomes avec métadonnée série (ou titre « Série - Tome N ») apparaissent ici.
+            </p>
+            <button type="button" class="ghost" @click="library.toggleViewMode()">
+              Voir les livres
+            </button>
+          </div>
+
+          <div v-else class="series-list">
+            <div
+              v-for="(group, index) in library.seriesList"
+              :key="group.seriesId"
+              class="series-card"
               :class="{
                 'is-focused':
-                  library.focusZone === 'recent' && index === library.recentCursor,
+                  library.focusZone === 'series' && index === library.seriesCursor,
+                'is-open': library.expandedSeriesId === group.seriesId,
               }"
-              role="listitem"
-              @click="openBook(book, 'recent', index)"
             >
-              <div class="rail__cover">
-                <LazyCover
-                  :book-id="book.id"
-                  :alt="book.title"
-                  :format="book.format"
-                  :eager="index < 4"
-                />
+              <button type="button" class="series-card__main" @click="openSeriesGroup(index)">
+                <div class="series-card__cover">
+                  <LazyCover
+                    v-if="group.coverBookId"
+                    :book-id="group.coverBookId"
+                    :alt="group.series"
+                    eager
+                  />
+                </div>
+                <div class="series-card__meta">
+                  <span class="series-card__title">{{ group.series }}</span>
+                  <span class="series-card__sub">
+                    {{ group.finishedCount }}/{{ group.volumeCount }} ·
+                    {{ statusBadge(group.status) }}
+                  </span>
+                  <span v-if="group.nextUnread" class="series-card__next">
+                    A · {{ group.nextUnread.title }}
+                  </span>
+                </div>
+              </button>
+              <div v-if="library.expandedSeriesId === group.seriesId" class="series-card__vols">
+                <button
+                  v-for="vol in group.volumes"
+                  :key="vol.id"
+                  type="button"
+                  class="series-vol"
+                  @click="openVolume(vol)"
+                >
+                  <span>T{{ vol.volume ?? '?' }} · {{ vol.title }}</span>
+                  <span>{{ statusBadge(vol.status) }}</span>
+                </button>
               </div>
-              <span class="rail__title">{{ book.title }}</span>
-            </button>
+            </div>
           </div>
         </section>
 
-        <!-- Tous les livres -->
-        <section class="grid-section" aria-label="Tous les livres">
-          <div class="section-head">
-            <h2>Tous les livres</h2>
-            <p>{{ filterLabel }} · {{ library.filtered.length }} tome(s)</p>
-          </div>
+        <template v-else>
+          <!-- Ajouts récents -->
+          <section v-if="showRecent" class="rail-section" aria-label="Ajouts récents">
+            <div class="section-head">
+              <h2>Ajouts récents</h2>
+              <p>Derniers tomes indexés</p>
+            </div>
+            <div class="rail" role="list">
+              <button
+                v-for="(book, index) in library.recentBooks"
+                :key="'recent-' + book.id"
+                type="button"
+                class="rail__item"
+                :class="{
+                  'is-focused':
+                    library.focusZone === 'recent' && index === library.recentCursor,
+                }"
+                role="listitem"
+                @click="openBook(book, 'recent', index)"
+              >
+                <div class="rail__cover">
+                  <LazyCover
+                    :book-id="book.id"
+                    :alt="book.title"
+                    :format="book.format"
+                    :eager="index < 4"
+                  />
+                </div>
+                <span class="rail__title">{{ book.title }}</span>
+              </button>
+            </div>
+          </section>
 
-          <div v-if="!showGrid" class="library__empty">
-            <p class="library__empty-title">Aucun tome ici</p>
-            <p class="dim">
-              <template v-if="library.filter !== 'all'">
-                Change de filtre (LT/RT) ou importe un album.
-              </template>
-              <template v-else>
-                Importe des CBZ/CBR/PDF ou scanne le dossier bibliothèque.
-              </template>
-            </p>
-            <button
-              type="button"
-              class="ghost library__empty-cta"
-              @click="router.push({ name: 'import' })"
-            >
-              Ouvrir l’import
-            </button>
-          </div>
+          <!-- Tous les livres -->
+          <section class="grid-section" aria-label="Tous les livres">
+            <div class="section-head">
+              <h2>Tous les livres</h2>
+              <p>{{ filterLabel }} · {{ library.filtered.length }} tome(s)</p>
+            </div>
 
-          <div v-else class="library__grid">
-            <button
-              v-for="(book, index) in library.filtered"
-              :key="book.id"
-              type="button"
-              class="tile"
-              :class="{
-                'is-focused': library.focusZone === 'grid' && index === library.cursor,
-              }"
-              @click="openBook(book, 'grid', index)"
-            >
-              <div class="tile__cover">
-                <LazyCover
-                  :book-id="book.id"
-                  :alt="book.title"
-                  :format="book.format"
-                />
-                <span class="tile__badge">{{ statusBadge(book.status) }}</span>
-              </div>
-              <span class="tile__title">{{ book.title }}</span>
-              <span v-if="book.status === 'reading'" class="tile__prog">
-                p. {{ book.pageCurrent + 1 }}/{{ book.pageTotal || '?' }}
-              </span>
-            </button>
-          </div>
-        </section>
+            <div v-if="!showGrid" class="library__empty">
+              <p class="library__empty-title">Aucun tome ici</p>
+              <p class="dim">
+                <template v-if="library.filter !== 'all'">
+                  Change de filtre (LT/RT) ou importe un album.
+                </template>
+                <template v-else>
+                  Importe des CBZ/CBR/PDF ou scanne le dossier bibliothèque.
+                </template>
+              </p>
+              <button
+                type="button"
+                class="ghost library__empty-cta"
+                @click="router.push({ name: 'import' })"
+              >
+                Ouvrir l’import
+              </button>
+            </div>
+
+            <div v-else class="library__grid">
+              <button
+                v-for="(book, index) in library.filtered"
+                :key="book.id"
+                type="button"
+                class="tile"
+                :class="{
+                  'is-focused': library.focusZone === 'grid' && index === library.cursor,
+                }"
+                @click="openBook(book, 'grid', index)"
+              >
+                <div class="tile__cover">
+                  <LazyCover
+                    :book-id="book.id"
+                    :alt="book.title"
+                    :format="book.format"
+                  />
+                  <span class="tile__badge">{{ statusBadge(book.status) }}</span>
+                </div>
+                <span class="tile__title">{{ book.title }}</span>
+                <span v-if="book.series" class="tile__prog">
+                  {{ book.series }}
+                  <template v-if="book.volume != null"> · T{{ book.volume }}</template>
+                </span>
+                <span v-else-if="book.status === 'reading'" class="tile__prog">
+                  p. {{ book.pageCurrent + 1 }}/{{ book.pageTotal || '?' }}
+                </span>
+              </button>
+            </div>
+          </section>
+        </template>
       </template>
     </div>
 
@@ -615,6 +718,96 @@ function statusBadge(status) {
   display: block;
   font-size: 0.72rem;
   color: var(--brass);
+}
+
+/* —— Vue séries —— */
+.series-list {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0 var(--pad) 1rem;
+}
+
+.series-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: color-mix(in srgb, var(--ink-800) 70%, transparent);
+}
+
+.series-card.is-focused {
+  border-color: var(--brass-bright);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--brass-bright) 50%, transparent);
+}
+
+.series-card__main {
+  display: grid;
+  grid-template-columns: 4.5rem 1fr;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.65rem;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+}
+
+.series-card__cover {
+  aspect-ratio: 2 / 3;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--ink-800);
+}
+
+.series-card__meta {
+  display: grid;
+  align-content: center;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.series-card__title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.series-card__sub,
+.series-card__next {
+  font-size: 0.78rem;
+  color: var(--paper-dim);
+}
+
+.series-card__next {
+  color: var(--brass);
+}
+
+.series-card__vols {
+  display: grid;
+  border-top: 1px solid var(--border);
+}
+
+.series-vol {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.55rem 0.75rem;
+  border: 0;
+  border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+  text-align: left;
+}
+
+.series-vol:hover {
+  background: color-mix(in srgb, var(--brass) 10%, transparent);
 }
 
 /* —— Skeletons catalogue —— */

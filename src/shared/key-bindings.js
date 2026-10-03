@@ -5,7 +5,7 @@
 
 import { GamepadButtons } from './gamepad-codes.js';
 
-/** @typedef {'reader'|'library'|'setup'|'import'|'settings'|'boot'} BindingContext */
+/** @typedef {'reader'|'library'|'setup'|'import'|'settings'|'boot'|'profiles'} BindingContext */
 
 export const BINDABLE_ACTIONS = Object.freeze({
   reader: [
@@ -20,7 +20,10 @@ export const BINDABLE_ACTIONS = Object.freeze({
     { id: 'chapter-prev', label: 'Chapitre précédent' },
     { id: 'chapter-next', label: 'Chapitre suivant' },
     { id: 'fit-width', label: 'Fit Width' },
-    { id: 'pan', label: 'Pan (stick)' },
+    { id: 'pan', label: 'Pan / scroll (stick)' },
+    { id: 'add-bookmark', label: 'Ajouter un signet' },
+    { id: 'toggle-webtoon', label: 'Mode webtoon' },
+    { id: 'next-volume', label: 'Tome suivant non lu' },
   ],
   library: [
     { id: 'open-book', label: 'Ouvrir' },
@@ -35,11 +38,19 @@ export const BINDABLE_ACTIONS = Object.freeze({
     { id: 'confirm', label: 'Valider' },
     { id: 'import', label: 'Ouvrir import' },
     { id: 'settings', label: 'Paramètres' },
+    { id: 'toggle-series', label: 'Vue séries' },
   ],
   boot: [
     { id: 'cursor-up', label: 'Curseur ↑' },
     { id: 'cursor-down', label: 'Curseur ↓' },
     { id: 'confirm', label: 'Valider' },
+  ],
+  profiles: [
+    { id: 'cursor-up', label: 'Curseur ↑' },
+    { id: 'cursor-down', label: 'Curseur ↓' },
+    { id: 'cursor-left', label: 'Curseur ←' },
+    { id: 'cursor-right', label: 'Curseur →' },
+    { id: 'confirm', label: 'Choisir le profil' },
   ],
   setup: [
     { id: 'cursor-up', label: 'Curseur ↑' },
@@ -79,11 +90,14 @@ export const DEFAULT_KEY_BINDINGS = Object.freeze({
     [`button:${GamepadButtons.A}`]: 'toggle-direction',
     [`button:${GamepadButtons.B}`]: 'close-book',
     [`button:${GamepadButtons.Y}`]: 'toggle-overlay',
-    [`button:${GamepadButtons.X}`]: 'fit-width',
+    [`button:${GamepadButtons.X}`]: 'add-bookmark',
+    [`button:${GamepadButtons.SELECT}`]: 'toggle-webtoon',
+    [`button:${GamepadButtons.LB}`]: 'fit-width',
     [`button:${GamepadButtons.L3}`]: 'toggle-zoom',
     [`button:${GamepadButtons.R3}`]: 'toggle-zoom',
     [`button:${GamepadButtons.LT}`]: 'chapter-prev',
     [`button:${GamepadButtons.RT}`]: 'chapter-next',
+    [`button:${GamepadButtons.RB}`]: 'next-volume',
     'dpad:up': 'zoom-in',
     'dpad:down': 'zoom-out',
     'dpad:left': 'page-prev',
@@ -95,6 +109,7 @@ export const DEFAULT_KEY_BINDINGS = Object.freeze({
     [`button:${GamepadButtons.B}`]: 'back',
     [`button:${GamepadButtons.Y}`]: 'book-options',
     [`button:${GamepadButtons.X}`]: 'import',
+    [`button:${GamepadButtons.SELECT}`]: 'toggle-series',
     [`button:${GamepadButtons.START}`]: 'settings',
     [`button:${GamepadButtons.L3}`]: 'confirm',
     [`button:${GamepadButtons.R3}`]: 'confirm',
@@ -110,6 +125,14 @@ export const DEFAULT_KEY_BINDINGS = Object.freeze({
     [`button:${GamepadButtons.A}`]: 'confirm',
     'dpad:up': 'cursor-up',
     'dpad:down': 'cursor-down',
+    'stick:left': 'scroll',
+  },
+  profiles: {
+    [`button:${GamepadButtons.A}`]: 'confirm',
+    'dpad:up': 'cursor-up',
+    'dpad:down': 'cursor-down',
+    'dpad:left': 'cursor-left',
+    'dpad:right': 'cursor-right',
     'stick:left': 'scroll',
   },
   setup: {

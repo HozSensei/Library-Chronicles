@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, onUnmounted, watch } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import ReaderHud from '../components/ReaderHud.vue';
 import { useReaderStore } from '../stores/reader';
@@ -7,6 +7,12 @@ import { useReaderStore } from '../stores/reader';
 const router = useRouter();
 const route = useRoute();
 const reader = useReaderStore();
+const stripEl = ref(null);
+
+const stripStyle = computed(() => ({
+  filter: reader.filterCss,
+  transform: `translate3d(${reader.panX}px, ${reader.panY}px, 0)`,
+}));
 
 onMounted(async () => {
   const filePath = route.query.path;
@@ -27,8 +33,6 @@ onMounted(async () => {
 });
 
 onUnmounted(() => {
-  // Laisser la session ouverte seulement si on navigue ailleurs sans close ?
-  // On ferme pour libérer la mémoire.
   reader.close();
 });
 
@@ -39,15 +43,67 @@ watch(
   },
 );
 
+watch(
+  () => [reader.webtoonMode, reader.pageIndex, reader.stripPages.length],
+  async () => {
+    if (!reader.webtoonMode) return;
+    await nextTick();
+    const el = stripEl.value?.querySelector(`[data-page="${reader.pageIndex}"]`);
+    el?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  },
+);
+
 async function leave() {
   await reader.close();
   router.push({ name: 'library' });
 }
+
+async function openNext() {
+  const ok = await reader.openNextVolume();
+  if (!ok) return;
+  router.replace({ name: 'reader', query: { path: reader.filePath } });
+}
+
+function onStripScroll() {
+  if (!stripEl.value || !reader.webtoonMode) return;
+  const nodes = [...stripEl.value.querySelectorAll('[data-page]')];
+  if (!nodes.length) return;
+  const top = stripEl.value.scrollTop + 40;
+  let best = reader.pageIndex;
+  for (const node of nodes) {
+    if (node.offsetTop <= top) best = Number(node.dataset.page);
+  }
+  if (best !== reader.pageIndex) {
+    reader.pageIndex = best;
+    reader.persistProgress();
+    reader.syncChapterIndex();
+  }
+}
 </script>
 
 <template>
-  <section class="reader" aria-label="Lecteur">
-    <div class="reader__stage" :data-fit="reader.fitMode">
+  <section class="reader" aria-label="Lecteur" :data-webtoon="reader.webtoonMode">
+    <div
+      v-if="reader.webtoonMode"
+      ref="stripEl"
+      class="reader__strip"
+      @scroll.passive="onStripScroll"
+    >
+      <div class="reader__strip-inner" :style="stripStyle">
+        <img
+          v-for="page in reader.stripPages"
+          :key="page.index"
+          class="reader__strip-page"
+          :class="{ 'is-current': page.index === reader.pageIndex }"
+          :src="page.url"
+          :data-page="page.index"
+          :alt="`Page ${page.index + 1}`"
+          draggable="false"
+        />
+      </div>
+    </div>
+
+    <div v-else class="reader__stage" :data-fit="reader.fitMode">
       <img
         v-if="reader.pageUrl"
         class="reader__page"
@@ -67,6 +123,14 @@ async function leave() {
         <button type="button" class="ghost" @click="leave">Retour</button>
       </div>
     </div>
+
+    <div v-if="reader.nextVolumeOffer && reader.isFinished" class="reader__next">
+      <p>Tome terminé</p>
+      <button type="button" class="ghost" @click="openNext">
+        RB · {{ reader.nextVolumeOffer.title }}
+      </button>
+    </div>
+
     <ReaderHud />
   </section>
 </template>
@@ -88,7 +152,30 @@ async function leave() {
 
 .reader__page {
   transform-origin: center center;
-  will-change: transform;
+  will-change: transform, filter;
+  user-select: none;
+  pointer-events: none;
+}
+
+.reader__strip {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.reader__strip-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  will-change: transform, filter;
+  min-height: 100%;
+}
+
+.reader__strip-page {
+  width: 100%;
+  height: auto;
+  display: block;
   user-select: none;
   pointer-events: none;
 }
@@ -108,6 +195,26 @@ async function leave() {
   font-weight: 800;
   font-size: 1.4rem;
   color: var(--brass-bright);
+}
+
+.reader__next {
+  position: absolute;
+  left: 1rem;
+  right: 1rem;
+  top: 1.25rem;
+  z-index: calc(var(--z-hud) + 1);
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.85rem 1rem;
+  background: color-mix(in srgb, var(--ink) 82%, transparent);
+  color: var(--paper);
+  border: 1px solid color-mix(in srgb, var(--brass) 45%, transparent);
+}
+
+.reader__next p {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--paper-dim);
 }
 
 .dim {

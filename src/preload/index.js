@@ -25,6 +25,9 @@ contextBridge.exposeInMainWorld('vdr', {
     recent: (limit) => ipcRenderer.invoke(IpcChannels.LIBRARY_RECENT, limit),
     lastAccessed: (excludeId) =>
       ipcRenderer.invoke(IpcChannels.LIBRARY_LAST_ACCESSED, excludeId),
+    series: () => ipcRenderer.invoke(IpcChannels.LIBRARY_SERIES),
+    nextUnread: (payload) =>
+      ipcRenderer.invoke(IpcChannels.LIBRARY_NEXT_UNREAD, payload),
   },
 
   import: {
@@ -54,6 +57,31 @@ contextBridge.exposeInMainWorld('vdr', {
   progress: {
     save: (payload) => ipcRenderer.invoke(IpcChannels.PROGRESS_SAVE, payload),
     load: (filePath) => ipcRenderer.invoke(IpcChannels.PROGRESS_LOAD, filePath),
+  },
+
+  profiles: {
+    list: () => ipcRenderer.invoke(IpcChannels.PROFILES_LIST),
+    create: (payload) => ipcRenderer.invoke(IpcChannels.PROFILES_CREATE, payload),
+    update: (id, patch) =>
+      ipcRenderer.invoke(IpcChannels.PROFILES_UPDATE, { id, patch }),
+    delete: (id) => ipcRenderer.invoke(IpcChannels.PROFILES_DELETE, id),
+    setActive: (id) => ipcRenderer.invoke(IpcChannels.PROFILES_SET_ACTIVE, id),
+    getActive: () => ipcRenderer.invoke(IpcChannels.PROFILES_GET_ACTIVE),
+    getPrefs: (profileId) =>
+      ipcRenderer.invoke(IpcChannels.PROFILES_GET_PREFS, profileId),
+    setPrefs: (patch, profileId) =>
+      ipcRenderer.invoke(IpcChannels.PROFILES_SET_PREFS, { patch, profileId }),
+  },
+
+  bookmarks: {
+    list: (bookId, profileId) =>
+      ipcRenderer.invoke(IpcChannels.BOOKMARKS_LIST, { bookId, profileId }),
+    listAll: (profileId) =>
+      ipcRenderer.invoke(IpcChannels.BOOKMARKS_LIST_ALL, profileId),
+    add: (payload) => ipcRenderer.invoke(IpcChannels.BOOKMARKS_ADD, payload),
+    remove: (id) => ipcRenderer.invoke(IpcChannels.BOOKMARKS_REMOVE, id),
+    removeAt: (bookId, page) =>
+      ipcRenderer.invoke(IpcChannels.BOOKMARKS_REMOVE_AT, { bookId, page }),
   },
 
   watch: {
