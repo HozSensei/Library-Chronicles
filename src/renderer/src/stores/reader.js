@@ -394,7 +394,7 @@ export const useReaderStore = defineStore('reader', {
     },
     /**
      * Pan en repère local du plan lecteur (après visualPanToLocal si +90° CSS).
-     * dx/dy > 0 → +X / +Y locaux (écran : droite / bas en hold Ally CCW).
+     * Sous rotate(90deg) CW : local(+X) → bas écran, local(+Y) → gauche écran.
      */
     pan(dx, dy, speed = 14) {
       if (this.webtoonMode) {
