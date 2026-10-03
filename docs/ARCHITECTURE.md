@@ -38,7 +38,7 @@ Build unifié via **electron-vite** :
 
 ## Flux produit
 
-1. **Setup** (si `!setupCompleted`) → dossiers / thème / orientation
+1. **Setup** (si `!setupCompleted`) → dossiers / thème / langue (orientation auto)
 2. **Profils** (chaque lancement) → choix profil local actif
 3. **Import** → scan dossier import → review meta → copie library + SQLite
 4. **Library** → catalogue + vue séries (+ refresh auto via watcher)
