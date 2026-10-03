@@ -1,23 +1,147 @@
 /**
- * Ancrage zoom → point du viewport (repère local du plan lecteur).
+ * Zoom ancré au **centre écran** sous le stack Reader :
+ *   plane: translate(-50%,-50%) rotate(90deg)
+ *   page : translate3d(panX, panY, 0) scale(s)  (origin = centre image)
+ *   fit  : width/height CSS (fit-height | fit-width | custom)
  *
- * Transform page : `translate3d(panX, panY, 0) scale(s)` avec
- * `transform-origin: center center`, page centrée dans le stage
- * (`place-items: center`). Sous `rotate(90deg)` du plan, le centre
- * local = centre écran — on ancre donc en (0, 0) local.
+ * Espaces
+ * -------
+ * - screen : pixels fenêtre (X→, Y↓) après rotate du plan
+ * - stage  : plan local AVANT rotate (clientWidth × clientHeight)
+ * - image  : boîte layout page (offsetWidth × offsetHeight)
  *
- * Formule zoom-to-point (focus relatif au centre layout) :
- *   newPan = focus - (focus - oldPan) * (newScale / oldScale)
- * Centre écran ⇒ focus = (0, 0) ⇒ newPan = oldPan * (newScale / oldScale)
+ * Rotate(+90° CW) centré fenêtre :
+ *   screenX = winCX − (localY − H/2)
+ *   screenY = winCY + (localX − W/2)
+ * ⇒ centre écran ↔ centre stage (W/2, H/2).
+ *
+ * Page (origin centre) :
+ *   stage = imgCenter + pan + scale × p_from_img_center
+ *
+ * Pourquoi v1 (`newPan = oldPan × ratio`) échoue
+ * -----------------------------------------------
+ * v1 = cas particulier focus=(0,0) relatif au centre image, donc
+ * imgCenter === stageCenter. Dès que le fit overflow décale la boîte
+ * (grid « safe », mesure, etc.), le vrai point sous le centre écran
+ * n’est plus le centre image. Après +90°, une erreur sur l’axe local X
+ * apparaît comme un **scroll vertical** à l’écran.
+ *
+ * Formule générale (focus relatif au centre image, px stage/local) :
+ *   newPan = focus − (focus − oldPan) × (newScale / oldScale)
  */
+
+/**
+ * @typedef {object} ZoomGeom
+ * @property {number} stageW
+ * @property {number} stageH
+ * @property {number} imgW
+ * @property {number} imgH
+ * @property {number} imgOffsetX top-left layout image dans le stage
+ * @property {number} imgOffsetY
+ * @property {boolean} [rotate90]
+ * @property {number} [winCX] centre fenêtre / AABB stage (screen)
+ * @property {number} [winCY]
+ * @property {number} [stageLeft]
+ * @property {number} [stageTop]
+ */
+
+/**
+ * Screen → stage local (inverse rotate +90° CW si `rotate90`).
+ * @param {number} screenX
+ * @param {number} screenY
+ * @param {ZoomGeom} geom
+ * @returns {{ x: number, y: number }}
+ */
+export function screenToStageLocal(screenX, screenY, geom) {
+  const sx = Number(screenX);
+  const sy = Number(screenY);
+  if (!geom?.rotate90) {
+    return {
+      x: sx - (Number(geom?.stageLeft) || 0),
+      y: sy - (Number(geom?.stageTop) || 0),
+    };
+  }
+  const W = Number(geom.stageW) || 0;
+  const H = Number(geom.stageH) || 0;
+  const winCX = Number(geom.winCX);
+  const winCY = Number(geom.winCY);
+  const cx = Number.isFinite(winCX) ? winCX : W / 2;
+  const cy = Number.isFinite(winCY) ? winCY : H / 2;
+  // Inverse : localX − W/2 = screenY − winCY ; localY − H/2 = winCX − screenX
+  return {
+    x: sy - cy + W / 2,
+    y: cx - sx + H / 2,
+  };
+}
+
+/**
+ * Stage local → screen (rotate +90° CW si `rotate90`).
+ * @param {number} localX
+ * @param {number} localY
+ * @param {ZoomGeom} geom
+ * @returns {{ x: number, y: number }}
+ */
+export function stageLocalToScreen(localX, localY, geom) {
+  const lx = Number(localX);
+  const ly = Number(localY);
+  if (!geom?.rotate90) {
+    return {
+      x: lx + (Number(geom?.stageLeft) || 0),
+      y: ly + (Number(geom?.stageTop) || 0),
+    };
+  }
+  const W = Number(geom.stageW) || 0;
+  const H = Number(geom.stageH) || 0;
+  const winCX = Number(geom.winCX);
+  const winCY = Number(geom.winCY);
+  const cx = Number.isFinite(winCX) ? winCX : W / 2;
+  const cy = Number.isFinite(winCY) ? winCY : H / 2;
+  const relX = lx - W / 2;
+  const relY = ly - H / 2;
+  return { x: cx - relY, y: cy + relX };
+}
+
+/**
+ * Point image (depuis coin haut-gauche layout) sous un point stage,
+ * compte tenu de pan + scale (origin centre).
+ * @returns {{ x: number, y: number }}
+ */
+export function stagePointToImageLocal(
+  stageX,
+  stageY,
+  panX,
+  panY,
+  scale,
+  imgOffsetX,
+  imgOffsetY,
+  imgW,
+  imgH,
+) {
+  const s = Number(scale);
+  const iw = Number(imgW) || 0;
+  const ih = Number(imgH) || 0;
+  const ox = Number(imgOffsetX) || 0;
+  const oy = Number(imgOffsetY) || 0;
+  const imgCX = ox + iw / 2;
+  const imgCY = oy + ih / 2;
+  if (!Number.isFinite(s) || s === 0) {
+    return { x: iw / 2, y: ih / 2 };
+  }
+  // stage = imgCenter + pan + scale * (p - imgCenter_in_local)
+  // p from image top-left
+  return {
+    x: iw / 2 + (Number(stageX) - imgCX - (Number(panX) || 0)) / s,
+    y: ih / 2 + (Number(stageY) - imgCY - (Number(panY) || 0)) / s,
+  };
+}
 
 /**
  * @param {number} panX
  * @param {number} panY
  * @param {number} fromScale
  * @param {number} toScale
- * @param {number} [focusX=0] offset X depuis le centre layout (px locaux)
- * @param {number} [focusY=0] offset Y depuis le centre layout (px locaux)
+ * @param {number} [focusX=0] offset X depuis le centre image (px stage/local)
+ * @param {number} [focusY=0] offset Y depuis le centre image (px stage/local)
  * @returns {{ panX: number, panY: number }}
  */
 export function panForZoomToPoint(
@@ -47,7 +171,152 @@ export function panForZoomToPoint(
   };
 }
 
-/** Ancre le zoom sur le centre du viewport (focus 0,0). */
+/**
+ * Zoom → centre écran : convertit le centre viewport en focus local image,
+ * puis recalcule pan pour que ce point reste sous le centre après scale.
+ *
+ * @param {number} panX
+ * @param {number} panY
+ * @param {number} fromScale
+ * @param {number} toScale
+ * @param {ZoomGeom} geom
+ * @returns {{ panX: number, panY: number }}
+ */
+export function panForZoomToScreenCenter(panX, panY, fromScale, toScale, geom) {
+  const stageW = Number(geom?.stageW) || 0;
+  const stageH = Number(geom?.stageH) || 0;
+  const imgW = Number(geom?.imgW) || 0;
+  const imgH = Number(geom?.imgH) || 0;
+  const imgOffsetX =
+    geom?.imgOffsetX != null
+      ? Number(geom.imgOffsetX)
+      : (stageW - imgW) / 2;
+  const imgOffsetY =
+    geom?.imgOffsetY != null
+      ? Number(geom.imgOffsetY)
+      : (stageH - imgH) / 2;
+
+  // Centre écran → stage local (sous plane centré + rotate : = centre stage).
+  let focusStageX = stageW / 2;
+  let focusStageY = stageH / 2;
+  if (
+    geom &&
+    Number.isFinite(Number(geom.winCX)) &&
+    Number.isFinite(Number(geom.winCY))
+  ) {
+    const local = screenToStageLocal(geom.winCX, geom.winCY, {
+      ...geom,
+      stageW,
+      stageH,
+    });
+    focusStageX = local.x;
+    focusStageY = local.y;
+  }
+
+  const imgCX = imgOffsetX + imgW / 2;
+  const imgCY = imgOffsetY + imgH / 2;
+  // Focus relatif au centre image (= espace du pan CSS).
+  const focusX = focusStageX - imgCX;
+  const focusY = focusStageY - imgCY;
+
+  return panForZoomToPoint(panX, panY, fromScale, toScale, focusX, focusY);
+}
+
+/**
+ * Raccourci : image parfaitement centrée ⇒ focus (0,0) ⇒ pan × ratio.
+ * Préférer `panForZoomToScreenCenter` dès que la géométrie est connue.
+ */
 export function panForZoomToCenter(panX, panY, fromScale, toScale) {
   return panForZoomToPoint(panX, panY, fromScale, toScale, 0, 0);
+}
+
+/**
+ * Mesure DOM du stage / page pour ancrer le zoom (repère local + rotate).
+ * @param {ParentNode | { querySelector: Function }} [root]
+ * @returns {ZoomGeom | null}
+ */
+export function measureReaderZoomGeometry(root) {
+  const doc =
+    root && typeof root.querySelector === 'function'
+      ? root
+      : typeof document !== 'undefined'
+        ? document
+        : null;
+  if (!doc) return null;
+
+  const reader = doc.querySelector('.reader');
+  const stage = doc.querySelector('.reader__stage');
+  const pan = doc.querySelector('.reader__pan');
+  const page = doc.querySelector('.reader__page');
+  if (!stage || !page) return null;
+
+  const rotate90 = reader?.getAttribute?.('data-css-rotate') === '1';
+  const stageW = stage.clientWidth;
+  const stageH = stage.clientHeight;
+  const imgW = page.offsetWidth;
+  const imgH = page.offsetHeight;
+
+  let imgOffsetX;
+  let imgOffsetY;
+  // offset* = position layout (ignore transform scale/pan) — idéal.
+  // Le pan wrapper est l’item grid centré ; la page peut avoir offsetParent = pan
+  // (car translate3d sur .reader__pan crée un containing block).
+  if (pan && pan.offsetParent === stage) {
+    imgOffsetX = pan.offsetLeft;
+    imgOffsetY = pan.offsetTop;
+  } else if (page.offsetParent === stage) {
+    imgOffsetX = page.offsetLeft;
+    imgOffsetY = page.offsetTop;
+  } else {
+    imgOffsetX = (stageW - imgW) / 2;
+    imgOffsetY = (stageH - imgH) / 2;
+  }
+
+  let winCX = stageW / 2;
+  let winCY = stageH / 2;
+  let stageLeft = 0;
+  let stageTop = 0;
+  if (typeof stage.getBoundingClientRect === 'function') {
+    const r = stage.getBoundingClientRect();
+    stageLeft = r.left;
+    stageTop = r.top;
+    // AABB post-rotate : le centre de l’AABB = centre écran du stage.
+    winCX = r.left + r.width / 2;
+    winCY = r.top + r.height / 2;
+  }
+
+  return {
+    stageW,
+    stageH,
+    imgW,
+    imgH,
+    imgOffsetX,
+    imgOffsetY,
+    rotate90,
+    winCX,
+    winCY,
+    stageLeft,
+    stageTop,
+  };
+}
+
+/**
+ * Évite tout scroll parasite du conteneur pendant un zoom.
+ * @param {ParentNode | { querySelectorAll: Function }} [root]
+ */
+export function pinReaderOverflow(root) {
+  const doc =
+    root && typeof root.querySelectorAll === 'function'
+      ? root
+      : typeof document !== 'undefined'
+        ? document
+        : null;
+  if (!doc) return;
+  const nodes = doc.querySelectorAll(
+    '.reader, .reader__plane, .reader__viewport, .reader__stage',
+  );
+  for (const el of nodes) {
+    if (el.scrollTop) el.scrollTop = 0;
+    if (el.scrollLeft) el.scrollLeft = 0;
+  }
 }

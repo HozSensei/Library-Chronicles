@@ -1,12 +1,18 @@
 /**
- * Vérifie l’ancrage zoom au centre du viewport (formule + câblage store/CSS).
+ * Vérifie l’ancrage zoom au centre écran (pipeline rotate + fit + scale + pan).
  */
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
+  measureReaderZoomGeometry,
   panForZoomToCenter,
   panForZoomToPoint,
+  panForZoomToScreenCenter,
+  pinReaderOverflow,
+  screenToStageLocal,
+  stageLocalToScreen,
+  stagePointToImageLocal,
 } from '../src/shared/zoom-anchor.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -23,6 +29,10 @@ function assert(cond, msg) {
 
 function nearly(a, b, eps = 1e-6) {
   return Math.abs(a - b) <= eps;
+}
+
+function nearlyPair(p, x, y, eps = 1e-6) {
+  return nearly(p.panX, x, eps) && nearly(p.panY, y, eps);
 }
 
 // --- Formule centre (focus 0,0) : newPan = oldPan * (to/from) ---
@@ -72,15 +82,242 @@ function nearly(a, b, eps = 1e-6) {
   );
 }
 
+// --- Rotate +90° : screen ↔ stage local ---
+{
+  // Fenêtre landscape 1920×1080 → plan local 1080×1920, centre fenêtre
+  const geom = {
+    stageW: 1080,
+    stageH: 1920,
+    rotate90: true,
+    winCX: 960,
+    winCY: 540,
+  };
+  const mid = screenToStageLocal(960, 540, geom);
+  assert(
+    nearly(mid.x, 540) && nearly(mid.y, 960),
+    'rotate+90 : centre écran → centre stage local',
+  );
+
+  const back = stageLocalToScreen(mid.x, mid.y, geom);
+  assert(
+    nearly(back.x, 960) && nearly(back.y, 540),
+    'rotate+90 : round-trip centre',
+  );
+
+  // Point local à droite du centre (local +X) → bas écran (screen +Y)
+  const right = stageLocalToScreen(540 + 100, 960, geom);
+  assert(
+    nearly(right.x, 960) && nearly(right.y, 540 + 100),
+    'rotate+90 : local+X → screen+Y (vertical écran)',
+  );
+
+  // Point local bas (local +Y) → gauche écran (screen −X)
+  const down = stageLocalToScreen(540, 960 + 100, geom);
+  assert(
+    nearly(down.x, 960 - 100) && nearly(down.y, 540),
+    'rotate+90 : local+Y → screen−X',
+  );
+}
+
+// --- Cas critique : image NON centrée (overflow fit) sous rotate+90 ---
+// Stage 1080×1920, page plus large (overflow local X = vertical écran).
+// Sans correction focus, v1 (pan×ratio) laisserait dériver le point sous le centre.
+{
+  const stageW = 1080;
+  const stageH = 1920;
+  const imgW = 1400;
+  const imgH = 1920;
+  // Alignement « start » (safe) : offset X = 0 au lieu de (1080-1400)/2 = -160
+  const geom = {
+    stageW,
+    stageH,
+    imgW,
+    imgH,
+    imgOffsetX: 0,
+    imgOffsetY: 0,
+    rotate90: true,
+    winCX: 960,
+    winCY: 540,
+  };
+
+  const fromScale = 1;
+  const toScale = 2;
+  const panX = 0;
+  const panY = 0;
+
+  const v2 = panForZoomToScreenCenter(panX, panY, fromScale, toScale, geom);
+  const v1 = panForZoomToCenter(panX, panY, fromScale, toScale);
+
+  // focusX = stageW/2 - (0 + imgW/2) = 540 - 700 = -160
+  // focusY = stageH/2 - (0 + imgH/2) = 960 - 960 = 0
+  // pan2.x = -160 - (-160 - 0)*2 = 160 ; pan2.y = 0
+  assert(
+    nearly(v2.panX, 160) && nearly(v2.panY, 0),
+    'rotate+90 + overflow local-X : panX corrige le focus (axe → vertical écran)',
+  );
+  assert(nearly(v1.panX, 0) && nearly(v1.panY, 0), 'v1 pan×ratio reste 0 (faux si non centré)');
+  assert(
+    !nearly(v2.panX, v1.panX) || !nearly(v2.panY, v1.panY),
+    'v2 ≠ v1 quand imgOffset ≠ centre (explique le ressenti vertical)',
+  );
+
+  // Vérifie que le point image sous le centre écran reste fixe.
+  const focusStage = screenToStageLocal(geom.winCX, geom.winCY, geom);
+  const pBefore = stagePointToImageLocal(
+    focusStage.x,
+    focusStage.y,
+    panX,
+    panY,
+    fromScale,
+    geom.imgOffsetX,
+    geom.imgOffsetY,
+    imgW,
+    imgH,
+  );
+  const pAfter = stagePointToImageLocal(
+    focusStage.x,
+    focusStage.y,
+    v2.panX,
+    v2.panY,
+    toScale,
+    geom.imgOffsetX,
+    geom.imgOffsetY,
+    imgW,
+    imgH,
+  );
+  assert(
+    nearly(pBefore.x, pAfter.x) && nearly(pBefore.y, pAfter.y),
+    'point image sous centre écran invariant après zoom (overflow +90°)',
+  );
+}
+
+// Image vraiment centrée + rotate → v2 ≡ v1
+{
+  const stageW = 1080;
+  const stageH = 1920;
+  const imgW = 900;
+  const imgH = 1600;
+  const geom = {
+    stageW,
+    stageH,
+    imgW,
+    imgH,
+    imgOffsetX: (stageW - imgW) / 2,
+    imgOffsetY: (stageH - imgH) / 2,
+    rotate90: true,
+    winCX: 960,
+    winCY: 540,
+  };
+  const v2 = panForZoomToScreenCenter(40, -20, 1, 1.5, geom);
+  const v1 = panForZoomToCenter(40, -20, 1, 1.5);
+  assert(
+    nearlyPair(v2, v1.panX, v1.panY),
+    'image centrée + rotate : v2 ≡ pan×ratio',
+  );
+}
+
+// Fit-width overflow vertical local (hauteur page >> stage) + rotate
+{
+  const stageW = 1080;
+  const stageH = 1920;
+  const imgW = 1080;
+  const imgH = 3000;
+  // Centré unsafe
+  const geom = {
+    stageW,
+    stageH,
+    imgW,
+    imgH,
+    imgOffsetX: 0,
+    imgOffsetY: (stageH - imgH) / 2, // -540
+    rotate90: true,
+    winCX: 960,
+    winCY: 540,
+  };
+  const v2 = panForZoomToScreenCenter(0, 100, 1, 2, geom);
+  // focus = (0,0) car centrée → pan*2
+  assert(
+    nearly(v2.panX, 0) && nearly(v2.panY, 200),
+    'fit-width overflow centré : panY×ratio (axe local Y)',
+  );
+}
+
+// --- measureReaderZoomGeometry / pinReaderOverflow (mock DOM) ---
+{
+  const page = {
+    offsetWidth: 900,
+    offsetHeight: 1600,
+    offsetLeft: 90,
+    offsetTop: 160,
+    offsetParent: null,
+  };
+  const pan = {
+    offsetLeft: 90,
+    offsetTop: 160,
+    offsetParent: null,
+  };
+  const stage = {
+    clientWidth: 1080,
+    clientHeight: 1920,
+    getBoundingClientRect: () => ({
+      left: 0,
+      top: 0,
+      width: 1920,
+      height: 1080,
+    }),
+  };
+  pan.offsetParent = stage;
+  page.offsetParent = pan;
+  const reader = {
+    getAttribute: (n) => (n === 'data-css-rotate' ? '1' : null),
+  };
+  const scrollables = [
+    { scrollTop: 12, scrollLeft: 3 },
+    { scrollTop: 0, scrollLeft: 0 },
+  ];
+  const fakeDoc = {
+    querySelector(sel) {
+      if (sel === '.reader') return reader;
+      if (sel === '.reader__stage') return stage;
+      if (sel === '.reader__pan') return pan;
+      if (sel === '.reader__page') return page;
+      return null;
+    },
+    querySelectorAll(sel) {
+      if (sel.includes('reader')) return scrollables;
+      return [];
+    },
+  };
+
+  const geom = measureReaderZoomGeometry(fakeDoc);
+  assert(geom?.rotate90 === true, 'measure : rotate90 depuis data-css-rotate');
+  assert(
+    geom?.imgOffsetX === 90 && geom?.imgOffsetY === 160,
+    'measure : offset depuis .reader__pan (pas la page)',
+  );
+  assert(
+    nearly(geom.winCX, 960) && nearly(geom.winCY, 540),
+    'measure : centre AABB stage = centre écran',
+  );
+
+  pinReaderOverflow(fakeDoc);
+  assert(
+    scrollables[0].scrollTop === 0 && scrollables[0].scrollLeft === 0,
+    'pinReaderOverflow remet scroll à 0',
+  );
+}
+
 // --- Câblage store / vue ---
 const store = readFileSync(join(root, 'src/renderer/src/stores/reader.js'), 'utf8');
 const view = readFileSync(join(root, 'src/renderer/src/views/ReaderView.vue'), 'utf8');
 
-assert(store.includes('panForZoomToCenter'), 'store importe panForZoomToCenter');
+assert(store.includes('panForZoomToScreenCenter'), 'store importe panForZoomToScreenCenter');
+assert(store.includes('measureReaderZoomGeometry'), 'store mesure la géométrie');
+assert(store.includes('pinReaderOverflow'), 'store pin overflow pendant zoom');
 assert(store.includes('applyScaleAtCenter'), 'store applyScaleAtCenter');
 assert(
-  /animateScaleTo[\s\S]*?panForZoomToCenter/.test(store),
-  'animateScaleTo ancre via panForZoomToCenter',
+  /animateScaleTo[\s\S]*?panForZoomToScreenCenter/.test(store),
+  'animateScaleTo ancre via panForZoomToScreenCenter',
 );
 assert(
   /zoomBy\(\s*steps\s*\)\s*\{[\s\S]*?animateScaleTo/.test(store) &&
@@ -93,6 +330,16 @@ assert(
   'imageStyle transformOrigin center center',
 );
 assert(
+  store.includes('scale(${s.scale})'),
+  'imageStyle = scale seul (pan sur wrapper)',
+);
+assert(view.includes('reader__pan'), 'vue : wrapper .reader__pan pour le pan');
+assert(
+  view.includes('place-items: unsafe center') ||
+    view.includes('place-items:unsafe center'),
+  'CSS stage place-items unsafe center',
+);
+assert(
   view.includes('transform-origin: center center'),
   'CSS page transform-origin center center',
 );
@@ -103,6 +350,10 @@ assert(
 assert(
   /\.reader__stage\s*\{[\s\S]*?overscroll-behavior:\s*none/.test(view),
   'stage overscroll-behavior none',
+);
+assert(
+  /\.reader__viewport\s*\{[\s\S]*?overflow:\s*hidden/.test(view),
+  'viewport overflow hidden',
 );
 
 if (failed) {
