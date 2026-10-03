@@ -1,8 +1,11 @@
 import { createApp } from 'vue';
 import { createPinia } from 'pinia';
-import '@fontsource/syne/600.css';
-import '@fontsource/syne/700.css';
-import '@fontsource/syne/800.css';
+/* Titres UI — Grenze (sérif fantasy, proche du wordmark LitRPG Chronicles) */
+import '@fontsource/grenze/600.css';
+import '@fontsource/grenze/700.css';
+import '@fontsource/grenze/800.css';
+import '@fontsource/grenze/900.css';
+/* Corps — Figtree inchangé */
 import '@fontsource/figtree/400.css';
 import '@fontsource/figtree/500.css';
 import '@fontsource/figtree/600.css';
