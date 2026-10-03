@@ -132,23 +132,35 @@ Navigation D-Pad **et stick** (identité landscape).
 | Contrôle | Action |
 |----------|--------|
 | ↑↓ | Naviguer les fichiers / footer Rescanner · Retour |
-| A | Ouvrir la **fiche détail** (méta) — pas d’import immédiat |
+| A | Ouvrir la **fiche** (onglet Infos) — pas d’import immédiat |
 | X | **Importer le tome focus** (méta sélectionnées API, sinon défaut détecté) |
 | Y | **Tout importer** — chaque item : méta sélectionnées si présentes, sinon défaut |
 | B | Retour bibliothèque |
 
 Pastilles à gauche de chaque ligne : **bleue** = méta détectées · **rouge** = aucune méta · **verte** = choix résultat API.
 
-**Fiche détail**
+**Fiche — onglet Infos**
 
 | Contrôle | Action |
 |----------|--------|
-| ↑↓ | Champs méta → mots-clés → Rechercher → résultats → footer |
-| ←→ sur provider | Changer de provider |
-| A | Éditer champ (clavier virtuel) / lancer recherche / appliquer un résultat / Importer ce tome |
-| X | **Importer ce tome** (draft / méta sélectionnées ou défaut) |
-| Y | Lancer la **recherche API** (mots-clés) |
+| ↑↓ | Champs méta (titre, série, tome…) → footer |
+| LT / RT | Onglet Infos ↔ Recherche |
+| A | Éditer le champ focus · **uniquement** CTA footer focusé pour importer / fermer |
+| X | **Importer ce tome** |
 | B | Retour liste |
+
+A **n’importe pas** et **ne ferme pas** tant que le focus n’est pas sur un CTA footer explicite.
+
+**Fiche — onglet Recherche**
+
+| Contrôle | Action |
+|----------|--------|
+| ↑↓ | Mots-clés → source API → Lancer recherche → résultats → footer |
+| ←→ sur source | Changer de provider (AniList, MangaDex, OpenLibrary…) |
+| LT / RT | Onglet Infos ↔ Recherche |
+| A | Appliquer le **résultat focusé** · éditer mots-clés · lancer search · CTA footer |
+| Y | **Relancer** la recherche API |
+| B | Retour **Infos** (champs / résultats) · liste si CTA Retour |
 
 Footer compact (pas d’overflow boutons). Scroll `.shell-scroll`.
 

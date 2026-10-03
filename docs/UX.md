@@ -31,7 +31,7 @@ L’app appelle `setSessionMode('reader'|'ui')` à l’entrée / sortie du lecte
 1. **Profils** — premier écran (ronds + bouton **+**), même à zéro profil
 2. **Setup** — wizard **par profil** (dossiers, thème, langue) — pas d’orientation
 3. **Boot** — marque + actions (Continuer / Bibliothèque / Import / Paramètres)
-4. **Import** — liste simple (A = fiche détail, X = importer ce tome, Y = tout importer) + pastilles méta (bleu / rouge / vert) + check « déjà importé »
+4. **Import** — liste (A = fiche Infos, X = importer ce tome, Y = tout importer) → fiche onglets **Infos** / **Recherche** API + pastilles méta (bleu / rouge / vert) + check « déjà importé »
 5. **Bibliothèque** — catalogue TV (Continuer par tome, pills, rails, onglets Tous / Récents / Séries)
 6. **Récents** — **une entrée par série** (dernier tome touché) ; A → fiche série si multi-tomes, sinon fiche tome
 7. **Fiche série** (`/series/:seriesId`) — cover 1er tome, méta agrégées, grille des tomes (ordre volume) → A ouvre la fiche tome

@@ -34,6 +34,8 @@ export const useImportStore = defineStore('import', {
     selectedPaths: [],
     /** list = fichiers · detail = fiche méta / search API. */
     viewMode: 'list',
+    /** Onglet fiche : infos (méta) | search (API). */
+    detailTab: 'infos',
     loading: false,
     committing: false,
     root: null,
@@ -74,8 +76,13 @@ export const useImportStore = defineStore('import', {
       return s.items.every((i) => s.selectedPaths.includes(i.filePath));
     },
     isDetail: (s) => s.viewMode === 'detail',
+    isInfosTab: (s) => s.detailTab !== 'search',
+    isSearchTab: (s) => s.detailTab === 'search',
   },
   actions: {
+    setDetailTab(tab) {
+      this.detailTab = tab === 'search' ? 'search' : 'infos';
+    },
     isPathSelected(filePath) {
       return this.selectedPaths.includes(filePath);
     },
@@ -175,11 +182,13 @@ export const useImportStore = defineStore('import', {
       }
       if (!this.selected) return false;
       await this.loadDraftFromSelected({ keepResults: false });
+      this.detailTab = 'infos';
       this.viewMode = 'detail';
       return true;
     },
     closeDetail() {
       this.viewMode = 'list';
+      this.detailTab = 'infos';
       this.enrichResultCursor = 0;
     },
     async loadDraftFromSelected({ keepResults = false } = {}) {
