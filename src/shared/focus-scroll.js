@@ -55,7 +55,7 @@ export function focusRootForRoute(routeName) {
     case 'boot':
       return '.boot';
     case 'reader':
-      return '.hud__dialog';
+      return '.reader';
     default:
       return '';
   }
