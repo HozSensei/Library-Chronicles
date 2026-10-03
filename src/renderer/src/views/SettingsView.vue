@@ -225,7 +225,8 @@ const listeningLabel = computed(() => {
       </button>
     </nav>
 
-    <div class="body">
+    <div class="body shell-scroll">
+      <div class="body-inner">
       <template v-if="section === 'general'">
         <p class="hint">
           Mode clair/sombre + accent de contraste (profil actif).
@@ -445,6 +446,7 @@ const listeningLabel = computed(() => {
           Les secrets restent dans <code>userData/vdr-secrets.json</code> — jamais commités.
         </p>
       </template>
+      </div>
     </div>
 
     <footer>
@@ -468,7 +470,7 @@ const listeningLabel = computed(() => {
   max-width: 100%;
   display: flex;
   flex-direction: column;
-  padding: var(--pad);
+  padding: 0;
   min-height: 0;
   min-width: 0;
   overflow: hidden;
@@ -477,6 +479,20 @@ const listeningLabel = computed(() => {
   background:
     radial-gradient(ellipse 70% 35% at 80% 0%, var(--wash-a), transparent 55%),
     var(--ink-950);
+}
+
+.settings > header,
+.settings > .tabs,
+.settings > footer {
+  padding-left: var(--pad);
+  padding-right: var(--pad);
+  box-sizing: border-box;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.settings > header {
+  padding-top: var(--pad);
 }
 
 .brand {
@@ -536,12 +552,17 @@ h1 {
   flex: 1;
   min-height: 0;
   min-width: 0;
-  overflow: auto;
-  overflow-x: hidden;
+  width: 100%;
   margin-top: 1rem;
+}
+
+.body-inner {
   display: flex;
   flex-direction: column;
   gap: 0.65rem;
+  padding: 0 var(--pad) 0.5rem;
+  box-sizing: border-box;
+  max-width: 100%;
   animation: panel-in 280ms var(--ease-out);
 }
 
@@ -765,7 +786,8 @@ h1 {
 }
 
 footer {
-  margin-top: 1rem;
+  margin-top: 0.75rem;
+  padding-bottom: var(--pad);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -797,7 +819,7 @@ footer {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .body {
+  .body-inner {
     animation: none;
   }
   .listen {

@@ -104,7 +104,18 @@ Bibliothèque vide : A → Import. Icône engrenage dans le header = Paramètres
 ## Mode Profils / Setup / Import / Boot / Paramètres
 
 Navigation D-Pad **et stick** (identité landscape).  
-Import : Y = Enrichir métadonnées.
+
+### Import
+
+| Contrôle | Action |
+|----------|--------|
+| ↑↓ | Naviguer la liste / basculer vers le footer |
+| ←→ | Focus barre d’actions (Importer / Tout / Enrichir / Rescanner / Retour) |
+| A | Liste = cocher/décocher · Footer = valider l’action focus |
+| Y | Enrichir métadonnées (tome focus) |
+| B | Retour bibliothèque |
+
+Footer **toujours visible** (hors scroll). Scrollbar collée au bord droit de la fenêtre.
 
 ### Paramètres
 

@@ -393,10 +393,13 @@ defineExpose({
   min-width: 0;
   overflow-x: hidden;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--brass) 55%, transparent) transparent;
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  padding-right: 0.15rem;
 }
 
 .setup__footer {

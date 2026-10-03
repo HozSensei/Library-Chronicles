@@ -171,7 +171,8 @@ function scrollRail(refEl, dir) {
         </div>
       </header>
 
-      <div class="catalog__scroll min-h-0 min-w-0 flex-1 overflow-auto overflow-x-hidden">
+      <div class="catalog__scroll shell-scroll min-h-0 min-w-0 flex-1">
+        <div class="catalog__scroll-inner">
         <!-- BOARD -->
         <template v-if="library.catalogTab === 'board'">
           <!-- Hero + En cours -->
@@ -428,6 +429,7 @@ function scrollRail(refEl, dir) {
             </div>
           </section>
         </template>
+        </div>
       </div>
 
       <footer class="catalog__footer">
@@ -568,6 +570,11 @@ function scrollRail(refEl, dir) {
 }
 
 .catalog__scroll {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.catalog__scroll-inner {
   padding: 0.5rem clamp(1rem, 2.5vw, 2rem) 1.5rem;
   max-width: 100%;
   box-sizing: border-box;

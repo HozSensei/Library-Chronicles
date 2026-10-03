@@ -466,34 +466,65 @@ function createLoop(ctx) {
     }
 
     if (route === 'import') {
+      const footerMax = 4; // Importer / Tout / Enrichir / Rescanner / Retour
       if (action === 'back') {
         vibe('light');
         router.push({ name: 'library' });
       }
       if (action === 'cursor-up') {
-        imp.moveCursor(-1);
+        if (ui.importFocusZone === 'actions') {
+          ui.setImportFocusZone('list');
+        } else {
+          imp.moveCursor(-1);
+        }
         vibe('nav');
         afterFocusMove();
       }
       if (action === 'cursor-down') {
-        imp.moveCursor(1);
+        if (ui.importFocusZone === 'list') {
+          // Dernier item → barre d’actions (toujours visible)
+          if (!imp.items.length || imp.cursor >= imp.items.length - 1) {
+            ui.setImportFocusZone('actions');
+            ui.setImportFocus(0);
+          } else {
+            imp.moveCursor(1);
+          }
+        } else {
+          ui.setImportFocus(Math.min(footerMax, ui.importFocusIndex + 1));
+        }
         vibe('nav');
         afterFocusMove();
       }
       if (action === 'cursor-left') {
+        if (ui.importFocusZone !== 'actions') {
+          ui.setImportFocusZone('actions');
+        }
         ui.setImportFocus(Math.max(0, ui.importFocusIndex - 1));
         vibe('nav');
         afterFocusMove();
       }
       if (action === 'cursor-right') {
-        ui.setImportFocus(Math.min(1, ui.importFocusIndex + 1));
+        if (ui.importFocusZone !== 'actions') {
+          ui.setImportFocusZone('actions');
+        }
+        ui.setImportFocus(Math.min(footerMax, ui.importFocusIndex + 1));
         vibe('nav');
         afterFocusMove();
       }
       if (action === 'confirm') {
         vibe('confirm');
-        if (ui.importFocusIndex === 1) imp.enrich();
-        else imp.commitSelected({ copyToLibrary: true });
+        if (ui.importFocusZone === 'actions') {
+          const idx = ui.importFocusIndex;
+          if (idx === 0) imp.commitSelection({ copyToLibrary: true });
+          else if (idx === 1) imp.commitAll({ copyToLibrary: true });
+          else if (idx === 2) imp.enrich();
+          else if (idx === 3) imp.scan();
+          else router.push({ name: 'library' });
+        } else {
+          // Liste : A = toggle sélection multi
+          imp.toggleSelect();
+        }
+        afterFocusMove();
       }
       if (action === 'enrich') {
         vibe('confirm');
