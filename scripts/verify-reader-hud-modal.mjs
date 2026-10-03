@@ -84,6 +84,15 @@ assert(
   gamepad.includes('hudVisible') && gamepad.includes('stickMenuNav.update'),
   'stick → nav focus quand modal ouverte',
 );
+assert(
+  /function tick\(\)[\s\S]*?const\s*\{\s*ui\s*,\s*reader\s*\}\s*=\s*handlers/.test(
+    gamepad,
+  ) ||
+    /function tick\(\)[\s\S]*?const\s*\{\s*reader\s*,\s*ui\s*\}\s*=\s*handlers/.test(
+      gamepad,
+    ),
+  'tick() : reader depuis handlers (évite ReferenceError / boucle morte)',
+);
 
 if (failed) {
   console.error(`\n${failed} assertion(s) failed`);

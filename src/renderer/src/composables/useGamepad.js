@@ -733,99 +733,105 @@ function createLoop(ctx) {
 
   function tick() {
     if (!running) return;
-    const pads = navigator.getGamepads ? navigator.getGamepads() : [];
-    const pad = pickPad(pads);
-    const { ui } = handlers;
-    currentPad = pad;
+    try {
+      const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+      const pad = pickPad(pads);
+      // reader doit venir de handlers — sinon ReferenceError en route reader
+      // et la boucle rAF meurt (régression modal pause / stick zoom).
+      const { ui, reader } = handlers;
+      currentPad = pad;
 
-    refreshOrientation();
+      refreshOrientation();
 
-    if (lastRouteForHaptic !== ui.routeName) {
-      if (lastRouteForHaptic != null) vibe('light');
-      lastRouteForHaptic = ui.routeName;
-    }
+      if (lastRouteForHaptic !== ui.routeName) {
+        if (lastRouteForHaptic != null) vibe('light');
+        lastRouteForHaptic = ui.routeName;
+      }
 
-    if (!pad) {
-      ui.setGamepadStatus({ connected: false, label: 'Manette en attente…' });
-      ui.setHapticsAvailable(false);
-      prevButtons = [];
-      stickMenuNav.reset();
-    } else {
-      const short = pad.id.length > 36 ? `${pad.id.slice(0, 36)}…` : pad.id;
-      const hapticOk = hasHaptics(pad);
-      ui.setHapticsAvailable(hapticOk);
-      const modeLabel = orientation === DeviceOrientation.PORTRAIT_CCW ? 'lecture' : 'menus';
-      ui.setGamepadStatus({
-        connected: true,
-        label: `${short} · ${modeLabel}${hapticOk && ui.hapticsEnabled ? ' · rumble' : ''}`,
-      });
+      if (!pad) {
+        ui.setGamepadStatus({ connected: false, label: 'Manette en attente…' });
+        ui.setHapticsAvailable(false);
+        prevButtons = [];
+        stickMenuNav.reset();
+      } else {
+        const short = pad.id.length > 36 ? `${pad.id.slice(0, 36)}…` : pad.id;
+        const hapticOk = hasHaptics(pad);
+        ui.setHapticsAvailable(hapticOk);
+        const modeLabel = orientation === DeviceOrientation.PORTRAIT_CCW ? 'lecture' : 'menus';
+        ui.setGamepadStatus({
+          connected: true,
+          label: `${short} · ${modeLabel}${hapticOk && ui.hapticsEnabled ? ' · rumble' : ''}`,
+        });
 
-      const rawX = applyDeadzone(pad.axes[0] || 0);
-      const rawY = applyDeadzone(pad.axes[1] || 0);
+        const rawX = applyDeadzone(pad.axes[0] || 0);
+        const rawY = applyDeadzone(pad.axes[1] || 0);
 
-      if (ui.routeName === 'reader') {
-        if (reader.hudVisible) {
-          // Modal pause : stick = nav focus (comme menus), pas de pan.
-          const logical = remapStick(orientation, rawX, rawY);
-          const dir = stickMenuNav.update(logical.x, logical.y, performance.now());
+        if (ui.routeName === 'reader') {
+          if (reader.hudVisible) {
+            // Modal pause : stick = nav focus (comme menus), pas de pan.
+            const logical = remapStick(orientation, rawX, rawY);
+            const dir = stickMenuNav.update(logical.x, logical.y, performance.now());
+            if (dir) {
+              if (dir === 'up') dispatch('cursor-up');
+              else if (dir === 'down') dispatch('cursor-down');
+              else if (dir === 'left') dispatch('cursor-left');
+              else if (dir === 'right') dispatch('cursor-right');
+            }
+          } else {
+            // Lecteur : pan analogique avec remap portrait — pas de focus menu.
+            stickMenuNav.reset();
+            const stick = remapStick(orientation, rawX, rawY);
+            if (stick.x !== 0 || stick.y !== 0) {
+              const stickAction = resolveAction('stick:left') || 'pan';
+              dispatch(stickAction, stick);
+            }
+          }
+        } else if (!ui.listeningForBind) {
+          // Menus landscape : stick = D-Pad (cursor-*) via bindings dpad:*.
+          // Pas de remap (Haut=Haut). Edge + repeat pour ne pas spammer.
+          const dir = stickMenuNav.update(rawX, rawY, performance.now());
           if (dir) {
-            if (dir === 'up') dispatch('cursor-up');
-            else if (dir === 'down') dispatch('cursor-down');
-            else if (dir === 'left') dispatch('cursor-left');
-            else if (dir === 'right') dispatch('cursor-right');
+            const action = resolveAction(`dpad:${dir}`);
+            if (action) dispatch(action);
           }
         } else {
-          // Lecteur : pan analogique avec remap portrait — pas de focus menu.
           stickMenuNav.reset();
-          const stick = remapStick(orientation, rawX, rawY);
-          if (stick.x !== 0 || stick.y !== 0) {
-            const stickAction = resolveAction('stick:left') || 'pan';
-            dispatch(stickAction, stick);
+        }
+
+        const buttonIndices = [
+          BUTTON.A,
+          BUTTON.B,
+          BUTTON.X,
+          BUTTON.Y,
+          BUTTON.LB,
+          BUTTON.RB,
+          BUTTON.LT,
+          BUTTON.RT,
+          BUTTON.SELECT,
+          BUTTON.START,
+          BUTTON.L3,
+          BUTTON.R3,
+        ];
+        for (const index of buttonIndices) {
+          if (!edge(pad, index)) continue;
+          const bindingKey = `button:${index}`;
+          if (ui.listeningForBind) {
+            ui.applyCapturedBind(bindingKey);
+            vibe('confirm');
+            continue;
           }
+          const action = resolveAction(bindingKey);
+          dispatch(action, { bindingKey });
         }
-      } else if (!ui.listeningForBind) {
-        // Menus landscape : stick = D-Pad (cursor-*) via bindings dpad:*.
-        // Pas de remap (Haut=Haut). Edge + repeat pour ne pas spammer.
-        const dir = stickMenuNav.update(rawX, rawY, performance.now());
-        if (dir) {
-          const action = resolveAction(`dpad:${dir}`);
-          if (action) dispatch(action);
+
+        for (const [index, physical] of PHYSICAL_DPAD) {
+          if (edge(pad, index)) emitLogicalDpad(physical);
         }
-      } else {
-        stickMenuNav.reset();
-      }
 
-      const buttonIndices = [
-        BUTTON.A,
-        BUTTON.B,
-        BUTTON.X,
-        BUTTON.Y,
-        BUTTON.LB,
-        BUTTON.RB,
-        BUTTON.LT,
-        BUTTON.RT,
-        BUTTON.SELECT,
-        BUTTON.START,
-        BUTTON.L3,
-        BUTTON.R3,
-      ];
-      for (const index of buttonIndices) {
-        if (!edge(pad, index)) continue;
-        const bindingKey = `button:${index}`;
-        if (ui.listeningForBind) {
-          ui.applyCapturedBind(bindingKey);
-          vibe('confirm');
-          continue;
-        }
-        const action = resolveAction(bindingKey);
-        dispatch(action, { bindingKey });
+        prevButtons = pad.buttons.map((b) => Boolean(b?.pressed));
       }
-
-      for (const [index, physical] of PHYSICAL_DPAD) {
-        if (edge(pad, index)) emitLogicalDpad(physical);
-      }
-
-      prevButtons = pad.buttons.map((b) => Boolean(b?.pressed));
+    } catch (err) {
+      console.warn('[VDR] gamepad tick:', err);
     }
 
     rafId = requestAnimationFrame(tick);
