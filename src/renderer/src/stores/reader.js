@@ -1,5 +1,4 @@
 import { defineStore } from 'pinia';
-import { ZOOM_STEP } from '../../../shared/gamepad-codes.js';
 import {
   stripPrefetchRange,
   stripWindowRange,
@@ -518,7 +517,7 @@ export const useReaderStore = defineStore('reader', {
     },
     /**
      * Interpole `scale` → `targetScale` en ~200 ms ease-out (rAF).
-     * Le pas logique reste ±ZOOM_STEP ; seul le rendu est lissé.
+     * Conservé pour chemins fit/zoom résiduels ; strip vertical n’y passe pas.
      * Chaque frame ancre le zoom au centre écran (pas de dérive / faux scroll).
      */
     animateScaleTo(target, { duration = ZOOM_ANIM_MS } = {}) {

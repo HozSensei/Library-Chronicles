@@ -94,7 +94,6 @@ assert(store.includes('hudFocusIndex'), 'store hudFocusIndex');
 assert(store.includes('moveHudFocus'), 'store moveHudFocus');
 assert(store.includes('animateScaleTo'), 'zoom smooth animateScaleTo (rAF)');
 assert(store.includes('targetScale'), 'zoom targetScale');
-assert(store.includes('ZOOM_STEP'), 'zoom pas logique ±15 %');
 assert(readerView.includes('reader__strip'), 'strip vertical DOM');
 assert(readerView.includes('data-strip'), 'reader data-strip défaut');
 assert(
