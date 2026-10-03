@@ -258,7 +258,10 @@ export const useLibraryStore = defineStore('library', {
      */
     setCatalogTab(tab, opts = {}) {
       this.catalogTab = tab;
-      const keepNav = opts.keepNav === true || this.focusZone === 'nav';
+      // keepNav explicite (false) prime sur focusZone==='nav' — utile au clic souris.
+      const keepNav =
+        opts.keepNav === true ||
+        (opts.keepNav !== false && this.focusZone === 'nav');
       // Aligner l’index nav sur l’onglet actif
       const tabIdx = this.headerNav.findIndex((n) => n.kind === 'tab' && n.tab === tab);
       if (tabIdx >= 0 && (keepNav || this.focusZone === 'nav')) {
