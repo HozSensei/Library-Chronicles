@@ -111,7 +111,7 @@ Voir [`docs/UX.md`](./docs/UX.md), [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.
 ### Phase 4 — Features locales *(fait)*
 
 - [x] **Profils locaux** — nom + couleur, choix au lancement, gestion Paramètres ; progression / signets / prefs par profil
-- [x] **Séries / tomes** — détection filename + `series_id` / volume en DB ; vue séries ; reprise « tome suivant non lu »
+- [x] **Séries / tomes** — détection filename + fallback dossier parent (hors dossiers génériques) + `series_id` / volume en DB ; vue séries ; reprise « tome suivant non lu » (API metadata reste prioritaire)
 - [x] **Signets** — ajout (X) / liste / suppression par livre & profil ; panneau HUD
 - [x] **Mode webtoon** — défilement vertical continu ; stick = scroll ; prefs persistées
 - [x] **Filtres lecture** — luminosité / contraste / sépia (CSS GPU) ; preset nuit + reset ; panneau HUD
