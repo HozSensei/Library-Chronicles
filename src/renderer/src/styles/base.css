@@ -67,6 +67,8 @@ textarea:focus-visible {
 .ghost:focus-visible {
   color: var(--paper);
   border-color: var(--brass);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--focus-glow);
 }
 
 .btn-primary {

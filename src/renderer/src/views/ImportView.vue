@@ -70,12 +70,20 @@ async function doEnrich() {
             <template v-if="item.alreadyInLibrary"> · déjà en biblio</template>
           </span>
         </button>
-        <p v-if="!imp.items.length && !imp.loading" class="empty">
-          Dépose des CBZ/CBR/PDF dans le dossier import, puis relance le scan.
-        </p>
+        <div v-if="!imp.items.length && !imp.loading" class="empty">
+          <p class="empty__title">Dossier import vide</p>
+          <p class="empty__hint">
+            Dépose des CBZ, CBR ou PDF dans le dossier import, puis appuie sur Rescanner.
+          </p>
+        </div>
       </aside>
 
-      <div v-if="imp.selected" class="detail">
+      <div v-if="!imp.selected && !imp.loading" class="detail detail--idle">
+        <p class="empty__title">Sélectionne un tome</p>
+        <p class="empty__hint">Navigue avec ↑↓, puis A pour importer ou Y pour enrichir.</p>
+      </div>
+
+      <div v-else-if="imp.selected" class="detail">
         <div class="cover-wrap">
           <img v-if="imp.coverPreview" :src="imp.coverPreview" alt="" class="cover" />
           <div v-else class="cover cover--empty">Aperçu</div>
@@ -208,11 +216,16 @@ h1 {
   border-radius: var(--radius-md);
   padding: 0.75rem 0.9rem;
   cursor: pointer;
+  transition:
+    border-color 160ms var(--ease-soft),
+    box-shadow 160ms var(--ease-soft),
+    transform 160ms var(--ease-soft);
 }
 
 .list__item.is-focused {
   border-color: var(--brass-bright);
   box-shadow: 0 0 0 3px var(--focus-glow);
+  transform: translate3d(3px, 0, 0);
 }
 
 .list__title {
@@ -231,7 +244,23 @@ h1 {
 .empty {
   color: var(--paper-dim);
   text-align: center;
-  padding: 1.5rem;
+  padding: 1.75rem 1.25rem;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.empty__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: var(--paper);
+}
+
+.empty__hint {
+  margin: 0.45rem 0 0;
+  line-height: 1.4;
+  font-size: 0.9rem;
 }
 
 .detail {
@@ -239,6 +268,17 @@ h1 {
   display: flex;
   flex-direction: column;
   gap: 0.85rem;
+  animation: detail-in 260ms var(--ease-out);
+}
+
+.detail--idle {
+  place-content: center;
+  text-align: center;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  padding: 1.5rem;
+  color: var(--paper-dim);
 }
 
 .cover-wrap {
@@ -314,5 +354,25 @@ h1 {
   flex-wrap: wrap;
   justify-content: center;
   gap: 0.65rem;
+}
+
+@keyframes detail-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .detail {
+    animation: none;
+  }
+  .list__item {
+    transition: none;
+  }
 }
 </style>

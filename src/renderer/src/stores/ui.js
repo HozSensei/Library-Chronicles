@@ -19,6 +19,9 @@ export const useUiStore = defineStore('ui', {
     setupFocusIndex: 0,
     settingsFocusIndex: 0,
     importFocusIndex: 0,
+    /** Feedback vibration manette (Ally). */
+    hapticsEnabled: true,
+    hapticsAvailable: false,
   }),
   getters: {
     isDark: (s) => s.theme !== 'light',
@@ -26,6 +29,13 @@ export const useUiStore = defineStore('ui', {
   actions: {
     setRouteName(name) {
       this.routeName = name || 'boot';
+    },
+    setHapticsAvailable(available) {
+      this.hapticsAvailable = Boolean(available);
+    },
+    async setHapticsEnabled(enabled) {
+      this.hapticsEnabled = Boolean(enabled);
+      await window.vdr.setConfig({ hapticsEnabled: this.hapticsEnabled });
     },
     setGamepadStatus({ connected, label }) {
       this.gamepadConnected = connected;
@@ -57,6 +67,7 @@ export const useUiStore = defineStore('ui', {
       this.orientation = config.orientation || 'portrait-ccw';
       this.userKeyBindings = config.keyBindings || null;
       this.keyBindings = resolveKeyBindings(this.userKeyBindings);
+      this.hapticsEnabled = config.hapticsEnabled !== false;
       this.applyTheme(config.theme || 'dark');
       this.configLoaded = true;
       return config;

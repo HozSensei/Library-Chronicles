@@ -13,9 +13,13 @@
     "test:remap": "node scripts/verify-portrait-remap.mjs",
     "test:cbz": "node scripts/verify-cbz.mjs",
     "test:pdf": "node scripts/verify-pdf.mjs",
-    "test": "npm run test:remap && npm run test:cbz && npm run test:pdf",
-    "rebuild:native": "npx --yes @electron/rebuild -f -w better-sqlite3",
-    "postinstall": "npx --yes @electron/rebuild -f -w better-sqlite3 || true",
+    "test:watcher": "node scripts/verify-watcher.mjs",
+    "test:haptics": "node scripts/verify-haptics.mjs",
+    "test": "npm run test:remap && npm run test:cbz && npm run test:pdf && npm run test:watcher && npm run test:haptics",
+    "rebuild:native": "node scripts/rebuild-native.mjs",
+    "postinstall": "node scripts/rebuild-native.mjs || true",
+    "predist": "npm run rebuild:native",
+    "predist:win": "npm run rebuild:native",
     "dist": "npm run build && electron-builder --win",
     "dist:win": "npm run build && electron-builder --win",
     "dist:dir": "npm run build && electron-builder --win --dir",
@@ -58,7 +62,7 @@
     "asar": true,
     "asarUnpack": [
       "**/*.{node,dll}",
-      "**/better-sqlite3/**"
+      "**/better-sqlite3/**/*"
     ],
     "extraResources": [],
     "win": {
@@ -89,6 +93,8 @@
       "artifactName": "${productName}-${version}-portable.${ext}"
     },
     "npmRebuild": true,
+    "nodeGypRebuild": false,
+    "buildDependenciesFromSource": false,
     "electronLanguages": [
       "fr",
       "en-US"

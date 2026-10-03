@@ -37,7 +37,7 @@ Au **premier lancement**, un wizard configure dossiers (library / import), langu
 2. **Import** — déposer des CBZ/CBR/PDF dans le dossier import → review métadonnées → bibliothèque (rafraîchi aussi via watcher FS)
 3. **Bibliothèque** — grille couvertures, filtres, Continuer
 4. **Lecteur** — pan / zoom / pages manette, HUD (Y), Fit Width (X), Manga (A) ; PDF fidèle via Chromium
-5. **Paramètres** — thème, remapping touches, clé API ComicVine
+5. **Paramètres** — thème, haptics manette, remapping touches, clé API ComicVine
 
 ## Stack
 
@@ -68,7 +68,10 @@ Au **premier lancement**, un wizard configure dossiers (library / import), langu
 Si le module natif ne charge pas dans Electron :
 
 ```bash
+npm run rebuild:native
+# ou
 npx @electron/rebuild -f -w better-sqlite3
 ```
 
+`npm run dist:win` lance automatiquement le rebuild (`predist:win`).  
 Sinon l’app bascule automatiquement sur un **store JSON** dans `userData` (voir `docs/NATIVE.md`).

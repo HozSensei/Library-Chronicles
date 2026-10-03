@@ -91,15 +91,21 @@ Voir [`docs/UX.md`](./docs/UX.md), [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.
 - [x] Grille couvertures, progression, Continuer, statuts
 - [x] Flux import (scan → review métadonnées → commit)
 - [x] Provider métadonnées pluggable (stub + ComicVine câblé)
-- [x] Watcher FS library/import (debounce → refresh liste / file d’import)
+- [x] Watcher FS library/import (debounce → refresh liste / file d’import ; poll fallback)
 
-### Phase 4 — Polish & packaging *(partiel)*
+### Phase 4 — Polish & packaging *(fait — mergé PR #1 + suite)*
 
-- [x] Watcher FS
-- [x] Packaging Windows (electron-builder : NSIS + portable)
+- [x] Watcher FS library/import — debounce + stabilité + **fallback polling**
+- [x] Packaging Windows (electron-builder NSIS + portable, `predist` → rebuild natif)
 - [x] Focus manette setup / import / settings + HUD reduced-motion
-- [ ] Haptics Ally
-- [x] Notes rebuild native / fallback documentées
+- [x] Haptics Ally (`GamepadHapticActuator` / `vibrationActuator`, setting on/off, no-op sinon)
+- [x] Notes rebuild native / fallback JSON documentées (`docs/NATIVE.md`, `docs/PACKAGING.md`)
+- [x] Polish UX manette (focus, transitions settings/import, messages vides)
+
+### Merge
+
+- **PR #1** mergée dans `main` (`1caedf9`) — squelette produit + PDF + watcher initial + packaging.
+- Suite polish : branche `cursor/vdr-polish-haptics-watcher-ebcb`.
 
 ---
 

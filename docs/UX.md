@@ -19,7 +19,7 @@ Objectif : une expérience **console-first** irréprochable sur ROG Ally X (port
 3. **Import** — review métadonnées par tome
 4. **Bibliothèque** — grille couvertures focusable
 5. **Lecteur** — planche plein écran, HUD discret (Y)
-6. **Paramètres** — thème, remap, API
+6. **Paramètres** — thème, haptics, remap, API
 
 ## Thèmes
 
@@ -33,7 +33,7 @@ Persistance via config `theme`.
 
 1. Zéro dépendance souris — focus toujours visible
 2. Une intention par écran
-3. Feedback immédiat (edge boutons, glow focus)
+3. Feedback immédiat (edge boutons, glow focus, haptics optionnels)
 4. 60/120 FPS ressenti — `translate3d` / `scale`
 5. HUD discret
 6. Reduced motion respecté
@@ -54,3 +54,5 @@ Persistance via config `theme`.
 - [x] Boot : marque dominante dans le 1er viewport
 - [x] Reduced motion respecté (transitions / HUD)
 - [x] Watcher FS → refresh bibliothèque / import
+- [x] Haptics Ally (setting on/off, no-op si absent)
+- [x] Messages vides import / bibliothèque guidés manette

@@ -43,10 +43,20 @@ async function toggleTheme() {
   await ui.setTheme(ui.theme === 'dark' ? 'light' : 'dark');
 }
 
+async function toggleHaptics() {
+  await ui.setHapticsEnabled(!ui.hapticsEnabled);
+}
+
 async function setOrientation(orientation) {
   ui.orientation = orientation;
   await window.vdr.setConfig({ orientation });
 }
+
+const hapticsSubtitle = computed(() => {
+  if (!ui.hapticsEnabled) return 'Désactivé';
+  if (!ui.hapticsAvailable) return 'Activé · matériel non détecté (no-op)';
+  return 'Activé · rumble Ally / gamepad';
+});
 
 async function saveApiKey() {
   await window.vdr.metadata.setApiKey('comicvine', apiKeyInput.value);
@@ -75,7 +85,7 @@ const listeningLabel = computed(() => {
     <header>
       <p class="brand">Vertical Deck Reader</p>
       <h1>Paramètres</h1>
-      <p class="lead">Thème, orientation, remapping manette, clé API.</p>
+      <p class="lead">Thème, orientation, haptics, remapping manette, clé API.</p>
     </header>
 
     <nav class="tabs" aria-label="Sections">
@@ -113,6 +123,13 @@ const listeningLabel = computed(() => {
           @select="setOrientation('landscape')"
         >
           Orientation landscape (dev)
+        </FocusButton>
+        <FocusButton
+          :focused="ui.settingsFocusIndex === 3"
+          :subtitle="hapticsSubtitle"
+          @select="toggleHaptics"
+        >
+          Vibrations manette
         </FocusButton>
       </template>
 
@@ -237,12 +254,22 @@ h1 {
   padding: 0.4rem 0.85rem;
   cursor: pointer;
   font-size: 0.85rem;
+  transition:
+    border-color 160ms var(--ease-soft),
+    background 160ms var(--ease-soft),
+    color 160ms var(--ease-soft),
+    box-shadow 160ms var(--ease-soft);
 }
 
 .tab.is-active {
   color: var(--paper);
   border-color: var(--brass);
   background: rgba(212, 163, 92, 0.12);
+}
+
+.tab:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--focus-glow);
 }
 
 .body {
@@ -253,6 +280,7 @@ h1 {
   display: flex;
   flex-direction: column;
   gap: 0.65rem;
+  animation: panel-in 280ms var(--ease-out);
 }
 
 .listen {
@@ -355,6 +383,26 @@ footer {
   }
   50% {
     opacity: 0.65;
+  }
+}
+
+@keyframes panel-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .body {
+    animation: none;
+  }
+  .listen {
+    animation: none;
   }
 }
 </style>

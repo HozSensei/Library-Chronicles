@@ -45,8 +45,16 @@ Build unifié via **electron-vite** :
 
 ## Watcher FS
 
-`src/main/library/watcher.js` surveille `libraryRoot` et `importRoot` (`fs.watch` + debounce).  
+`src/main/library/watcher.js` surveille `libraryRoot` et `importRoot` :
+
+- `fs.watch` récursif + debounce + fenêtre de stabilité ;
+- **fallback polling** si watch indisponible ou erreurs répétées.
+
 Événements push : `watch:library-changed` / `watch:import-changed` → le renderer rescane.
+
+## Haptics
+
+`useHaptics.js` + setting `hapticsEnabled` — pulse léger navigation / confirm / changement de route. No-op sans actuator.
 
 ## Sécurité
 
@@ -60,3 +68,5 @@ Build unifié via **electron-vite** :
 - `npm run test:remap` — portrait-remap + bindings + parse filename
 - `npm run test:cbz` — extracteur CBZ minimal
 - `npm run test:pdf` — extracteur PDF (placeholder hors Electron)
+- `npm run test:watcher` — snapshot / diff FS (+ présence poll fallback)
+- `npm run test:haptics` — no-op / dual-rumble / pulse legacy

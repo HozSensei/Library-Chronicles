@@ -24,6 +24,11 @@ const DEFAULTS = {
   apiKeys: {},
   /** Provider métadonnées actif. */
   metadataProvider: 'stub',
+  /**
+   * Feedback haptique manette (Ally / GamepadHapticActuator).
+   * No-op si l’API ou le matériel est absent.
+   */
+  hapticsEnabled: true,
 };
 
 let cache = null;

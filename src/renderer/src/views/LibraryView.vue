@@ -73,8 +73,18 @@ function statusBadge(status) {
     <div class="library__body">
       <div v-if="library.loading" class="library__empty">Chargement…</div>
       <div v-else-if="!library.filtered.length" class="library__empty">
-        <p>Aucun tome indexé.</p>
-        <p class="dim">Importe des fichiers ou scanne le dossier bibliothèque.</p>
+        <p class="library__empty-title">Aucun tome ici</p>
+        <p class="dim">
+          <template v-if="library.filter !== 'all'">
+            Change de filtre (LT/RT) ou importe un album.
+          </template>
+          <template v-else>
+            Importe des CBZ/CBR/PDF ou scanne le dossier bibliothèque.
+          </template>
+        </p>
+        <button type="button" class="ghost library__empty-cta" @click="router.push({ name: 'import' })">
+          Ouvrir l’import
+        </button>
       </div>
       <div v-else class="library__grid">
         <button
@@ -162,11 +172,24 @@ function statusBadge(status) {
   display: grid;
   place-content: center;
   text-align: center;
-  gap: 0.35rem;
+  gap: 0.45rem;
   color: var(--paper);
   border: 1px dashed var(--border);
   border-radius: var(--radius-md);
   background: var(--surface);
+  padding: 1.5rem;
+  animation: empty-in 280ms var(--ease-out);
+}
+
+.library__empty-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.15rem;
+}
+
+.library__empty-cta {
+  margin: 0.65rem auto 0;
 }
 
 .dim {
@@ -200,6 +223,10 @@ function statusBadge(status) {
   box-shadow: 0 0 0 3px var(--focus-glow);
   border-color: var(--brass-bright);
   transform: translate3d(0, -2px, 0) scale(1.02);
+}
+
+.tile.is-focused .tile__title {
+  color: var(--brass-bright);
 }
 
 .tile__cover {
@@ -262,5 +289,24 @@ function statusBadge(status) {
   flex-direction: column;
   align-items: center;
   gap: 0.85rem;
+}
+
+@keyframes empty-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .library__empty,
+  .tile__cover {
+    animation: none;
+    transition: none;
+  }
 }
 </style>
