@@ -7,11 +7,14 @@ import {
   panForZoomToScreenCenter,
   pinReaderOverflow,
 } from '../../../shared/zoom-anchor.js';
+import { useLibraryStore } from './library.js';
 
 const NIGHT_PRESET = { brightness: 0.78, contrast: 1.12, sepia: 0.35 };
 const RESET_FILTERS = { brightness: 1, contrast: 1, sepia: 0 };
 /** Durée d’interpolation zoom D-Pad / L3 (ms), ease-out. */
 const ZOOM_ANIM_MS = 200;
+/** Prefetch pages voisines (hors webtoon). */
+const PAGE_PREFETCH_RADIUS = 2;
 
 function clampScale(value) {
   return Math.min(4, Math.max(0.25, value));
@@ -177,6 +180,7 @@ export const useReaderStore = defineStore('reader', {
       this.prevVolumeOffer = null;
       this.nextVolumeOffer = null;
       this.endFocusIndex = 0;
+      this.revokePageCache();
       try {
         await this.loadPrefs();
         const meta = await window.vdr.reader.open(filePath);
@@ -189,20 +193,11 @@ export const useReaderStore = defineStore('reader', {
         this.renderEngine = meta.renderEngine || meta.format || null;
         this.resetTransform();
 
-        // Métadonnées série depuis la bibliothèque
-        try {
-          const books = await window.vdr.library.list();
-          const book = books.find((b) => b.filePath === filePath || b.id === meta.bookId);
-          if (book) {
-            this.bookId = book.id;
-            this.series = book.series;
-            this.seriesId = book.seriesId;
-            this.volume = book.volume;
-            this.title = book.title || this.title;
-          }
-        } catch {
-          // ignore
-        }
+        // Métadonnées série déjà fournies par reader.open (plus de listBooks)
+        this.series = meta.series ?? null;
+        this.seriesId = meta.seriesId ?? null;
+        this.volume = meta.volume ?? null;
+        if (meta.title) this.title = meta.title;
 
         let start = 0;
         if (resume && meta.resumePage > 0 && meta.resumePage < meta.pageCount) {
@@ -223,17 +218,14 @@ export const useReaderStore = defineStore('reader', {
     async loadCurrentPage() {
       if (!this.filePath || this.pageCount === 0) return;
       if (this.webtoonMode) {
+        this.revokePageCache();
         await this.loadStripWindow();
       } else {
         await this.revokeStrip();
-        const page = await window.vdr.reader.getPage(this.pageIndex);
-        if (this.pageUrl) URL.revokeObjectURL(this.pageUrl);
-        if (!page?.data) {
-          this.pageUrl = null;
-          return;
-        }
-        this.pageUrl = this.blobUrlFromPage(page);
-        if (page.engine) this.renderEngine = page.engine;
+        const url = await this.ensurePageUrl(this.pageIndex);
+        this.pageUrl = url;
+        this.trimPageCache();
+        void this.prefetchNeighbors(this.pageIndex);
       }
       this.syncChapterIndex();
       this.persistProgress();
@@ -245,6 +237,79 @@ export const useReaderStore = defineStore('reader', {
       for (let i = 0; i < bin.length; i += 1) bytes[i] = bin.charCodeAt(i);
       const blob = new Blob([bytes], { type: page.mime || 'image/jpeg' });
       return URL.createObjectURL(blob);
+    },
+    /**
+     * Charge / mémoise une page (ObjectURL) avec dédup in-flight.
+     * @param {number} index
+     */
+    async ensurePageUrl(index) {
+      if (index < 0 || index >= this.pageCount) return null;
+      if (this._pageUrlCache[index]) return this._pageUrlCache[index];
+      if (this._pagePending[index]) return this._pagePending[index];
+      this._pagePending[index] = (async () => {
+        try {
+          const page = await window.vdr.reader.getPage(index);
+          if (!page?.data) return null;
+          if (page.engine) this.renderEngine = page.engine;
+          const url = this.blobUrlFromPage(page);
+          this._pageUrlCache[index] = url;
+          return url;
+        } catch {
+          return null;
+        } finally {
+          delete this._pagePending[index];
+        }
+      })();
+      return this._pagePending[index];
+    },
+    async prefetchNeighbors(center) {
+      const jobs = [];
+      for (let d = 1; d <= PAGE_PREFETCH_RADIUS; d += 1) {
+        const a = center + d;
+        const b = center - d;
+        if (a < this.pageCount) jobs.push(this.ensurePageUrl(a));
+        if (b >= 0) jobs.push(this.ensurePageUrl(b));
+      }
+      await Promise.all(jobs);
+      this.trimPageCache(center);
+    },
+    /** Garde page courante ±N ; révoque le reste. */
+    trimPageCache(center = this.pageIndex) {
+      const keep = new Set();
+      for (
+        let i = Math.max(0, center - PAGE_PREFETCH_RADIUS);
+        i <= Math.min(this.pageCount - 1, center + PAGE_PREFETCH_RADIUS);
+        i += 1
+      ) {
+        keep.add(i);
+      }
+      for (const key of Object.keys(this._pageUrlCache)) {
+        const idx = Number(key);
+        if (!keep.has(idx)) {
+          const url = this._pageUrlCache[idx];
+          if (url && url !== this.pageUrl) {
+            try {
+              URL.revokeObjectURL(url);
+            } catch {
+              // ignore
+            }
+          }
+          delete this._pageUrlCache[idx];
+        }
+      }
+    },
+    revokePageCache() {
+      for (const url of Object.values(this._pageUrlCache)) {
+        if (url) {
+          try {
+            URL.revokeObjectURL(url);
+          } catch {
+            // ignore
+          }
+        }
+      }
+      this._pageUrlCache = {};
+      this._pagePending = {};
     },
     async revokeStrip() {
       for (const p of this.stripPages) {
@@ -272,11 +337,7 @@ export const useReaderStore = defineStore('reader', {
         if (orphan.url) URL.revokeObjectURL(orphan.url);
       }
       this.stripPages = next;
-      // Page « courante » aussi en pageUrl pour compat
       const cur = next.find((p) => p.index === this.pageIndex);
-      if (this.pageUrl && !this.stripPages.some((p) => p.url === this.pageUrl)) {
-        // pageUrl peut être partagé avec strip — ne pas revoke si encore utilisé
-      }
       this.pageUrl = cur?.url || null;
     },
     syncChapterIndex() {
@@ -378,15 +439,8 @@ export const useReaderStore = defineStore('reader', {
       this.scale = 1;
       this.targetScale = 1;
       await this.revokeStrip();
-      if (this.pageUrl) {
-        // peut déjà être révoqué via strip
-        try {
-          URL.revokeObjectURL(this.pageUrl);
-        } catch {
-          // ignore
-        }
-        this.pageUrl = null;
-      }
+      this.revokePageCache();
+      this.pageUrl = null;
       await window.vdr.reader.close();
       this.filePath = null;
       this.bookId = null;
@@ -403,6 +457,12 @@ export const useReaderStore = defineStore('reader', {
       this.endFocusIndex = 0;
       this.error = null;
       this.renderEngine = null;
+      // Progression changée → forcer refresh biblio au prochain écran
+      try {
+        useLibraryStore().invalidate();
+      } catch {
+        // ignore
+      }
     },
     clearZoomAnim() {
       if (this._zoomRaf != null && typeof cancelAnimationFrame === 'function') {

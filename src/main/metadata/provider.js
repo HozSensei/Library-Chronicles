@@ -8,6 +8,7 @@
  */
 
 import { getConfigInternal, setConfig } from '../config.js';
+import { createTtlCache } from '../../shared/perf-cache.js';
 import { detectFromFilename } from './parse-filename.js';
 import { stubProvider } from './providers/stub.js';
 import { comicvineProvider } from './providers/comicvine.js';
@@ -27,6 +28,9 @@ const PROVIDERS = [
 ];
 
 const BY_ID = Object.fromEntries(PROVIDERS.map((p) => [p.id, p]));
+
+/** Cache recherche API (TTL 90s) + dedupe in-flight. */
+const searchCache = createTtlCache({ maxEntries: 48, ttlMs: 90_000 });
 
 /** Métadonnées UI (sans la fonction search). */
 export function listProviders() {
@@ -73,7 +77,7 @@ export function detectMetadata(filePath) {
  * Erreurs réseau → fallback stub + flag warning (jamais d’obligation réseau).
  * @returns {Promise<{ results: import('./types.js').MetadataResult[], provider: string, warning?: string|null }>}
  */
-export async function searchMetadata(query, { provider } = {}) {
+export async function searchMetadata(query, { provider, force = false } = {}) {
   const cfg = getConfigInternal();
   const providerId = provider || cfg.metadataProvider || 'anilist';
   const impl = BY_ID[providerId] || stubProvider;
@@ -88,41 +92,48 @@ export async function searchMetadata(query, { provider } = {}) {
     };
   }
 
-  if (impl.requiresApiKey && !apiKey) {
-    const stub = await stubProvider.search(q);
-    return {
-      results: stub.map((r) => ({
-        ...r,
-        description: `${r.description || ''} (Clé API ${impl.label} manquante)`.trim(),
-      })),
-      provider: impl.id,
-      warning: `Clé API requise pour ${impl.label}. Configure-la dans Paramètres → API.`,
-    };
-  }
+  const cacheKey = `${impl.id}::${q.toLowerCase()}`;
+  return searchCache.getOrLoad(
+    cacheKey,
+    async () => {
+      if (impl.requiresApiKey && !apiKey) {
+        const stub = await stubProvider.search(q);
+        return {
+          results: stub.map((r) => ({
+            ...r,
+            description: `${r.description || ''} (Clé API ${impl.label} manquante)`.trim(),
+          })),
+          provider: impl.id,
+          warning: `Clé API requise pour ${impl.label}. Configure-la dans Paramètres → API.`,
+        };
+      }
 
-  try {
-    const results = await impl.search(q, { apiKey });
-    const allStub =
-      results.length > 0 && results.every((r) => r.source === 'stub' && impl.id !== 'stub');
-    return {
-      results,
-      provider: impl.id,
-      warning: allStub
-        ? `${impl.label} n’a pas renvoyé de résultats exploitables (réseau ou requête).`
-        : null,
-    };
-  } catch (err) {
-    console.warn(`[VDR] Provider ${impl.id} crashed:`, err.message);
-    const stub = await stubProvider.search(q);
-    return {
-      results: stub.map((r) => ({
-        ...r,
-        description: `${r.description || ''} (${impl.label} indisponible: ${err.message})`.trim(),
-      })),
-      provider: impl.id,
-      warning: `${impl.label} indisponible : ${err.message}`,
-    };
-  }
+      try {
+        const results = await impl.search(q, { apiKey });
+        const allStub =
+          results.length > 0 && results.every((r) => r.source === 'stub' && impl.id !== 'stub');
+        return {
+          results,
+          provider: impl.id,
+          warning: allStub
+            ? `${impl.label} n’a pas renvoyé de résultats exploitables (réseau ou requête).`
+            : null,
+        };
+      } catch (err) {
+        console.warn(`[VDR] Provider ${impl.id} crashed:`, err.message);
+        const stub = await stubProvider.search(q);
+        return {
+          results: stub.map((r) => ({
+            ...r,
+            description: `${r.description || ''} (${impl.label} indisponible: ${err.message})`.trim(),
+          })),
+          provider: impl.id,
+          warning: `${impl.label} indisponible : ${err.message}`,
+        };
+      }
+    },
+    { force },
+  );
 }
 
 function publicMeta(p) {

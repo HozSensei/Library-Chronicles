@@ -54,15 +54,37 @@ export function registerLibraryIpc() {
     return root;
   });
 
-  ipcMain.handle(IpcChannels.LIBRARY_SCAN, async () => {
+  /**
+   * Scan bibliothèque.
+   * @param {{ force?: boolean }} [opts]
+   *   force=true (bouton Scanner) : ré-ouvre tous les fichiers.
+   *   force=false (watcher) : n’ouvre que les fichiers absents / sans cover / pageTotal=0.
+   */
+  ipcMain.handle(IpcChannels.LIBRARY_SCAN, async (_e, opts = {}) => {
+    const force = Boolean(opts?.force);
     const { libraryRoot } = getConfig();
-    if (!libraryRoot) return { found: [], error: 'Aucun dossier racine' };
+    if (!libraryRoot) {
+      return { found: [], error: 'Aucun dossier racine', indexed: 0, skipped: 0 };
+    }
     const scan = await scanLibraryRoot(libraryRoot);
     const pid = getActiveProfileId();
+    let indexed = 0;
+    let skipped = 0;
 
-    // Indexer les nouveaux fichiers (+ détection série/tome depuis le nom)
     for (const file of scan.found) {
       try {
+        const existing = getBookByPath(file.filePath);
+        if (
+          !force &&
+          existing &&
+          existing.pageTotal > 0 &&
+          existing.coverPath &&
+          fs.existsSync(existing.coverPath)
+        ) {
+          skipped += 1;
+          continue;
+        }
+
         const book = await openBook(file.filePath);
         let coverPath = null;
         try {
@@ -75,8 +97,6 @@ export function registerLibraryIpc() {
           // ignore cover errors
         }
         const detected = detectFromFilename(file.filePath);
-        const existing = getBookByPath(file.filePath);
-        // Préserver métadonnées manuelles si déjà présentes
         upsertBook({
           filePath: file.filePath,
           title: existing?.series
@@ -91,6 +111,7 @@ export function registerLibraryIpc() {
           pageTotal: book.pageCount,
         });
         await book.close();
+        indexed += 1;
       } catch (err) {
         console.warn('[VDR] scan skip', file.filePath, err.message);
       }
@@ -98,7 +119,7 @@ export function registerLibraryIpc() {
 
     const removed = pruneMissingBooks(scan.found.map((f) => f.filePath));
 
-    return { ...scan, removed, books: listBooks() };
+    return { ...scan, removed, books: listBooks(), indexed, skipped, force };
   });
 
   ipcMain.handle(IpcChannels.LIBRARY_LIST, async () => listBooks());

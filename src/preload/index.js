@@ -27,7 +27,8 @@ contextBridge.exposeInMainWorld('vdr', {
   library: {
     selectRoot: () => ipcRenderer.invoke(IpcChannels.LIBRARY_SELECT_ROOT),
     selectImport: () => ipcRenderer.invoke(IpcChannels.LIBRARY_SELECT_IMPORT),
-    scan: () => ipcRenderer.invoke(IpcChannels.LIBRARY_SCAN),
+    /** @param {{ force?: boolean }} [opts] force=true = réindex complet */
+    scan: (opts) => ipcRenderer.invoke(IpcChannels.LIBRARY_SCAN, opts || {}),
     list: () => ipcRenderer.invoke(IpcChannels.LIBRARY_LIST),
     getCover: (bookId) => ipcRenderer.invoke(IpcChannels.LIBRARY_GET_COVER, bookId),
     updateBook: (id, patch) =>

@@ -90,9 +90,10 @@ const hints = [
 ];
 
 onMounted(async () => {
-  await library.refresh();
+  // Soft refresh (TTL) — pas de re-list IPC si la grille vient d’être chargée
+  await library.refresh({ warmCovers: false });
   const id = route.params.id;
-  book.value = library.books.find((b) => String(b.id) === String(id)) || null;
+  book.value = library.getBookById(id);
   if (book.value?.id) await library.ensureCover(book.value.id);
   loading.value = false;
   ui.setBookFocus(BOOK_FOCUS.READ);
@@ -104,8 +105,8 @@ watch(
   async (id) => {
     if (!id) return;
     loading.value = true;
-    await library.refresh();
-    book.value = library.books.find((b) => String(b.id) === String(id)) || null;
+    await library.refresh({ warmCovers: false });
+    book.value = library.getBookById(id);
     if (book.value?.id) await library.ensureCover(book.value.id);
     loading.value = false;
     ui.setBookFocus(BOOK_FOCUS.READ);

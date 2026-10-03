@@ -1,6 +1,7 @@
 import path from 'path';
 import fs from 'fs';
 import JSZip from 'jszip';
+import { createLruMap } from '../../shared/perf-cache.js';
 
 /** Tri naturel : page2 < page10 */
 export function naturalCompare(a, b) {
@@ -67,7 +68,8 @@ export async function openCbz(filePath, { isImageEntry }) {
 
   const title = path.basename(filePath, path.extname(filePath));
   const chapters = detectChapters(pageNames);
-  const pageCache = new Map();
+  /** Pages décodées courantes ±N (LRU). */
+  const pageCache = createLruMap(12);
 
   return {
     format: 'cbz',
@@ -79,15 +81,11 @@ export async function openCbz(filePath, { isImageEntry }) {
       if (index < 0 || index >= pageNames.length) {
         throw new Error(`Page hors limites: ${index}`);
       }
-      if (pageCache.has(index)) return pageCache.get(index);
+      const hit = pageCache.get(index);
+      if (hit) return hit;
       const name = pageNames[index];
       const buf = Buffer.from(await zip.file(name).async('uint8array'));
       const result = { buffer: buf, mime: mimeFromName(name), name };
-      // Cache léger (évite de tout charger en mémoire)
-      if (pageCache.size > 12) {
-        const oldest = pageCache.keys().next().value;
-        pageCache.delete(oldest);
-      }
       pageCache.set(index, result);
       return result;
     },

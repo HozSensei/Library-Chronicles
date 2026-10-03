@@ -6,6 +6,7 @@ import {
   normalizeImportMetadata,
   resolveItemMetadata,
 } from '../../../shared/import-meta.js';
+import { useLibraryStore } from './library.js';
 
 function draftFromItem(item) {
   if (item?.selectedMeta) {
@@ -60,6 +61,7 @@ export const useImportStore = defineStore('import', {
     activeProvider: 'anilist',
     coverPreview: null,
     lastImported: null,
+    _providersLoaded: false,
   }),
   getters: {
     selected: (s) => s.items[s.cursor] || null,
@@ -106,7 +108,8 @@ export const useImportStore = defineStore('import', {
       if (this.allSelectableSelected) this.clearSelection();
       else this.selectAll();
     },
-    async loadProviders() {
+    async loadProviders({ force = false } = {}) {
+      if (this._providersLoaded && !force && this.providers.length) return;
       try {
         const data = await window.vdr.metadata.listProviders();
         this.providers = data.providers || [];
@@ -118,9 +121,11 @@ export const useImportStore = defineStore('import', {
         if (this.activeProvider !== active) {
           await window.vdr.metadata.setProvider(this.activeProvider);
         }
+        this._providersLoaded = true;
       } catch {
         this.providers = [];
         this.activeProvider = 'anilist';
+        this._providersLoaded = false;
       }
     },
     async setProvider(id) {
@@ -326,6 +331,11 @@ export const useImportStore = defineStore('import', {
         this.lastImported = result.book;
         item.alreadyInLibrary = true;
         item.existingBookId = result.book?.id;
+        try {
+          useLibraryStore().invalidate();
+        } catch {
+          /* ignore */
+        }
         return result;
       } finally {
         this.committing = false;
@@ -365,6 +375,13 @@ export const useImportStore = defineStore('import', {
         this.selectedPaths = this.selectedPaths.filter(
           (p) => !paths.includes(p),
         );
+        if (results.length) {
+          try {
+              useLibraryStore().invalidate();
+          } catch {
+            /* ignore */
+          }
+        }
       } finally {
         this.committing = false;
       }
@@ -397,6 +414,13 @@ export const useImportStore = defineStore('import', {
           results.push(result);
         }
         this.selectedPaths = [];
+        if (results.length) {
+          try {
+              useLibraryStore().invalidate();
+          } catch {
+            /* ignore */
+          }
+        }
       } finally {
         this.committing = false;
       }
