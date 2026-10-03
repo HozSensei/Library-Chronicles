@@ -560,6 +560,60 @@ function createLoop(ctx) {
     }
 
     if (route === 'reader') {
+      // Modal pause Select : focus trap — A valider, B fermer, D-Pad/stick nav.
+      if (reader.hudVisible) {
+        if (
+          action === 'close-book' ||
+          action === 'back' ||
+          action === 'toggle-pause' ||
+          action === 'toggle-overlay'
+        ) {
+          vibe('light');
+          reader.closeHud();
+          return;
+        }
+        if (
+          action === 'cursor-up' ||
+          action === 'page-prev' ||
+          action === 'zoom-out' ||
+          action === 'cursor-left'
+        ) {
+          reader.moveHudFocus(-1);
+          vibe('nav');
+          afterFocusMove();
+          return;
+        }
+        if (
+          action === 'cursor-down' ||
+          action === 'page-next' ||
+          action === 'zoom-in' ||
+          action === 'cursor-right'
+        ) {
+          reader.moveHudFocus(1);
+          vibe('nav');
+          afterFocusMove();
+          return;
+        }
+        if (
+          action === 'confirm' ||
+          action === 'toggle-direction' ||
+          action === 'open-book'
+        ) {
+          vibe('confirm');
+          const items = document.querySelectorAll('.hud [data-hud-focus]');
+          const el = items[reader.hudFocusIndex];
+          el?.click();
+          return;
+        }
+        if (action === 'add-bookmark') {
+          vibe('confirm');
+          reader.addBookmark();
+          return;
+        }
+        // Bloquer pan / pages / zoom tant que la modal est ouverte.
+        return;
+      }
+
       if (action === 'close-book' || action === 'back') {
         vibe('light');
         // Sortie lecture : navigation seule → App.vue fait exitReaderMode une fois.
@@ -679,12 +733,24 @@ function createLoop(ctx) {
       const rawY = applyDeadzone(pad.axes[1] || 0);
 
       if (ui.routeName === 'reader') {
-        // Lecteur : pan analogique avec remap portrait — pas de focus menu.
-        stickMenuNav.reset();
-        const stick = remapStick(orientation, rawX, rawY);
-        if (stick.x !== 0 || stick.y !== 0) {
-          const stickAction = resolveAction('stick:left') || 'pan';
-          dispatch(stickAction, stick);
+        if (reader.hudVisible) {
+          // Modal pause : stick = nav focus (comme menus), pas de pan.
+          const logical = remapStick(orientation, rawX, rawY);
+          const dir = stickMenuNav.update(logical.x, logical.y, performance.now());
+          if (dir) {
+            if (dir === 'up') dispatch('cursor-up');
+            else if (dir === 'down') dispatch('cursor-down');
+            else if (dir === 'left') dispatch('cursor-left');
+            else if (dir === 'right') dispatch('cursor-right');
+          }
+        } else {
+          // Lecteur : pan analogique avec remap portrait — pas de focus menu.
+          stickMenuNav.reset();
+          const stick = remapStick(orientation, rawX, rawY);
+          if (stick.x !== 0 || stick.y !== 0) {
+            const stickAction = resolveAction('stick:left') || 'pan';
+            dispatch(stickAction, stick);
+          }
         }
       } else if (!ui.listeningForBind) {
         // Menus landscape : stick = D-Pad (cursor-*) via bindings dpad:*.

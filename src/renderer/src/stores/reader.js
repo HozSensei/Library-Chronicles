@@ -18,8 +18,13 @@ export const useReaderStore = defineStore('reader', {
     scale: 1,
     panX: 0,
     panY: 0,
+    /** Modal pause Select (persistante jusqu’à B / Select). */
     hudVisible: false,
     hudPanel: 'main', // main | bookmarks | filters
+    /** Index focus manette dans la modal pause. */
+    hudFocusIndex: 0,
+    /** Toast progression (page ±) — distinct de la modal. */
+    toastVisible: false,
     pageUrl: null,
     /** Pages empilées mode webtoon { index, url } */
     stripPages: [],
@@ -64,16 +69,42 @@ export const useReaderStore = defineStore('reader', {
     },
   },
   actions: {
-    flashHud(ms = 1400) {
+    clearHudTimer() {
       if (this._hudTimer) {
         clearTimeout(this._hudTimer);
         this._hudTimer = null;
       }
-      this.hudVisible = true;
+    },
+    /** Toast bas de plan (progression) — n’ouvre pas la modal pause. */
+    flashHud(ms = 1400) {
+      this.clearHudTimer();
+      if (this.hudVisible) return;
+      this.toastVisible = true;
       this._hudTimer = setTimeout(() => {
-        this.hudVisible = false;
+        this.toastVisible = false;
         this._hudTimer = null;
       }, ms);
+    },
+    setHudFocus(index) {
+      const i = Number(index);
+      this.hudFocusIndex = Number.isFinite(i) && i >= 0 ? Math.floor(i) : 0;
+    },
+    moveHudFocus(delta) {
+      const items =
+        typeof document !== 'undefined'
+          ? document.querySelectorAll('.hud [data-hud-focus]')
+          : [];
+      const max = Math.max(0, items.length - 1);
+      const next = Math.min(max, Math.max(0, this.hudFocusIndex + delta));
+      this.hudFocusIndex = next;
+      return next;
+    },
+    closeHud() {
+      this.clearHudTimer();
+      this.hudVisible = false;
+      this.hudPanel = 'main';
+      this.hudFocusIndex = 0;
+      this.toastVisible = false;
     },
     async loadPrefs() {
       try {
@@ -259,10 +290,7 @@ export const useReaderStore = defineStore('reader', {
     },
     async close() {
       await this.persistProgress();
-      if (this._hudTimer) {
-        clearTimeout(this._hudTimer);
-        this._hudTimer = null;
-      }
+      this.closeHud();
       await this.revokeStrip();
       if (this.pageUrl) {
         // peut déjà être révoqué via strip
@@ -282,8 +310,6 @@ export const useReaderStore = defineStore('reader', {
       this.volume = null;
       this.pageCount = 0;
       this.pageIndex = 0;
-      this.hudVisible = false;
-      this.hudPanel = 'main';
       this.chapters = [];
       this.bookmarks = [];
       this.nextVolumeOffer = null;
@@ -351,24 +377,25 @@ export const useReaderStore = defineStore('reader', {
       this.resetTransform();
       await this.persistPrefs({ webtoonMode: this.webtoonMode });
       await this.loadCurrentPage();
-      this.hudVisible = true;
       this.flashHud(1200);
     },
     toggleHud() {
-      if (this._hudTimer) {
-        clearTimeout(this._hudTimer);
-        this._hudTimer = null;
-      }
+      this.clearHudTimer();
+      this.toastVisible = false;
       this.hudVisible = !this.hudVisible;
-      if (!this.hudVisible) this.hudPanel = 'main';
+      if (!this.hudVisible) {
+        this.hudPanel = 'main';
+        this.hudFocusIndex = 0;
+      } else {
+        this.hudFocusIndex = 0;
+      }
     },
     setHudPanel(panel) {
+      this.clearHudTimer();
+      this.toastVisible = false;
       this.hudPanel = panel;
       this.hudVisible = true;
-      if (this._hudTimer) {
-        clearTimeout(this._hudTimer);
-        this._hudTimer = null;
-      }
+      this.hudFocusIndex = 0;
     },
     async setFilters(patch) {
       if (patch.brightness != null) this.brightness = patch.brightness;
@@ -406,8 +433,7 @@ export const useReaderStore = defineStore('reader', {
       });
       await this.refreshBookmarks();
       this.bookmarkFlash = result.created ? 'Signet ajouté' : 'Signet déjà présent';
-      this.hudVisible = true;
-      this.hudPanel = 'bookmarks';
+      this.setHudPanel('bookmarks');
       setTimeout(() => {
         this.bookmarkFlash = null;
       }, 1600);
