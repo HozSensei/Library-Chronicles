@@ -34,6 +34,8 @@ export const useUiStore = defineStore('ui', {
     setupFocusIndex: 0,
     settingsFocusIndex: 0,
     importFocusIndex: 0,
+    /** Zone focus Import : liste de tomes ou barre d’actions. */
+    importFocusZone: 'list',
     bookFocusIndex: 0,
     hapticsEnabled: true,
     hapticsAvailable: false,
@@ -69,6 +71,9 @@ export const useUiStore = defineStore('ui', {
     },
     setImportFocus(index) {
       this.importFocusIndex = index;
+    },
+    setImportFocusZone(zone) {
+      this.importFocusZone = zone === 'actions' ? 'actions' : 'list';
     },
     setBookFocus(index) {
       this.bookFocusIndex = index;

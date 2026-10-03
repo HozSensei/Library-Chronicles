@@ -4,7 +4,10 @@ export const useImportStore = defineStore('import', {
   state: () => ({
     items: [],
     cursor: 0,
+    /** Chemins sélectionnés pour import multi. */
+    selectedPaths: [],
     loading: false,
+    committing: false,
     root: null,
     error: null,
     draft: {
@@ -30,8 +33,40 @@ export const useImportStore = defineStore('import', {
     selectedProviderMeta(s) {
       return s.providers.find((p) => p.id === s.activeProvider) || null;
     },
+    selectedCount: (s) => s.selectedPaths.length,
+    selectedItems(s) {
+      const set = new Set(s.selectedPaths);
+      return s.items.filter((i) => set.has(i.filePath));
+    },
+    allSelectableSelected(s) {
+      if (!s.items.length) return false;
+      return s.items.every((i) => s.selectedPaths.includes(i.filePath));
+    },
   },
   actions: {
+    isPathSelected(filePath) {
+      return this.selectedPaths.includes(filePath);
+    },
+    toggleSelect(filePath) {
+      const path = filePath || this.selected?.filePath;
+      if (!path) return;
+      const idx = this.selectedPaths.indexOf(path);
+      if (idx >= 0) {
+        this.selectedPaths = this.selectedPaths.filter((p) => p !== path);
+      } else {
+        this.selectedPaths = [...this.selectedPaths, path];
+      }
+    },
+    selectAll() {
+      this.selectedPaths = this.items.map((i) => i.filePath);
+    },
+    clearSelection() {
+      this.selectedPaths = [];
+    },
+    toggleSelectAll() {
+      if (this.allSelectableSelected) this.clearSelection();
+      else this.selectAll();
+    },
     async loadProviders() {
       try {
         const data = await window.vdr.metadata.listProviders();
@@ -74,6 +109,9 @@ export const useImportStore = defineStore('import', {
         this.items = result.found || [];
         this.error = result.error || null;
         this.cursor = 0;
+        // Conserve la sélection encore présente après rescan
+        const valid = new Set(this.items.map((i) => i.filePath));
+        this.selectedPaths = this.selectedPaths.filter((p) => valid.has(p));
         if (this.selected) await this.loadDraftFromSelected();
       } finally {
         this.loading = false;
@@ -168,6 +206,62 @@ export const useImportStore = defineStore('import', {
       item.alreadyInLibrary = true;
       item.existingBookId = result.book?.id;
       return result;
+    },
+    /**
+     * Importe les tomes cochés (ou le curseur si aucune sélection).
+     * Le tome curseur applique le brouillon métadonnées courant.
+     */
+    async commitSelection({ copyToLibrary = true } = {}) {
+      const paths =
+        this.selectedPaths.length > 0
+          ? [...this.selectedPaths]
+          : this.selected
+            ? [this.selected.filePath]
+            : [];
+      if (!paths.length) return [];
+
+      this.committing = true;
+      const results = [];
+      try {
+        for (const filePath of paths) {
+          const item = this.items.find((i) => i.filePath === filePath);
+          if (!item) continue;
+          const useDraft = this.selected?.filePath === filePath;
+          const meta = useDraft
+            ? {
+                ...this.draft,
+                description: this.draft.description || null,
+              }
+            : {
+                title: item.detected?.title || item.name,
+                series: item.detected?.series || '',
+                volume: item.detected?.volume ?? null,
+                author: item.detected?.author || '',
+                year: item.detected?.year ?? null,
+                description: item.detected?.description || null,
+              };
+          const result = await window.vdr.import.commit({
+            sourcePath: filePath,
+            metadata: meta,
+            copyToLibrary,
+          });
+          item.alreadyInLibrary = true;
+          item.existingBookId = result.book?.id;
+          this.lastImported = result.book;
+          results.push(result);
+        }
+        this.selectedPaths = this.selectedPaths.filter(
+          (p) => !paths.includes(p),
+        );
+      } finally {
+        this.committing = false;
+      }
+      return results;
+    },
+    /** Sélectionne tout puis importe. */
+    async commitAll({ copyToLibrary = true } = {}) {
+      this.selectAll();
+      return this.commitSelection({ copyToLibrary });
     },
   },
 });
