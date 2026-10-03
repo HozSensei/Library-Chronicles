@@ -136,7 +136,7 @@ export const DEFAULT_KEY_BINDINGS = Object.freeze({
     [`button:${GamepadButtons.START}`]: 'settings',
     [`button:${GamepadButtons.L3}`]: 'confirm',
     [`button:${GamepadButtons.R3}`]: 'confirm',
-    /** LB / RB = onglets Bibliothèque / Récents / Séries */
+    /** LB / RB = onglets Bibliothèque / Tous / Récents / Séries */
     [`button:${GamepadButtons.LB}`]: 'tab-prev',
     [`button:${GamepadButtons.RB}`]: 'tab-next',
     /** LT / RT = filtre statut */

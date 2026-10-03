@@ -427,7 +427,7 @@ function createLoop(ctx) {
         vibe('light');
         router.push({ name: 'settings' });
       }
-      /** LB / RB → onglets Bibliothèque / Récents / Séries */
+      /** LB / RB → onglets Bibliothèque / Tous / Récents / Séries */
       if (action === 'tab-next') {
         library.cycleCatalogTab(1);
         vibe('light');

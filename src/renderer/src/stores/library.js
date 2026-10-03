@@ -33,9 +33,9 @@ export const useLibraryStore = defineStore('library', {
     seriesCursor: 0,
     readingCursor: 0,
     heroIndex: 0,
-    /** @type {'nav' | 'hero' | 'watching' | 'filters' | 'trending' | 'recent' | 'series'} */
+    /** @type {'nav' | 'hero' | 'watching' | 'filters' | 'trending' | 'recent' | 'grid' | 'series'} */
     focusZone: 'hero',
-    /** @type {'board' | 'recent' | 'series'} */
+    /** @type {'board' | 'all' | 'recent' | 'series'} */
     catalogTab: 'board',
     expandedSeriesId: null,
     loading: false,
@@ -107,6 +107,7 @@ export const useLibraryStore = defineStore('library', {
       if (this.focusZone === 'watching') return this.readingBooks[this.readingCursor] || null;
       if (this.focusZone === 'recent') return this.recentBooks[this.recentCursor] || null;
       if (this.focusZone === 'trending') return this.trendingBooks[this.cursor] || null;
+      if (this.focusZone === 'grid') return this.filtered[this.cursor] || null;
       if (this.focusZone === 'series') {
         const g = this.seriesList[this.seriesCursor];
         if (!g) return null;
@@ -132,7 +133,14 @@ export const useLibraryStore = defineStore('library', {
   },
   actions: {
     syncColumns() {
-      this.columns = 6;
+      if (typeof window === 'undefined') {
+        this.columns = 6;
+        return;
+      }
+      const w = window.innerWidth || 1280;
+      if (w <= 640) this.columns = 3;
+      else if (w <= 960) this.columns = 4;
+      else this.columns = 6;
     },
     async refresh() {
       this.loading = true;
@@ -164,7 +172,11 @@ export const useLibraryStore = defineStore('library', {
             .filter((b) => b.lastAccess && b.id !== excludeId)
             .sort((a, b) => String(b.lastAccess).localeCompare(String(a.lastAccess)))[0] ||
           null;
-        this.cursor = Math.min(this.cursor, Math.max(0, this.trendingBooks.length - 1));
+        if (this.catalogTab === 'all' || this.focusZone === 'grid') {
+          this.cursor = Math.min(this.cursor, Math.max(0, this.filtered.length - 1));
+        } else {
+          this.cursor = Math.min(this.cursor, Math.max(0, this.trendingBooks.length - 1));
+        }
         this.recentCursor = Math.min(
           this.recentCursor,
           Math.max(0, this.recentBooks.length - 1),
@@ -180,12 +192,15 @@ export const useLibraryStore = defineStore('library', {
         if (this.focusZone === 'nav' || this.focusZone === 'filters') {
           /* keep */
         } else if (!this.books.length) {
-          this.focusZone = 'hero';
+          this.focusZone = this.catalogTab === 'all' ? 'filters' : 'hero';
         }
         const warm = [
           ...this.heroSlides.map((b) => b.id),
           ...this.trendingBooks.slice(0, 10).map((b) => b.id),
           ...this.readingBooks.slice(0, 6).map((b) => b.id),
+          ...(this.catalogTab === 'all'
+            ? this.filtered.slice(0, 24).map((b) => b.id)
+            : []),
         ];
         await Promise.all([...new Set(warm)].map((id) => this.ensureCover(id)));
       } finally {
@@ -226,14 +241,19 @@ export const useLibraryStore = defineStore('library', {
       } else if (tab === 'recent') {
         this.focusZone = 'recent';
         this.recentCursor = 0;
+      } else if (tab === 'all') {
+        this.cursor = 0;
+        if (this.filtered.length) this.focusGrid(0);
+        else this.focusZone = 'filters';
       } else {
         this.focusZone = 'hero';
       }
     },
     cycleCatalogTab(dir = 1) {
-      const tabs = ['board', 'recent', 'series'];
+      const tabs = ['board', 'all', 'recent', 'series'];
       const i = tabs.indexOf(this.catalogTab);
-      this.setCatalogTab(tabs[(i + dir + tabs.length) % tabs.length]);
+      const safe = i >= 0 ? i : 0;
+      this.setCatalogTab(tabs[(safe + dir + tabs.length) % tabs.length]);
     },
     focusHero(index = 0) {
       this.focusZone = 'hero';
@@ -261,7 +281,11 @@ export const useLibraryStore = defineStore('library', {
       return true;
     },
     focusGrid(index = 0) {
-      return this.focusTrending(index);
+      if (!this.filtered.length) return false;
+      this.focusZone = 'grid';
+      this.cursor = Math.max(0, Math.min(index, this.filtered.length - 1));
+      this.ensureCover(this.filtered[this.cursor]?.id);
+      return true;
     },
     focusSeries(index = 0) {
       if (!this.seriesList.length) return false;
@@ -275,6 +299,10 @@ export const useLibraryStore = defineStore('library', {
       const idx = this.filters.findIndex((f) => f.id === filter);
       this.filterIndex = idx >= 0 ? idx : 0;
       this.cursor = 0;
+      if (this.catalogTab === 'all' && this.focusZone === 'grid') {
+        if (this.filtered.length) this.focusGrid(0);
+        else this.focusZone = 'filters';
+      }
     },
     cycleFilter(dir = 1) {
       const order = this.filters;
@@ -300,6 +328,7 @@ export const useLibraryStore = defineStore('library', {
     /**
      * Navigation manette catalogue Movie Gather.
      * Zones verticales : hero/watching → filters → trending → recent
+     * Onglet « Tous » : filters → grille dense (columns)
      */
     moveCatalog(dx, dy) {
       if (this.catalogTab === 'series') {
@@ -321,13 +350,41 @@ export const useLibraryStore = defineStore('library', {
         return;
       }
 
+      if (this.catalogTab === 'all') {
+        const cols = Math.max(1, this.columns || 6);
+        const list = this.filtered;
+
+        if (this.focusZone === 'filters') {
+          if (dx !== 0) this.cycleFilter(dx);
+          if (dy > 0 && list.length) this.focusGrid(0);
+          return;
+        }
+
+        if (!list.length) {
+          this.focusZone = 'filters';
+          if (dx !== 0) this.cycleFilter(dx);
+          return;
+        }
+
+        this.focusZone = 'grid';
+        if (dy < 0 && this.cursor < cols) {
+          this.focusZone = 'filters';
+          return;
+        }
+        const next = this.cursor + dx + dy * cols;
+        this.cursor = Math.max(0, Math.min(list.length - 1, next));
+        this.ensureCover(list[this.cursor]?.id);
+        return;
+      }
+
       if (this.catalogTab === 'recent') {
         const list = this.recentBooks;
         if (!list.length) return;
         this.focusZone = 'recent';
+        const cols = Math.max(1, this.columns || 6);
         this.recentCursor = Math.max(
           0,
-          Math.min(list.length - 1, this.recentCursor + dx + dy * 6),
+          Math.min(list.length - 1, this.recentCursor + dx + dy * cols),
         );
         this.ensureCover(list[this.recentCursor]?.id);
         return;
