@@ -54,7 +54,6 @@ const heroMeta = computed(() => {
 });
 
 onMounted(async () => {
-  await ui.exitReaderMode();
   await profiles.refresh();
   await library.refresh();
   library.focusHero(0);

@@ -12,9 +12,12 @@ contextBridge.exposeInMainWorld('vdr', {
   setConfig: (patch) => ipcRenderer.invoke(IpcChannels.APP_SET_CONFIG, patch),
   getDefaultPaths: () => ipcRenderer.invoke(IpcChannels.APP_GET_DEFAULT_PATHS),
   pickDirectory: (opts) => ipcRenderer.invoke(IpcChannels.APP_PICK_DIRECTORY, opts),
-  /** Bascule fenêtre landscape (ui) ↔ portrait (reader). */
-  setSessionMode: (mode) =>
-    ipcRenderer.invoke(IpcChannels.APP_SET_SESSION_MODE, { mode }),
+  /** Bascule fenêtre landscape (ui) ↔ portrait (reader). force = resize même si déjà ui. */
+  setSessionMode: (mode, opts) =>
+    ipcRenderer.invoke(IpcChannels.APP_SET_SESSION_MODE, {
+      mode,
+      force: Boolean(opts?.force),
+    }),
   onOrientationChanged: (handler) =>
     subscribe(IpcChannels.APP_ORIENTATION_CHANGED, handler),
 

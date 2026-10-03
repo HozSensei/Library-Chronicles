@@ -14,7 +14,10 @@ import {
 import { actionForBinding, GamepadButtons } from '../../../shared/controls.js';
 import { hasHaptics, pulseHaptic } from './useHaptics.js';
 import { markProfileSelected, clearSetupGate } from '../router';
-
+import {
+  setupFocusRows,
+  moveSetupFocus,
+} from '../../../shared/setup-focus.js';
 
 const BUTTON = GamepadButtons;
 
@@ -165,6 +168,35 @@ function createLoop(ctx) {
 
     if (route === 'profiles') {
       const { profiles } = handlers;
+      const naming = Boolean(document.querySelector('.profiles__create'));
+
+      if (naming) {
+        if (action === 'cursor-left' || action === 'cursor-up') {
+          const input = document.querySelector('.profiles__create input');
+          input?.focus?.();
+          vibe('nav');
+          return;
+        }
+        if (action === 'cursor-right' || action === 'cursor-down') {
+          const btn = document.querySelector('.profiles__create .btn-primary');
+          btn?.focus?.();
+          vibe('nav');
+          return;
+        }
+        if (action === 'confirm' || action === 'open-book') {
+          // A valide le pseudo (création / édition) — focus input pour OSK SteamOS
+          document.querySelector('.profiles__create input')?.focus?.();
+          document.querySelector('.profiles__create')?.requestSubmit?.();
+          vibe('confirm');
+          return;
+        }
+        if (action === 'back') {
+          document.querySelector('.profiles__create .ghost')?.click();
+          vibe('light');
+        }
+        return;
+      }
+
       if (action === 'cursor-up' || (action === 'scroll' && payload?.y < -0.45)) {
         profiles.moveFocus(-1);
         vibe('nav');
@@ -180,6 +212,11 @@ function createLoop(ctx) {
       if (action === 'cursor-right') {
         profiles.moveFocus(1);
         vibe('nav');
+      }
+      if (action === 'rename' || action === 'book-options') {
+        window.dispatchEvent(new CustomEvent('vdr-profile-rename'));
+        vibe('light');
+        return;
       }
       if (action === 'confirm' || action === 'open-book') {
         if (profiles.focusIndex >= profiles.profiles.length) {
@@ -224,28 +261,33 @@ function createLoop(ctx) {
     }
 
     if (route === 'setup') {
-      const maxSetup = Math.max(0, document.querySelectorAll('.setup .focus-btn').length - 1);
+      // ←→ = options d’une rangée ; Confirm seul ouvre le dossier. Jamais ←→ → dialog.
+      const stepHint = Number(document.querySelector('.setup')?.dataset?.step ?? 0);
+      const rows = setupFocusRows(Number.isFinite(stepHint) ? stepHint : 0);
+
       if (action === 'cursor-up') {
-        ui.setSetupFocus(Math.max(0, ui.setupFocusIndex - 1));
+        ui.setSetupFocus(moveSetupFocus(rows, ui.setupFocusIndex, 'up'));
         vibe('nav');
       }
       if (action === 'cursor-down') {
-        ui.setSetupFocus(Math.min(maxSetup, ui.setupFocusIndex + 1));
+        ui.setSetupFocus(moveSetupFocus(rows, ui.setupFocusIndex, 'down'));
         vibe('nav');
       }
-      if (action === 'cursor-left' || action === 'back') {
-        document.querySelector('.setup .ghost')?.click();
+      if (action === 'cursor-left') {
+        // Navigation horizontale UNIQUEMENT — ne jamais ouvrir le sélecteur de dossier
+        ui.setSetupFocus(moveSetupFocus(rows, ui.setupFocusIndex, 'left'));
+        vibe('nav');
       }
       if (action === 'cursor-right') {
-        const focused = document.querySelector('.setup .focus-btn.is-focused');
-        if (focused) {
-          vibe('confirm');
-          focused.click();
-        } else {
-          document.querySelector('.setup .focus-btn:last-of-type')?.click();
-        }
+        ui.setSetupFocus(moveSetupFocus(rows, ui.setupFocusIndex, 'right'));
+        vibe('nav');
+      }
+      if (action === 'back') {
+        document.querySelector('.setup__footer .ghost, .setup .ghost')?.click();
+        vibe('light');
       }
       if (action === 'confirm') {
+        // Confirm/A seul peut activer Parcourir / thème / continuer
         const focused = document.querySelector('.setup .focus-btn.is-focused');
         vibe('confirm');
         focused?.click();

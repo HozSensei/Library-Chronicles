@@ -1,10 +1,15 @@
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import FocusButton from '../components/FocusButton.vue';
 import ControlHint from '../components/ControlHint.vue';
 import { useUiStore } from '../stores/ui';
 import { markSetupCompleted } from '../router';
+import {
+  setupFocusRows,
+  setupFocusables,
+  moveSetupFocus,
+} from '../../../shared/setup-focus.js';
 
 const router = useRouter();
 const ui = useUiStore();
@@ -25,17 +30,17 @@ const steps = [
   { id: 'done', title: 'Prêt' },
 ];
 
-const focusables = computed(() => {
-  if (step.value === 0) return ['next'];
-  if (step.value === 1) return ['library', 'import', 'next'];
-  if (step.value === 2) return ['theme-dark', 'theme-light', 'lang-fr', 'next'];
-  return ['finish'];
+const focusRows = computed(() => setupFocusRows(step.value));
+const focusables = computed(() => setupFocusables(step.value));
+const focusedId = computed(
+  () => focusables.value[ui.setupFocusIndex] || focusables.value[0],
+);
+
+watch(step, () => {
+  ui.setSetupFocus(0);
 });
 
-const focusedId = computed(() => focusables.value[ui.setupFocusIndex] || focusables.value[0]);
-
 onMounted(async () => {
-  await ui.exitReaderMode();
   const paths =
     (await window.vdr.profiles.defaultPaths?.()) ||
     (await window.vdr.getDefaultPaths());
@@ -68,19 +73,16 @@ function setTheme(theme) {
 function next() {
   if (step.value < steps.length - 1) {
     step.value += 1;
-    ui.setSetupFocus(0);
   }
 }
 
 function back() {
   if (step.value > 0) {
     step.value -= 1;
-    ui.setSetupFocus(0);
   }
 }
 
 async function finish() {
-  // Setup scoped au profil actif
   await window.vdr.profiles.setPrefs({
     libraryRoot: form.libraryRoot,
     importRoot: form.importRoot,
@@ -99,9 +101,13 @@ async function finish() {
   ui.setupCompleted = true;
   markSetupCompleted();
   ui.applyTheme(form.theme);
-  await ui.exitReaderMode();
   ui.language = form.language;
   router.replace({ name: 'library' });
+}
+
+function moveFocus(dir) {
+  const nextIndex = moveSetupFocus(focusRows.value, ui.setupFocusIndex, dir);
+  ui.setSetupFocus(nextIndex);
 }
 
 function activateFocused() {
@@ -115,14 +121,22 @@ function activateFocused() {
   else if (id === 'lang-fr') form.language = 'fr';
 }
 
-defineExpose({ next, back, finish, activateFocused, focusables });
+defineExpose({
+  next,
+  back,
+  finish,
+  activateFocused,
+  moveFocus,
+  focusables,
+  focusRows,
+});
 </script>
 
 <template>
-  <section class="setup relative h-full overflow-hidden" aria-label="Configuration initiale">
-    <div class="setup__atmosphere absolute inset-0 pointer-events-none" aria-hidden="true">
+  <section class="setup" :data-step="step" aria-label="Configuration initiale">
+    <div class="setup__atmosphere" aria-hidden="true">
       <div
-        class="absolute inset-0"
+        class="setup__wash"
         style="
           background:
             radial-gradient(ellipse 80% 50% at 20% -10%, var(--wash-a), transparent 55%),
@@ -132,22 +146,18 @@ defineExpose({ next, back, finish, activateFocused, focusables });
       />
     </div>
 
-    <div class="relative z-10 mx-auto flex h-full max-w-3xl flex-col px-8 py-10 sm:px-12">
-      <header class="mb-8">
-        <p class="font-[family-name:var(--font-display)] text-3xl font-extrabold tracking-tight text-[var(--brass-bright)] sm:text-4xl">
-          Vertical Deck Reader
-        </p>
-        <p class="mt-2 text-xs uppercase tracking-[0.14em] text-[var(--brass)]">
+    <div class="setup__frame">
+      <header class="setup__header">
+        <p class="setup__brand">Vertical Deck Reader</p>
+        <p class="setup__step">
           {{ steps[step].title }} · {{ step + 1 }}/{{ steps.length }}
         </p>
       </header>
 
-      <div class="setup__body flex min-h-0 flex-1 flex-col gap-5 overflow-auto">
+      <div class="setup__body">
         <template v-if="step === 0">
-          <h1 class="m-0 font-[family-name:var(--font-display)] text-2xl tracking-tight">
-            Installons ton espace de lecture
-          </h1>
-          <p class="lead m-0 max-w-xl text-[var(--paper-dim)] leading-relaxed">
+          <h1>Installons ton espace de lecture</h1>
+          <p class="lead">
             Profil sélectionné — configure ses dossiers et son thème.
             Menus en paysage, lecture en portrait : l’app bascule toute seule.
           </p>
@@ -157,14 +167,14 @@ defineExpose({ next, back, finish, activateFocused, focusables });
         </template>
 
         <template v-else-if="step === 1">
-          <h1 class="m-0 font-[family-name:var(--font-display)] text-2xl tracking-tight">Dossiers</h1>
-          <p class="lead m-0 max-w-xl text-[var(--paper-dim)]">
+          <h1>Dossiers</h1>
+          <p class="lead">
             Bibliothèque pour les tomes indexés · Import pour les fichiers à trier.
           </p>
-          <div class="grid gap-4 sm:grid-cols-2">
-            <div class="field rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] p-4">
+          <div class="choice-row">
+            <div class="field-card">
               <label>Bibliothèque</label>
-              <code class="path mb-3 block break-all text-xs text-[var(--paper-dim)]">{{ form.libraryRoot }}</code>
+              <code class="path">{{ form.libraryRoot }}</code>
               <FocusButton
                 :focused="focusedId === 'library'"
                 subtitle="Choisir un autre dossier"
@@ -173,9 +183,9 @@ defineExpose({ next, back, finish, activateFocused, focusables });
                 Parcourir
               </FocusButton>
             </div>
-            <div class="field rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] p-4">
+            <div class="field-card">
               <label>Import</label>
-              <code class="path mb-3 block break-all text-xs text-[var(--paper-dim)]">{{ form.importRoot }}</code>
+              <code class="path">{{ form.importRoot }}</code>
               <FocusButton
                 :focused="focusedId === 'import'"
                 subtitle="Inbox des nouveaux fichiers"
@@ -191,14 +201,14 @@ defineExpose({ next, back, finish, activateFocused, focusables });
         </template>
 
         <template v-else-if="step === 2">
-          <h1 class="m-0 font-[family-name:var(--font-display)] text-2xl tracking-tight">Préférences</h1>
-          <p class="lead m-0 max-w-xl text-[var(--paper-dim)]">
+          <h1>Préférences</h1>
+          <p class="lead">
             Thème et langue. L’orientation est automatique (paysage menus → portrait lecteur).
           </p>
 
           <div class="choice-group">
             <p class="choice-group__label">Thème</p>
-            <div class="choice-row grid grid-cols-2 gap-3">
+            <div class="choice-row">
               <FocusButton
                 :focused="focusedId === 'theme-dark'"
                 :subtitle="form.theme === 'dark' ? 'Actif' : ''"
@@ -233,15 +243,15 @@ defineExpose({ next, back, finish, activateFocused, focusables });
         </template>
 
         <template v-else>
-          <h1 class="m-0 font-[family-name:var(--font-display)] text-2xl tracking-tight">Tout est prêt</h1>
-          <p class="lead m-0 max-w-xl text-[var(--paper-dim)]">
+          <h1>Tout est prêt</h1>
+          <p class="lead">
             Importe tes tomes, parcours la grille, ouvre une fiche, lis en portrait.
           </p>
-          <ul class="summary m-0 flex list-none flex-col gap-2 p-0 text-[var(--paper-dim)]">
-            <li><strong class="text-[var(--brass-bright)]">Bibliothèque</strong> — {{ form.libraryRoot }}</li>
-            <li><strong class="text-[var(--brass-bright)]">Import</strong> — {{ form.importRoot }}</li>
-            <li><strong class="text-[var(--brass-bright)]">Thème</strong> — {{ form.theme }}</li>
-            <li><strong class="text-[var(--brass-bright)]">Orientation</strong> — automatique</li>
+          <ul class="summary">
+            <li><strong>Bibliothèque</strong> — {{ form.libraryRoot }}</li>
+            <li><strong>Import</strong> — {{ form.importRoot }}</li>
+            <li><strong>Thème</strong> — {{ form.theme }}</li>
+            <li><strong>Orientation</strong> — automatique</li>
           </ul>
           <FocusButton :focused="focusedId === 'finish'" subtitle="Entrer dans VDR" @select="finish">
             Terminer
@@ -249,13 +259,14 @@ defineExpose({ next, back, finish, activateFocused, focusables });
         </template>
       </div>
 
-      <footer class="mt-6 flex flex-col items-center gap-3">
+      <footer class="setup__footer">
         <button v-if="step > 0" type="button" class="ghost" @click="back">Retour</button>
         <ControlHint
           :items="[
-            { key: '↑↓', label: 'naviguer' },
+            { key: '↑↓', label: 'rangée' },
+            { key: '←→', label: 'option' },
             { key: 'A', label: 'valider' },
-            { key: '←→', label: 'étapes' },
+            { key: 'B', label: 'retour' },
           ]"
         />
       </footer>
@@ -264,15 +275,172 @@ defineExpose({ next, back, finish, activateFocused, focusables });
 </template>
 
 <style scoped>
+.setup {
+  position: relative;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  overflow-x: hidden;
+}
+
+.setup__atmosphere {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.setup__wash {
+  position: absolute;
+  inset: 0;
+}
+
+.setup__frame {
+  position: relative;
+  z-index: 1;
+  height: 100%;
+  width: 100%;
+  max-width: 48rem;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 2rem 1.75rem 1.25rem;
+  overflow-x: hidden;
+  box-sizing: border-box;
+}
+
+.setup__header {
+  flex-shrink: 0;
+  margin-bottom: 1.25rem;
+  min-width: 0;
+}
+
+.setup__brand {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.6rem, 4vw, 2.25rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--brass-bright);
+}
+
+.setup__step {
+  margin: 0.4rem 0 0;
+  font-size: 0.75rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--brass);
+}
+
+.setup__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding-right: 0.15rem;
+}
+
+.setup__footer {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.65rem;
+  margin-top: 0.85rem;
+  padding-top: 0.5rem;
+}
+
+h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.35rem, 3vw, 1.75rem);
+  letter-spacing: -0.01em;
+}
+
+.lead {
+  margin: 0;
+  max-width: 36rem;
+  color: var(--paper-dim);
+  line-height: 1.5;
+}
+
 .choice-group__label {
-  margin: 0 0 0.55rem;
+  margin: 0 0 0.45rem;
   font-size: 0.75rem;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--brass);
 }
 
-h1 {
-  font-family: var(--font-display);
+.choice-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  min-width: 0;
+  width: 100%;
+}
+
+.field-card {
+  min-width: 0;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  padding: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.field-card label {
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--paper-dim);
+}
+
+.path {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--paper-dim);
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  max-width: 100%;
+}
+
+.summary {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  color: var(--paper-dim);
+  min-width: 0;
+}
+
+.summary li {
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.summary strong {
+  color: var(--brass-bright);
+}
+
+@media (max-width: 640px) {
+  .choice-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .setup__frame {
+    padding: 1.25rem 1rem 1rem;
+  }
 }
 </style>

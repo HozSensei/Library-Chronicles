@@ -75,20 +75,25 @@ export const useUiStore = defineStore('ui', {
     },
     /**
      * Bascule fenêtre Electron + remap manette.
+     * Resize uniquement si orientation change (main) — sauf opts.force.
      * @param {'ui'|'reader'} mode
+     * @param {{ force?: boolean }} [opts]
      */
-    async setSessionMode(mode) {
-      const result = await window.vdr.setSessionMode(mode === 'reader' ? 'reader' : 'ui');
-      const orientation = result?.orientation || (mode === 'reader' ? 'portrait-ccw' : 'landscape');
+    async setSessionMode(mode, opts = {}) {
+      const next = mode === 'reader' ? 'reader' : 'ui';
+      const result = await window.vdr.setSessionMode(next, opts);
+      const orientation =
+        result?.orientation || (next === 'reader' ? 'portrait-ccw' : 'landscape');
       this.applyOrientation(orientation);
-      this.inputContext = mode === 'reader' ? 'reader' : 'ui';
+      this.inputContext = next === 'reader' ? 'reader' : 'ui';
       return result;
     },
     async enterReaderMode() {
       return this.setSessionMode('reader');
     },
-    async exitReaderMode() {
-      return this.setSessionMode('ui');
+    /** Retour menus — resize seulement si on quitte vraiment le portrait. */
+    async exitReaderMode(opts = {}) {
+      return this.setSessionMode('ui', opts);
     },
     async loadConfig() {
       const config = await window.vdr.getConfig();
