@@ -1,11 +1,6 @@
-/**
- * Rendu PDF via pdfjs-dist (pages → PNG/canvas côté main ou données pour renderer).
- * TODO[Phase 2]
- */
+import path from 'path';
 
-const path = require('path');
-
-async function openPdf(filePath) {
+export async function openPdf(filePath) {
   const title = path.basename(filePath, path.extname(filePath));
 
   return {
@@ -13,7 +8,7 @@ async function openPdf(filePath) {
     title,
     pageCount: 0,
     async getPage(_index) {
-      throw new Error('TODO[Phase 2]: pdf.getPage — pdfjs-dist → image/canvas payload');
+      throw new Error('TODO[Phase 2]: pdf.getPage — pdfjs-dist');
     },
     async getCoverBuffer() {
       throw new Error('TODO[Phase 3]: couverture PDF (page 1)');
@@ -21,5 +16,3 @@ async function openPdf(filePath) {
     async close() {},
   };
 }
-
-module.exports = { openPdf };

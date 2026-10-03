@@ -1,19 +1,12 @@
-const { ipcMain } = require('electron');
-const { IpcChannels } = require('../../shared/ipc-channels');
-const { saveProgress, loadProgress } = require('../database/books');
+import { ipcMain } from 'electron';
+import { IpcChannels } from '../../shared/ipc-channels.js';
+import { loadProgress } from '../database/books.js';
 
-function registerProgressIpc() {
+export function registerProgressIpc() {
   ipcMain.handle(IpcChannels.PROGRESS_SAVE, async (_e, payload) => {
-    // payload: { filePath, pageCurrent, pageTotal }
-    // TODO[Phase 3]: upsert book + saveProgress
     console.info('[VDR] progress:save (stub)', payload);
     return { ok: true, stub: true };
   });
 
-  ipcMain.handle(IpcChannels.PROGRESS_LOAD, async (_e, filePath) => {
-    // TODO[Phase 3]
-    return loadProgress(filePath);
-  });
+  ipcMain.handle(IpcChannels.PROGRESS_LOAD, async (_e, filePath) => loadProgress(filePath));
 }
-
-module.exports = { registerProgressIpc };

@@ -1,25 +1,12 @@
-/**
- * Extraction CBZ / ZIP via JSZip.
- * TODO[Phase 1]: brancher JSZip, tri naturel des pages, getPage → Buffer.
- */
+import path from 'path';
+import fs from 'fs';
 
-const path = require('path');
-const fs = require('fs');
-
-async function openCbz(filePath, { isImageEntry }) {
-  // Vérifie au moins que le fichier existe (utile dès le squelette).
+export async function openCbz(filePath, { isImageEntry: _isImageEntry }) {
   if (!fs.existsSync(filePath)) {
     throw new Error(`Fichier introuvable: ${filePath}`);
   }
 
-  // TODO[Phase 1]:
-  // const JSZip = require('jszip');
-  // const data = fs.readFileSync(filePath);
-  // const zip = await JSZip.loadAsync(data);
-  // const entries = Object.keys(zip.files)
-  //   .filter((n) => !zip.files[n].dir && isImageEntry(n))
-  //   .sort(naturalSort);
-
+  // TODO[Phase 1]: JSZip + tri naturel des pages
   const title = path.basename(filePath, path.extname(filePath));
 
   return {
@@ -35,5 +22,3 @@ async function openCbz(filePath, { isImageEntry }) {
     async close() {},
   };
 }
-
-module.exports = { openCbz };

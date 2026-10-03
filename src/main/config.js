@@ -1,13 +1,12 @@
-const fs = require('fs');
-const path = require('path');
-const { app } = require('electron');
+import fs from 'fs';
+import path from 'path';
+import { app } from 'electron';
 
 const DEFAULTS = {
   libraryRoot: null,
   lastOpenedPath: null,
   readingDirection: 'ltr',
   defaultFitMode: 'fit-height',
-  /** Chemin CBZ de test pour Phase 1 (à renseigner). */
   phase1TestCbz: null,
 };
 
@@ -17,7 +16,7 @@ function configPath() {
   return path.join(app.getPath('userData'), 'vdr-config.json');
 }
 
-function getConfig() {
+export function getConfig() {
   if (cache) return { ...cache };
   try {
     const raw = fs.readFileSync(configPath(), 'utf8');
@@ -28,11 +27,11 @@ function getConfig() {
   return { ...cache };
 }
 
-function setConfig(patch) {
+export function setConfig(patch) {
   cache = { ...getConfig(), ...patch };
   fs.mkdirSync(path.dirname(configPath()), { recursive: true });
   fs.writeFileSync(configPath(), JSON.stringify(cache, null, 2), 'utf8');
   return { ...cache };
 }
 
-module.exports = { getConfig, setConfig, DEFAULTS };
+export { DEFAULTS };

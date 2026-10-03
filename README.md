@@ -1,67 +1,59 @@
 # Vertical Deck Reader (VDR)
 
-Lecteur de BD, comics et mangas **vertical**, pensé pour une utilisation manette sur **ROG Ally X** (Windows, mode portrait).
+Lecteur de BD, comics et mangas **vertical**, pensé manette pour **ROG Ally X** (Windows, portrait).
 
-Projet Electron — *Library Chronicles*.
+**Electron + Vue 3 + Vite + Pinia** — *Library Chronicles*.
 
-## Démarrage rapide
+## Démarrage
 
 ```bash
 npm install
-npm start
-```
-
-Mode développement (DevTools) :
-
-```bash
 npm run dev
 ```
 
+Build / preview :
+
+```bash
+npm run build
+npm start
+```
+
 Fenêtre cible : **1080 × 1920** (portrait).
+
+## Stack front (UX)
+
+Pour une interface léchée et une UX console irréprochable :
+
+| Couche | Techno |
+|--------|--------|
+| UI | Vue 3 (Composition API) |
+| Bundler | Vite (`electron-vite`) |
+| État | Pinia |
+| Routes | Vue Router |
+| Manette | Composable `useGamepad` (rAF) |
+
+Détails des principes UI/UX : [`docs/UX.md`](./docs/UX.md).
 
 ## Documentation
 
 | Fichier | Contenu |
 |---------|---------|
-| [`ROADMAP.md`](./ROADMAP.md) | Plan des phases & critères de done |
-| [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) | Structure des dossiers & flux IPC |
-
-## État actuel
-
-**Phase 0 — Squelette** en place :
-
-- Fenêtre Electron portrait
-- Preload sécurisé + canaux IPC
-- Boucle Gamepad (détection + navigation menu boot)
-- Stubs extracteurs (CBZ / CBR / PDF), SQLite, bibliothèque
-- UI boot / bibliothèque / lecteur (placeholders)
-
-Prochaine implémentation : **Phase 1** — CBZ réel + pan / zoom / pages manette.  
-Voir le détail dans `ROADMAP.md`.
+| [`ROADMAP.md`](./ROADMAP.md) | Phases & critères de done |
+| [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) | Main / preload / renderer |
+| [`docs/CONTROLS.md`](./docs/CONTROLS.md) | Mapping manette |
+| [`docs/UX.md`](./docs/UX.md) | Principes UX & direction visuelle |
 
 ## Structure
 
 ```
 src/
-  main/          # Processus principal (FS, extracteurs, DB, IPC)
-  preload/       # Bridge contextIsolation
-  renderer/      # UI + Gamepad + moteur zoom/pan
-  shared/        # Constantes IPC & mapping manette
+  main/           # Electron main (FS, extracteurs, DB, IPC)
+  preload/        # contextBridge → window.vdr
+  renderer/       # App Vue (vues, stores, composables)
+  shared/         # IPC + mapping contrôles
 ```
 
-## Contrôles (aperçu)
+## État
 
-En **mode lecture** : joystick = pan, D-Pad = zoom / pages, A = sens Manga↔BD, B = quitter, Y = overlay.  
-Mapping complet dans `ROADMAP.md` et `src/shared/controls.js`.
-
-## Configuration Phase 1
-
-Après `npm start`, le fichier de config utilisateur pourra contenir :
-
-```json
-{
-  "phase1TestCbz": "D:\\\\BDs\\\\exemple.cbz"
-}
-```
-
-(chemin absolu vers un CBZ de test — à brancher une fois l’extracteur Phase 1 implémenté).
+Phase 0 : squelette + **socle Vue** + UI boot soignée.  
+Suite : Phase 1 — CBZ réel + pan / zoom / pages manette.

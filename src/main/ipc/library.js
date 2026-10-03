@@ -1,10 +1,10 @@
-const { ipcMain, dialog } = require('electron');
-const { IpcChannels } = require('../../shared/ipc-channels');
-const { getConfig, setConfig } = require('../config');
-const { scanLibraryRoot } = require('../library/scanner');
-const { listBooks } = require('../database/books');
+import { ipcMain, dialog } from 'electron';
+import { IpcChannels } from '../../shared/ipc-channels.js';
+import { getConfig, setConfig } from '../config.js';
+import { scanLibraryRoot } from '../library/scanner.js';
+import { listBooks } from '../database/books.js';
 
-function registerLibraryIpc() {
+export function registerLibraryIpc() {
   ipcMain.handle(IpcChannels.LIBRARY_SELECT_ROOT, async () => {
     const result = await dialog.showOpenDialog({
       properties: ['openDirectory'],
@@ -19,19 +19,10 @@ function registerLibraryIpc() {
   ipcMain.handle(IpcChannels.LIBRARY_SCAN, async () => {
     const { libraryRoot } = getConfig();
     if (!libraryRoot) return { found: [], error: 'Aucun dossier racine' };
-    // TODO[Phase 3]: scanner + miniatures + DB
     return scanLibraryRoot(libraryRoot);
   });
 
-  ipcMain.handle(IpcChannels.LIBRARY_LIST, async () => {
-    // TODO[Phase 3]: listBooks() réel
-    return listBooks();
-  });
+  ipcMain.handle(IpcChannels.LIBRARY_LIST, async () => listBooks());
 
-  ipcMain.handle(IpcChannels.LIBRARY_GET_COVER, async (_e, _bookId) => {
-    // TODO[Phase 3]: chemin cover cache
-    return null;
-  });
+  ipcMain.handle(IpcChannels.LIBRARY_GET_COVER, async () => null);
 }
-
-module.exports = { registerLibraryIpc };

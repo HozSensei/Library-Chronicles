@@ -1,22 +1,19 @@
 /**
  * Mapping manette ROG Ally X / XInput — référence unique.
- * Les handlers renderer lisent ces constantes.
  */
 
-const ReadingMode = Object.freeze({
+export const ReadingMode = Object.freeze({
   FIT_HEIGHT: 'fit-height',
   FIT_WIDTH: 'fit-width',
   ZOOM_100: 'zoom-100',
 });
 
-const ReadingDirection = Object.freeze({
-  LTR: 'ltr', // Occidental
-  RTL: 'rtl', // Manga
+export const ReadingDirection = Object.freeze({
+  LTR: 'ltr',
+  RTL: 'rtl',
 });
 
-/** Actions logiques (indépendantes du périphérique) */
-const Actions = Object.freeze({
-  // Lecture
+export const Actions = Object.freeze({
   PAN: 'pan',
   TOGGLE_ZOOM: 'toggle-zoom',
   ZOOM_IN: 'zoom-in',
@@ -28,8 +25,6 @@ const Actions = Object.freeze({
   TOGGLE_OVERLAY: 'toggle-overlay',
   CHAPTER_NEXT: 'chapter-next',
   CHAPTER_PREV: 'chapter-prev',
-
-  // Bibliothèque
   SCROLL: 'scroll',
   CONFIRM: 'confirm',
   CURSOR_UP: 'cursor-up',
@@ -43,11 +38,7 @@ const Actions = Object.freeze({
   TAB_PREV: 'tab-prev',
 });
 
-/**
- * Indices boutons Gamepad API (standard mapping).
- * Ally X suit le mapping XInput / Standard Gamepad.
- */
-const GamepadButtons = Object.freeze({
+export const GamepadButtons = Object.freeze({
   A: 0,
   B: 1,
   X: 2,
@@ -66,22 +57,12 @@ const GamepadButtons = Object.freeze({
   DPAD_RIGHT: 15,
 });
 
-const GamepadAxes = Object.freeze({
+export const GamepadAxes = Object.freeze({
   LEFT_X: 0,
   LEFT_Y: 1,
   RIGHT_X: 2,
   RIGHT_Y: 3,
 });
 
-const DEFAULT_DEADZONE = 0.18;
-const ZOOM_STEP = 0.15;
-
-module.exports = {
-  ReadingMode,
-  ReadingDirection,
-  Actions,
-  GamepadButtons,
-  GamepadAxes,
-  DEFAULT_DEADZONE,
-  ZOOM_STEP,
-};
+export const DEFAULT_DEADZONE = 0.18;
+export const ZOOM_STEP = 0.15;

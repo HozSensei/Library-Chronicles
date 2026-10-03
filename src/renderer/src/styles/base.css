@@ -1,0 +1,71 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--font-body);
+  color: var(--paper);
+  background: var(--ink-950);
+  -webkit-font-smoothing: antialiased;
+  -webkit-user-select: none;
+  user-select: none;
+  cursor: default;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+/* Transitions de routes */
+.fade-slide-enter-active,
+.fade-slide-leave-active {
+  transition:
+    opacity 280ms var(--ease-out),
+    transform 320ms var(--ease-out);
+}
+
+.fade-slide-enter-from {
+  opacity: 0;
+  transform: translate3d(0, 16px, 0);
+}
+
+.fade-slide-leave-to {
+  opacity: 0;
+  transform: translate3d(0, -10px, 0);
+}
+
+.reader-in-enter-active,
+.reader-in-leave-active {
+  transition: opacity 220ms var(--ease-soft);
+}
+
+.reader-in-enter-from,
+.reader-in-leave-to {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fade-slide-enter-active,
+  .fade-slide-leave-active,
+  .reader-in-enter-active,
+  .reader-in-leave-active {
+    transition: none;
+  }
+}

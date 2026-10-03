@@ -1,18 +1,10 @@
-/**
- * Cache disque des miniatures (première image du tome).
- * TODO[Phase 3]
- */
+import path from 'path';
+import { app } from 'electron';
 
-const path = require('path');
-const { app } = require('electron');
-
-function cacheDir() {
+export function cacheDir() {
   return path.join(app.getPath('userData'), 'covers');
 }
 
-async function ensureCover(_bookFilePath, _getCoverBuffer) {
-  // TODO[Phase 3]: hash path → fichier .jpg dans cacheDir()
+export async function ensureCover(_bookFilePath, _getCoverBuffer) {
   throw new Error('TODO[Phase 3]: ensureCover');
 }
-
-module.exports = { cacheDir, ensureCover };

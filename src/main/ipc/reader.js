@@ -1,12 +1,11 @@
-const { ipcMain } = require('electron');
-const { IpcChannels } = require('../../shared/ipc-channels');
-const { openBook } = require('../extractors');
-const { setConfig } = require('../config');
+import { ipcMain } from 'electron';
+import { IpcChannels } from '../../shared/ipc-channels.js';
+import { openBook } from '../extractors/index.js';
+import { setConfig } from '../config.js';
 
-/** Session lecture courante (un livre à la fois pour le MVP). */
 let session = null;
 
-function registerReaderIpc() {
+export function registerReaderIpc() {
   ipcMain.handle(IpcChannels.READER_OPEN, async (_e, filePath) => {
     if (session) {
       await session.close().catch(() => {});
@@ -27,7 +26,6 @@ function registerReaderIpc() {
 
   ipcMain.handle(IpcChannels.READER_GET_PAGE, async (_e, index) => {
     if (!session) throw new Error('Aucun livre ouvert');
-    // TODO[Phase 1]: retourner { mime, base64 } ou ArrayBuffer sérialisable
     const buffer = await session.getPage(index);
     return {
       index,
@@ -44,5 +42,3 @@ function registerReaderIpc() {
     return { ok: true };
   });
 }
-
-module.exports = { registerReaderIpc };

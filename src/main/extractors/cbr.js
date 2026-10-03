@@ -1,11 +1,6 @@
-/**
- * Extraction CBR / RAR via node-unrar-js.
- * TODO[Phase 2]
- */
+import path from 'path';
 
-const path = require('path');
-
-async function openCbr(filePath, { isImageEntry: _isImageEntry }) {
+export async function openCbr(filePath, { isImageEntry: _isImageEntry }) {
   const title = path.basename(filePath, path.extname(filePath));
 
   return {
@@ -21,5 +16,3 @@ async function openCbr(filePath, { isImageEntry: _isImageEntry }) {
     async close() {},
   };
 }
-
-module.exports = { openCbr };

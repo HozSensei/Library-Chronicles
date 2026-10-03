@@ -1,14 +1,13 @@
 /**
  * SQLite embarquée — Phase 3.
- * Schéma prévu : books + reading_progress.
  */
 
-const path = require('path');
-const { app } = require('electron');
+import path from 'path';
+import { app } from 'electron';
 
 let db = null;
 
-const SCHEMA = `
+export const SCHEMA = `
 CREATE TABLE IF NOT EXISTS books (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   file_path TEXT NOT NULL UNIQUE,
@@ -31,9 +30,8 @@ function dbFilePath() {
   return path.join(app.getPath('userData'), 'vdr-library.sqlite');
 }
 
-function initDatabase() {
-  // TODO[Phase 3]: require('better-sqlite3') et exécuter SCHEMA
-  // Garder un stub pour ne pas bloquer le démarrage sans native rebuild.
+export function initDatabase() {
+  // TODO[Phase 3]: better-sqlite3 + SCHEMA
   db = {
     ready: false,
     path: dbFilePath(),
@@ -43,8 +41,6 @@ function initDatabase() {
   return db;
 }
 
-function getDb() {
+export function getDb() {
   return db;
 }
-
-module.exports = { initDatabase, getDb, SCHEMA };

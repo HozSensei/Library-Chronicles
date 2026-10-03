@@ -1,0 +1,18 @@
+import { createApp } from 'vue';
+import { createPinia } from 'pinia';
+import '@fontsource/syne/600.css';
+import '@fontsource/syne/700.css';
+import '@fontsource/syne/800.css';
+import '@fontsource/figtree/400.css';
+import '@fontsource/figtree/500.css';
+import '@fontsource/figtree/600.css';
+import '@fontsource/figtree/700.css';
+import App from './App.vue';
+import router from './router';
+import './styles/tokens.css';
+import './styles/base.css';
+
+const app = createApp(App);
+app.use(createPinia());
+app.use(router);
+app.mount('#app');

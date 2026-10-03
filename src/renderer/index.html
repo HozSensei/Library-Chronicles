@@ -4,71 +4,13 @@
     <meta charset="UTF-8" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' blob: data:; connect-src 'self';"
+      content="default-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self'; img-src 'self' blob: data:; connect-src 'self' ws: wss:;"
     />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Vertical Deck Reader</title>
-    <link rel="stylesheet" href="./styles/main.css" />
   </head>
   <body>
-    <div id="app" data-screen="boot">
-      <!-- Écran d'accueil / statut squelette -->
-      <section id="screen-boot" class="screen screen--active" aria-label="Démarrage">
-        <header class="brand">
-          <p class="brand__name">Vertical Deck Reader</p>
-          <p class="brand__tag">Library Chronicles · ROG Ally X</p>
-        </header>
-        <div class="boot-status" id="boot-status">
-          <p>Squelette prêt — Phase 0</p>
-          <p class="muted">Gamepad : <span id="gamepad-status">en attente…</span></p>
-          <p class="muted">Prochaine étape : Phase 1 (CBZ + manette)</p>
-        </div>
-        <nav class="boot-actions" aria-label="Navigation">
-          <button type="button" class="focusable is-focused" data-action="goto-library" id="btn-library">
-            Bibliothèque
-          </button>
-          <button type="button" class="focusable" data-action="goto-reader" id="btn-reader">
-            Lecteur (test)
-          </button>
-        </nav>
-        <p class="hint">Manette : D-Pad pour naviguer · A pour valider</p>
-      </section>
-
-      <!-- Bibliothèque (Phase 3) -->
-      <section id="screen-library" class="screen" aria-label="Bibliothèque" hidden>
-        <header class="screen-header">
-          <h1>Bibliothèque</h1>
-          <p class="muted">TODO[Phase 3] — grille de couvertures</p>
-        </header>
-        <div id="library-grid" class="library-grid" tabindex="0"></div>
-        <p class="hint">B : retour · A : ouvrir</p>
-      </section>
-
-      <!-- Lecteur (Phase 1+) -->
-      <section id="screen-reader" class="screen" aria-label="Lecteur" hidden>
-        <div id="reader-stage" class="reader-stage">
-          <img id="reader-page" class="reader-page" alt="Page courante" draggable="false" />
-          <div id="reader-placeholder" class="reader-placeholder">
-            <p>Aucun livre chargé</p>
-            <p class="muted">TODO[Phase 1] — ouvrir un CBZ de test</p>
-          </div>
-        </div>
-        <aside id="reader-hud" class="reader-hud" hidden>
-          <div class="hud-bar">
-            <span id="hud-title">—</span>
-            <span id="hud-page">0 / 0</span>
-          </div>
-          <div class="hud-progress">
-            <div id="hud-progress-fill" class="hud-progress__fill"></div>
-          </div>
-          <div class="hud-actions">
-            <span id="hud-direction">Sens : LTR</span>
-            <span>Y : masquer · B : bibliothèque</span>
-          </div>
-        </aside>
-      </section>
-    </div>
-
-    <script type="module" src="./js/app.js"></script>
+    <div id="app"></div>
+    <script type="module" src="./src/main.js"></script>
   </body>
 </html>

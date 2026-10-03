@@ -1,9 +1,6 @@
-const { contextBridge, ipcRenderer } = require('electron');
-const { IpcChannels } = require('../shared/ipc-channels');
+import { contextBridge, ipcRenderer } from 'electron';
+import { IpcChannels } from '../shared/ipc-channels.js';
 
-/**
- * API exposée au renderer — seule surface autorisée.
- */
 contextBridge.exposeInMainWorld('vdr', {
   getConfig: () => ipcRenderer.invoke(IpcChannels.APP_GET_CONFIG),
   setConfig: (patch) => ipcRenderer.invoke(IpcChannels.APP_SET_CONFIG, patch),

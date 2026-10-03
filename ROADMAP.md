@@ -25,7 +25,9 @@ UI Bibliothèque / HUD     ──IPC──► FS watcher + cache miniatures
 |--------|------|
 | `src/main` | Fenêtre, IPC, extraction, SQLite, scan bibliothèque |
 | `src/preload` | Bridge sécurisé `contextBridge` |
-| `src/renderer` | UI console-first, gamepad, zoom/pan, overlays |
+| `src/renderer` | **Vue 3 + Pinia + Router** — UI console-first, gamepad, zoom/pan |
+
+Voir aussi [`docs/UX.md`](./docs/UX.md) pour la stratégie front / qualité UX.
 
 ---
 
@@ -53,6 +55,8 @@ UI Bibliothèque / HUD     ──IPC──► FS watcher + cache miniatures
 - [x] Preload / IPC stubs
 - [x] Modules stub : gamepad, reader, library, extractors, database
 - [x] Ce plan (`ROADMAP.md`)
+- [x] Front **Vue 3 + Vite + Pinia + Vue Router** (`electron-vite`)
+- [x] UI boot console-first (marque, focus manette, motion, tokens)
 
 ### Phase 1 — MVP Prototype Gamepad
 

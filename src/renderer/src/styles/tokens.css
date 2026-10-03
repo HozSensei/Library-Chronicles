@@ -1,0 +1,29 @@
+:root {
+  /* Direction visuelle : encre nuit + laiton chaud (atelier BD) */
+  --ink-950: #0b0c0f;
+  --ink-900: #12141a;
+  --ink-800: #1a1d26;
+  --ink-700: #2a2f3a;
+  --paper: #f2ebe0;
+  --paper-dim: #c9c0b2;
+  --brass: #d4a35c;
+  --brass-bright: #e8c07a;
+  --brass-deep: #9a6b2f;
+  --focus: #e8c07a;
+  --focus-glow: rgba(232, 192, 122, 0.35);
+  --danger: #e36a5d;
+  --success: #7cb89a;
+
+  --font-display: "Syne", "Avenir Next", "Segoe UI", sans-serif;
+  --font-body: "Figtree", "Avenir Next", "Segoe UI", sans-serif;
+
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --pad: clamp(1.25rem, 4vw, 2rem);
+
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-soft: cubic-bezier(0.4, 0, 0.2, 1);
+
+  --z-hud: 40;
+  --z-overlay: 50;
+}
