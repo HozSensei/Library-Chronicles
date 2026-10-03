@@ -22,6 +22,7 @@ import {
   focusRootForRoute,
   scheduleScrollFocusedIntoView,
 } from '../../../shared/focus-scroll.js';
+import { createStickMenuNav } from '../../../shared/stick-menu-nav.js';
 
 const BUTTON = GamepadButtons;
 
@@ -81,7 +82,8 @@ function createLoop(ctx) {
   let handlers = ctx;
   /** @type {string} — défaut menus = landscape (identité). */
   let orientation = DeviceOrientation.LANDSCAPE;
-  let lastStickNav = 0;
+  /** Stick menus → cursor-* (edge + repeat) ; reset hors menus / pad absent. */
+  const stickMenuNav = createStickMenuNav();
   /** @type {Gamepad | null} */
   let currentPad = null;
   let lastRouteForHaptic = null;
@@ -208,12 +210,12 @@ function createLoop(ctx) {
         return;
       }
 
-      if (action === 'cursor-up' || (action === 'scroll' && payload?.y < -0.45)) {
+      if (action === 'cursor-up') {
         profiles.moveFocus(-1);
         vibe('nav');
         afterFocusMove();
       }
-      if (action === 'cursor-down' || (action === 'scroll' && payload?.y > 0.45)) {
+      if (action === 'cursor-down') {
         profiles.moveFocus(1);
         vibe('nav');
         afterFocusMove();
@@ -379,19 +381,6 @@ function createLoop(ctx) {
       if (action === 'tab-prev') {
         library.cycleFilter(-1);
         vibe('light');
-      }
-      if (action === 'scroll' && payload) {
-        const now = performance.now();
-        if (now - lastStickNav < 160) return;
-        if (Math.abs(payload.y) < 0.45 && Math.abs(payload.x) < 0.45) return;
-        lastStickNav = now;
-        if (Math.abs(payload.y) >= Math.abs(payload.x)) {
-          library.moveCatalog(0, payload.y > 0 ? 1 : -1);
-        } else {
-          library.moveCatalog(payload.x > 0 ? 1 : -1, 0);
-        }
-        vibe('nav');
-        afterFocusMove();
       }
       return;
     }
@@ -617,6 +606,7 @@ function createLoop(ctx) {
       ui.setGamepadStatus({ connected: false, label: 'Manette en attente…' });
       ui.setHapticsAvailable(false);
       prevButtons = [];
+      stickMenuNav.reset();
     } else {
       const short = pad.id.length > 36 ? `${pad.id.slice(0, 36)}…` : pad.id;
       const hapticOk = hasHaptics(pad);
@@ -629,10 +619,25 @@ function createLoop(ctx) {
 
       const rawX = applyDeadzone(pad.axes[0] || 0);
       const rawY = applyDeadzone(pad.axes[1] || 0);
-      const stick = remapStick(orientation, rawX, rawY);
-      if (stick.x !== 0 || stick.y !== 0) {
-        const stickAction = resolveAction('stick:left') || 'pan';
-        dispatch(stickAction, stick);
+
+      if (ui.routeName === 'reader') {
+        // Lecteur : pan analogique avec remap portrait — pas de focus menu.
+        stickMenuNav.reset();
+        const stick = remapStick(orientation, rawX, rawY);
+        if (stick.x !== 0 || stick.y !== 0) {
+          const stickAction = resolveAction('stick:left') || 'pan';
+          dispatch(stickAction, stick);
+        }
+      } else if (!ui.listeningForBind) {
+        // Menus landscape : stick = D-Pad (cursor-*) via bindings dpad:*.
+        // Pas de remap (Haut=Haut). Edge + repeat pour ne pas spammer.
+        const dir = stickMenuNav.update(rawX, rawY, performance.now());
+        if (dir) {
+          const action = resolveAction(`dpad:${dir}`);
+          if (action) dispatch(action);
+        }
+      } else {
+        stickMenuNav.reset();
       }
 
       const buttonIndices = [
