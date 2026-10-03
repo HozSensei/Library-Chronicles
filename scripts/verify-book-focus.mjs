@@ -58,6 +58,21 @@ assert(view.includes('readonly'), 'champs readonly (focusables)');
 assert(view.includes('book-detail__textarea'), 'synopsis textarea');
 assert(!view.includes('book-detail__row'), 'pas de rows style liste import');
 assert(view.includes('scheduleScrollFocusedIntoView'), 'scroll focus manette');
+assert(view.includes('book-detail__hero'), 'hero grid cover + méta');
+assert(view.includes('book-detail__cover-frame'), 'cadre cover portrait');
+assert(
+  /book-detail__cover-frame[\s\S]*?position:\s*relative/.test(view),
+  'cover-frame position:relative (ancre LazyCover absolute)',
+);
+assert(view.includes('isolation: isolate'), 'isolation stacking fiche');
+assert(view.includes('book-detail__rail'), 'rail série sous le contenu');
+assert(view.includes('book-detail__thumb-art'), 'miniatures rail contenues');
+assert(
+  /book-detail__thumb-art[\s\S]*?position:\s*relative/.test(view),
+  'thumb-art position:relative (pas d’overlap méta)',
+);
+assert(view.includes('book-detail__meta'), 'méta labels + valeurs');
+assert(view.includes('grid-template-columns'), 'layout grid (pas absolute croisé)');
 
 const pad = readFileSync(
   join(root, 'src/renderer/src/composables/useGamepad.js'),
