@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import { ZOOM_STEP } from '../../../shared/gamepad-codes.js';
+import { findAdjacentVolume } from '../../../shared/series.js';
 import {
   measureReaderZoomGeometry,
   panForZoomToCenter,
@@ -53,7 +54,12 @@ export const useReaderStore = defineStore('reader', {
     chapterIndex: 0,
     bookmarks: [],
     bookmarkFlash: null,
+    /** Tome adjacent volume−1 (même series_id), null si absent. */
+    prevVolumeOffer: null,
+    /** Tome adjacent volume+1 (même series_id), null si absent. */
     nextVolumeOffer: null,
+    /** Index focus manette sur l’écran de fin de tome. */
+    endFocusIndex: 0,
     webtoonMode: false,
     brightness: 1,
     contrast: 1,
@@ -93,6 +99,15 @@ export const useReaderStore = defineStore('reader', {
     },
     isFinished(s) {
       return s.pageCount > 0 && s.pageIndex + 1 >= s.pageCount;
+    },
+    /** Écran fin de tome : série avec au moins un voisin volume ±1. */
+    showEndSeriesNav(s) {
+      return (
+        s.pageCount > 0 &&
+        s.pageIndex + 1 >= s.pageCount &&
+        Boolean(s.seriesId) &&
+        Boolean(s.prevVolumeOffer || s.nextVolumeOffer)
+      );
     },
   },
   actions: {
@@ -162,7 +177,9 @@ export const useReaderStore = defineStore('reader', {
     async open(filePath, { resume = true } = {}) {
       this.loading = true;
       this.error = null;
+      this.prevVolumeOffer = null;
       this.nextVolumeOffer = null;
+      this.endFocusIndex = 0;
       this.revokePageCache();
       try {
         await this.loadPrefs();
@@ -346,32 +363,74 @@ export const useReaderStore = defineStore('reader', {
         // ignore
       }
     },
-    async checkNextVolume() {
+    async checkAdjacentVolumes() {
       if (!this.seriesId) {
+        this.prevVolumeOffer = null;
         this.nextVolumeOffer = null;
         return;
       }
       try {
-        const next = await window.vdr.library.nextUnread({
+        const books = await window.vdr.library.list();
+        const opts = {
           seriesId: this.seriesId,
-          afterBookId: this.bookId,
-          afterVolume: this.volume,
-        });
+          volume: this.volume,
+          bookId: this.bookId,
+        };
+        const prev = findAdjacentVolume(books, { ...opts, delta: -1 });
+        const next = findAdjacentVolume(books, { ...opts, delta: 1 });
+        this.prevVolumeOffer =
+          prev && prev.id !== this.bookId ? prev : null;
         this.nextVolumeOffer =
           next && next.id !== this.bookId ? next : null;
+        if (this.showEndSeriesNav) {
+          // Focus par défaut : suivant s’il existe, sinon précédent.
+          this.endFocusIndex = this.nextVolumeOffer
+            ? this.prevVolumeOffer
+              ? 1
+              : 0
+            : 0;
+        }
       } catch {
+        this.prevVolumeOffer = null;
         this.nextVolumeOffer = null;
       }
     },
-    async openNextVolume() {
-      if (!this.nextVolumeOffer?.filePath) {
-        await this.checkNextVolume();
+    /** Alias rétrocompat — voisins volume ±1. */
+    async checkNextVolume() {
+      return this.checkAdjacentVolumes();
+    },
+    setEndFocus(index) {
+      const i = Number(index);
+      this.endFocusIndex = Number.isFinite(i) && i >= 0 ? Math.floor(i) : 0;
+    },
+    moveEndFocus(delta) {
+      const items =
+        typeof document !== 'undefined'
+          ? document.querySelectorAll('.reader__next [data-end-focus]')
+          : [];
+      const max = Math.max(0, items.length - 1);
+      const next = Math.min(max, Math.max(0, this.endFocusIndex + delta));
+      this.endFocusIndex = next;
+      return next;
+    },
+    async openAdjacentVolume(delta) {
+      const step = Number(delta) || 0;
+      if (!step) return false;
+      let offer = step > 0 ? this.nextVolumeOffer : this.prevVolumeOffer;
+      if (!offer?.filePath) {
+        await this.checkAdjacentVolumes();
+        offer = step > 0 ? this.nextVolumeOffer : this.prevVolumeOffer;
       }
-      const next = this.nextVolumeOffer;
-      if (!next?.filePath) return false;
+      if (!offer?.filePath) return false;
       await this.close();
-      await this.open(next.filePath);
+      await this.open(offer.filePath, { resume: false });
       return true;
+    },
+    async openNextVolume() {
+      return this.openAdjacentVolume(1);
+    },
+    async openPrevVolume() {
+      return this.openAdjacentVolume(-1);
     },
     async close() {
       await this.persistProgress();
@@ -393,7 +452,9 @@ export const useReaderStore = defineStore('reader', {
       this.pageIndex = 0;
       this.chapters = [];
       this.bookmarks = [];
+      this.prevVolumeOffer = null;
       this.nextVolumeOffer = null;
+      this.endFocusIndex = 0;
       this.error = null;
       this.renderEngine = null;
       // Progression changée → forcer refresh biblio au prochain écran
@@ -669,7 +730,7 @@ export const useReaderStore = defineStore('reader', {
       const delta = which === 'next' ? dir : -dir;
       const next = this.pageIndex + delta;
       if (next < 0 || next >= this.pageCount) {
-        if (which === 'next' && this.isFinished) await this.checkNextVolume();
+        if (which === 'next' && this.isFinished) await this.checkAdjacentVolumes();
         return false;
       }
       this.pageIndex = next;

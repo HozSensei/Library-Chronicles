@@ -24,7 +24,8 @@ export const BINDABLE_ACTIONS = Object.freeze({
     { id: 'add-bookmark', label: 'Ajouter un signet' },
     { id: 'toggle-webtoon', label: 'Mode webtoon' },
     { id: 'toggle-pause', label: 'Menu pause lecture' },
-    { id: 'next-volume', label: 'Tome suivant non lu' },
+    { id: 'next-volume', label: 'Tome suivant (série)' },
+    { id: 'prev-volume', label: 'Tome précédent (série)' },
   ],
   library: [
     { id: 'open-book', label: 'Ouvrir fiche' },
