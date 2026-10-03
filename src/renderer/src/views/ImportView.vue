@@ -11,6 +11,7 @@ import {
   IMPORT_LIST_ACTIONS,
   importFieldDomId,
 } from '../../../shared/import-focus.js';
+import { metaSourceLabel } from '../../../shared/import-meta.js';
 import { focusTextInputForEdit } from '../../../shared/virtual-keyboard.js';
 
 const router = useRouter();
@@ -20,6 +21,7 @@ const ui = useUiStore();
 const listHints = [
   { key: '↑↓', label: 'fichier' },
   { key: 'A', label: 'Détail / méta' },
+  { key: 'X', label: 'Importer ce tome' },
   { key: 'Y', label: 'Tout importer' },
   { key: 'B', label: 'retour biblio' },
 ];
@@ -27,6 +29,7 @@ const listHints = [
 const detailHints = [
   { key: '↑↓', label: 'champ / résultat' },
   { key: 'A', label: 'éditer / choisir' },
+  { key: 'X', label: 'Importer ce tome' },
   { key: 'Y', label: 'rechercher' },
   { key: 'B', label: 'retour liste' },
 ];
@@ -190,6 +193,23 @@ function onResultChoose(index) {
   ui.setImportFocus(index);
   imp.applyEnrichResult(imp.enrichResults[index]);
 }
+
+function rowTitle(item) {
+  return item.selectedMeta?.title || item.detected?.title || item.name;
+}
+
+function rowSeries(item) {
+  return item.selectedMeta?.series || item.detected?.series || '';
+}
+
+function rowVolume(item) {
+  const v = item.selectedMeta?.volume ?? item.detected?.volume;
+  return v != null ? v : null;
+}
+
+function dotLabel(item) {
+  return metaSourceLabel(item.metaSource);
+}
 </script>
 
 <template>
@@ -223,16 +243,22 @@ function onResultChoose(index) {
             @click="onRowClick(index)"
             @dblclick="onRowActivate(index)"
           >
+            <span
+              class="import__dot"
+              :class="`import__dot--${item.metaSource || 'empty'}`"
+              :title="dotLabel(item)"
+              :aria-label="dotLabel(item)"
+            />
             <span class="import__row-body">
               <span class="import__row-title">
-                {{ item.detected?.title || item.name }}
+                {{ rowTitle(item) }}
               </span>
               <span class="import__row-meta">
                 {{ item.format?.toUpperCase() }}
-                <template v-if="item.detected?.series">
-                  · {{ item.detected.series }}
-                  <template v-if="item.detected.volume != null">
-                    T{{ item.detected.volume }}
+                <template v-if="rowSeries(item)">
+                  · {{ rowSeries(item) }}
+                  <template v-if="rowVolume(item) != null">
+                    T{{ rowVolume(item) }}
                   </template>
                 </template>
                 <template v-if="item.alreadyInLibrary"> · déjà importé</template>
@@ -510,7 +536,7 @@ function onResultChoose(index) {
           <span class="import__action-label">
             {{ imp.committing ? 'Import…' : 'Importer ce tome' }}
           </span>
-          <span class="import__action-sub">Méta actuelles</span>
+          <span class="import__action-sub">X · sélectionnées ou défaut</span>
         </button>
         <button
           type="button"
@@ -650,6 +676,31 @@ function onResultChoose(index) {
   border-color: var(--brass-bright);
   box-shadow: 0 0 0 3px var(--focus-glow);
   transform: translate3d(3px, 0, 0);
+}
+
+/* Pastilles méta : bleu = détectées · rouge = vide · vert = sélection API */
+.import__dot {
+  flex-shrink: 0;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 999px;
+  background: #6b8caf;
+  box-shadow: 0 0 0 1px color-mix(in srgb, currentColor 25%, transparent);
+}
+
+.import__dot--detected {
+  background: #4a8fd4;
+  color: #4a8fd4;
+}
+
+.import__dot--empty {
+  background: var(--danger);
+  color: var(--danger);
+}
+
+.import__dot--selected {
+  background: var(--success);
+  color: var(--success);
 }
 
 .import__row-body {

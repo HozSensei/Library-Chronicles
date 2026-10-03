@@ -124,8 +124,11 @@ Navigation D-Pad **et stick** (identité landscape).
 |----------|--------|
 | ↑↓ | Naviguer les fichiers / footer Rescanner · Retour |
 | A | Ouvrir la **fiche détail** (méta) — pas d’import immédiat |
-| Y | **Tout importer** (méta détectées / draft) |
+| X | **Importer le tome focus** (méta sélectionnées API, sinon défaut détecté) |
+| Y | **Tout importer** — chaque item : méta sélectionnées si présentes, sinon défaut |
 | B | Retour bibliothèque |
+
+Pastilles à gauche de chaque ligne : **bleue** = méta détectées · **rouge** = aucune méta · **verte** = choix résultat API.
 
 **Fiche détail**
 
@@ -134,6 +137,7 @@ Navigation D-Pad **et stick** (identité landscape).
 | ↑↓ | Champs méta → mots-clés → Rechercher → résultats → footer |
 | ←→ sur provider | Changer de provider |
 | A | Éditer champ (clavier virtuel) / lancer recherche / appliquer un résultat / Importer ce tome |
+| X | **Importer ce tome** (draft / méta sélectionnées ou défaut) |
 | Y | Lancer la **recherche API** (mots-clés) |
 | B | Retour liste |
 
