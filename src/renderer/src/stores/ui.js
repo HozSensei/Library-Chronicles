@@ -13,8 +13,8 @@ export const useUiStore = defineStore('ui', {
     /** Session : landscape (menus) ou portrait-ccw (lecteur). */
     orientation: 'landscape',
     /**
-     * Fallback Windows : fenêtre clampée encore landscape →
-     * rotation CSS 90° du stage lecteur (Ally tenue en portrait).
+     * Stratégie B : fenêtre landscape fixe →
+     * rotation CSS +90° du plan lecteur (Ally tenue CCW).
      */
     readerCssRotate: false,
     /** Contexte manette dérivé : ui | reader */

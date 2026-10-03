@@ -1,7 +1,7 @@
 /**
  * Layouts selon orientation session.
- * landscape = menus (défaut) · portrait-ccw = lecteur.
- * data-reader-rotate=1 = fallback CSS quand setBounds portrait est clampé (Windows).
+ * landscape = menus (défaut) · portrait-ccw = lecteur (logique).
+ * data-reader-rotate=1 = plan lecteur CSS +90° (stratégie B, fenêtre landscape).
  */
 
 [data-orientation='landscape'] {
@@ -15,7 +15,7 @@ body,
   overflow-x: hidden;
 }
 
-/* Lecteur : HUD bas plein largeur en portrait (natif ou CSS-rotate) */
+/* Lecteur : HUD bas plein largeur dans le plan portrait (natif ou CSS-rotate) */
 [data-orientation='portrait-ccw'] .hud {
   left: 0;
   right: 0;
@@ -69,7 +69,7 @@ body,
   margin-inline: auto;
 }
 
-/* Quand la rotation CSS est active, le stage est déjà en repère portrait */
+/* Plan déjà en repère portrait local après +90° */
 [data-reader-rotate='1'] .reader__strip-page {
   max-width: none;
   width: 100%;

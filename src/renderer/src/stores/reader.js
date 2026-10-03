@@ -46,6 +46,8 @@ export const useReaderStore = defineStore('reader', {
       return `brightness(${s.brightness}) contrast(${s.contrast}) sepia(${s.sepia})`;
     },
     imageStyle(s) {
+      // Fit height/width : CSS [data-fit] sur .reader__stage (repère plan local).
+      // Ici uniquement pan / scale / filtres — évite de combattre object-fit.
       const base = {
         transform: s.transform,
         transformOrigin: 'center center',
@@ -53,21 +55,9 @@ export const useReaderStore = defineStore('reader', {
         filter: `brightness(${s.brightness}) contrast(${s.contrast}) sepia(${s.sepia})`,
       };
       if (s.webtoonMode) {
-        return {
-          ...base,
-          transform: 'none',
-          width: '100%',
-          height: 'auto',
-          maxHeight: 'none',
-        };
+        return { ...base, transform: 'none' };
       }
-      if (s.fitMode === 'fit-width') {
-        return { ...base, width: '100%', height: 'auto', maxHeight: 'none' };
-      }
-      if (s.fitMode === 'zoom-100') {
-        return { ...base, width: 'auto', height: 'auto', maxHeight: 'none' };
-      }
-      return { ...base, height: '100%', width: 'auto', maxWidth: 'none' };
+      return base;
     },
     isFinished(s) {
       return s.pageCount > 0 && s.pageIndex + 1 >= s.pageCount;
