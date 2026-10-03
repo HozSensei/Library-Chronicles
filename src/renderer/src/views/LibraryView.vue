@@ -61,7 +61,7 @@ function scrollFocusIntoView() {
   scheduleScrollFocusedIntoView('.catalog');
 }
 
-/** Fiche détail uniquement — pas de setSessionMode / resize fenêtre. */
+/** Fiche détail tome — pas de setSessionMode / resize fenêtre. */
 function openBook(book) {
   if (!book?.id) {
     router.push({ name: 'import' });
@@ -70,11 +70,37 @@ function openBook(book) {
   router.push({ name: 'book', params: { id: String(book.id) } });
 }
 
+function openSeries(seriesId) {
+  if (!seriesId) return;
+  router.push({ name: 'series', params: { seriesId: String(seriesId) } });
+}
+
+/** Ouvre la cible résolue ({ type, seriesId|bookId }). */
+function openResolved(target) {
+  if (!target) {
+    if (library.isEmpty) router.push({ name: 'import' });
+    return;
+  }
+  if (target.type === 'series') {
+    openSeries(target.seriesId);
+    return;
+  }
+  if (target.type === 'book') {
+    openBook({ id: target.bookId });
+  }
+}
+
+function openRecentEntry(entry) {
+  openResolved(library.resolveRecentOpen(entry));
+}
+
 function openSelected() {
   if (library.focusZone === 'series') {
-    library.nextUnreadForSelected().then((book) => {
-      if (book?.id) openBook(book);
-    });
+    openResolved(library.resolveSeriesOpen());
+    return;
+  }
+  if (library.focusZone === 'recent') {
+    openRecentEntry(library.selectedRecent);
     return;
   }
   const book = library.selected;
@@ -83,6 +109,20 @@ function openSelected() {
     return;
   }
   openBook(book);
+}
+
+function recentLabel(entry) {
+  if (!entry) return '';
+  if (entry.kind === 'series' && entry.series) return entry.series;
+  return entry.lastBook?.title || entry.series || 'Sans titre';
+}
+
+function recentMeta(entry) {
+  if (!entry) return '';
+  if (entry.kind === 'series') {
+    return `${entry.volumeCount} tomes · ${statusBadge(entry.status)}`;
+  }
+  return statusBadge(entry.status);
 }
 
 function statusBadge(status) {
@@ -292,8 +332,8 @@ function selectTab(tab) {
               </div>
             </section>
 
-            <!-- New / Récents rail -->
-            <section v-if="library.recentBooks.length" class="rail-section" aria-label="Nouveautés">
+            <!-- New / Récents rail — une entrée par série -->
+            <section v-if="library.recentSeries.length" class="rail-section" aria-label="Nouveautés">
               <div class="rail-head">
                 <h2>Nouveautés</h2>
                 <div class="rail-arrows">
@@ -303,8 +343,8 @@ function selectTab(tab) {
               </div>
               <div class="rail rail--recent" role="list">
                 <button
-                  v-for="(book, index) in library.recentBooks"
-                  :key="'r-' + book.id"
+                  v-for="(entry, index) in library.recentSeries"
+                  :key="'r-' + (entry.seriesId || entry.lastBook?.id)"
                   type="button"
                   class="poster"
                   :class="{
@@ -312,13 +352,18 @@ function selectTab(tab) {
                       library.focusZone === 'recent' && index === library.recentCursor,
                   }"
                   role="listitem"
-                  @click="library.focusRecent(index); openBook(book)"
+                  @click="library.focusRecent(index); openRecentEntry(entry)"
                 >
                   <div class="poster__art">
-                    <LazyCover :book-id="book.id" :alt="book.title" :format="book.format" />
+                    <LazyCover
+                      v-if="entry.coverBookId != null"
+                      :book-id="entry.coverBookId"
+                      :alt="recentLabel(entry)"
+                      :format="entry.lastBook?.format"
+                    />
                   </div>
-                  <span class="poster__title">{{ book.title }}</span>
-                  <span class="poster__meta">{{ statusBadge(book.status) }}</span>
+                  <span class="poster__title">{{ recentLabel(entry) }}</span>
+                  <span class="poster__meta">{{ recentMeta(entry) }}</span>
                 </button>
               </div>
             </section>
@@ -387,37 +432,43 @@ function selectTab(tab) {
           </section>
         </template>
 
-        <!-- RECENTS tab -->
+        <!-- RECENTS tab — une entrée par série (dernier tome touché) -->
         <template v-else-if="library.catalogTab === 'recent'">
           <section class="rail-section pad-top" aria-label="Récents">
             <div class="rail-head">
-              <h2>Ajouts récents</h2>
+              <h2>Récents</h2>
             </div>
-            <div v-if="!library.recentBooks.length" class="catalog__empty">
-              <p class="catalog__empty-title">Pas encore d’ajouts</p>
+            <div v-if="!library.recentSeries.length" class="catalog__empty">
+              <p class="catalog__empty-title">Pas encore d’activité</p>
             </div>
             <div v-else class="rail rail--wrap" role="list">
               <button
-                v-for="(book, index) in library.recentBooks"
-                :key="'rr-' + book.id"
+                v-for="(entry, index) in library.recentSeries"
+                :key="'rr-' + (entry.seriesId || entry.lastBook?.id)"
                 type="button"
                 class="poster"
                 :class="{
                   'is-focused':
                     library.focusZone === 'recent' && index === library.recentCursor,
                 }"
-                @click="library.focusRecent(index); openBook(book)"
+                @click="library.focusRecent(index); openRecentEntry(entry)"
               >
                 <div class="poster__art">
-                  <LazyCover :book-id="book.id" :alt="book.title" :format="book.format" />
+                  <LazyCover
+                    v-if="entry.coverBookId != null"
+                    :book-id="entry.coverBookId"
+                    :alt="recentLabel(entry)"
+                    :format="entry.lastBook?.format"
+                  />
                 </div>
-                <span class="poster__title">{{ book.title }}</span>
+                <span class="poster__title">{{ recentLabel(entry) }}</span>
+                <span class="poster__meta">{{ recentMeta(entry) }}</span>
               </button>
             </div>
           </section>
         </template>
 
-        <!-- SERIES tab -->
+        <!-- SERIES tab → fiche série -->
         <template v-else-if="library.catalogTab === 'series'">
           <section class="series-panel pad-top" aria-label="Séries">
             <div class="rail-head">
@@ -436,12 +487,12 @@ function selectTab(tab) {
                   'is-focused':
                     library.focusZone === 'series' && index === library.seriesCursor,
                 }"
-                @click="library.focusSeries(index); library.nextUnreadForSelected().then((b) => b && openBook(b))"
+                @click="library.focusSeries(index); openSeries(group.seriesId)"
               >
                 <div class="series-row__cover">
                   <LazyCover
-                    v-if="group.coverBookId"
-                    :book-id="group.coverBookId"
+                    v-if="group.seriesCoverBookId || group.coverBookId"
+                    :book-id="group.seriesCoverBookId || group.coverBookId"
                     :alt="group.series"
                     eager
                   />

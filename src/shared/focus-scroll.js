@@ -44,6 +44,8 @@ export function focusRootForRoute(routeName) {
       return '.catalog';
     case 'book':
       return '.book-detail';
+    case 'series':
+      return '.series-detail';
     case 'setup':
       return '.setup';
     case 'profiles':

@@ -79,7 +79,12 @@ onMounted(async () => {
     unsubs.push(
       window.vdr.watch.onLibraryChanged(async () => {
         try {
-          if (ui.routeName === 'library' || ui.routeName === 'boot' || ui.routeName === 'book') {
+          if (
+            ui.routeName === 'library' ||
+            ui.routeName === 'boot' ||
+            ui.routeName === 'book' ||
+            ui.routeName === 'series'
+          ) {
             await library.scan();
           } else {
             await window.vdr.library.scan();

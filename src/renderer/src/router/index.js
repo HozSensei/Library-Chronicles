@@ -2,6 +2,7 @@ import { createRouter, createWebHashHistory } from 'vue-router';
 import BootView from '../views/BootView.vue';
 import LibraryView from '../views/LibraryView.vue';
 import BookDetailView from '../views/BookDetailView.vue';
+import SeriesDetailView from '../views/SeriesDetailView.vue';
 import ReaderView from '../views/ReaderView.vue';
 import SetupView from '../views/SetupView.vue';
 import ImportView from '../views/ImportView.vue';
@@ -38,6 +39,12 @@ const router = createRouter({
       path: '/book/:id',
       name: 'book',
       component: BookDetailView,
+      meta: { transition: 'fade-slide' },
+    },
+    {
+      path: '/series/:seriesId',
+      name: 'series',
+      component: SeriesDetailView,
       meta: { transition: 'fade-slide' },
     },
     {

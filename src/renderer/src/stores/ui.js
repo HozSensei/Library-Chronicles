@@ -43,6 +43,8 @@ export const useUiStore = defineStore('ui', {
      */
     importFocusZone: 'list',
     bookFocusIndex: 0,
+    /** Focus fiche série (tomes + CTA). */
+    seriesFocusIndex: 0,
     hapticsEnabled: true,
     hapticsAvailable: false,
   }),
@@ -92,6 +94,13 @@ export const useUiStore = defineStore('ui', {
     setBookFocus(index) {
       // Champs méta readonly + footer (voir shared/book-focus.js)
       this.bookFocusIndex = clampBookFocus(index);
+    },
+    setSeriesFocus(index, volumeCount = 0) {
+      const n = Math.max(0, Number(volumeCount) || 0);
+      const max = n > 0 ? n + 1 : 0;
+      const i = Number(index);
+      const safe = Number.isFinite(i) ? Math.trunc(i) : 0;
+      this.seriesFocusIndex = Math.max(0, Math.min(max, safe));
     },
     refreshGamepadHint() {
       this.reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
