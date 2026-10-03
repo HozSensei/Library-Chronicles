@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import { ZOOM_STEP } from '../../../shared/gamepad-codes.js';
+import { panForZoomToCenter } from '../../../shared/zoom-anchor.js';
 
 const NIGHT_PRESET = { brightness: 0.78, contrast: 1.12, sepia: 0.35 };
 const RESET_FILTERS = { brightness: 1, contrast: 1, sepia: 0 };
@@ -345,20 +346,37 @@ export const useReaderStore = defineStore('reader', {
       this.zoomTransition = false;
     },
     /**
+     * Applique une échelle en ancrant le point sous le centre du viewport
+     * (ajuste panX/panY — voir `panForZoomToCenter`).
+     */
+    applyScaleAtCenter(nextScale) {
+      const to = clampScale(nextScale);
+      const from = this.scale;
+      if (from !== 0 && Math.abs(to - from) >= 1e-9) {
+        const anchored = panForZoomToCenter(this.panX, this.panY, from, to);
+        this.panX = anchored.panX;
+        this.panY = anchored.panY;
+      }
+      this.scale = to;
+    },
+    /**
      * Interpole `scale` → `targetScale` en ~200 ms ease-out (rAF).
      * Le pas logique reste ±ZOOM_STEP ; seul le rendu est lissé.
+     * Chaque frame ancre le zoom au centre (pas de dérive / faux scroll).
      */
     animateScaleTo(target, { duration = ZOOM_ANIM_MS } = {}) {
       const to = clampScale(target);
       this.targetScale = to;
       if (typeof requestAnimationFrame !== 'function') {
-        this.scale = to;
+        this.applyScaleAtCenter(to);
         return;
       }
       if (this._zoomRaf != null) cancelAnimationFrame(this._zoomRaf);
-      const from = this.scale;
-      if (Math.abs(to - from) < 0.0005) {
-        this.scale = to;
+      const fromScale = this.scale;
+      const fromPanX = this.panX;
+      const fromPanY = this.panY;
+      if (Math.abs(to - fromScale) < 0.0005) {
+        this.applyScaleAtCenter(to);
         this._zoomRaf = null;
         return;
       }
@@ -366,10 +384,18 @@ export const useReaderStore = defineStore('reader', {
       const step = (now) => {
         const t = Math.min(1, (now - t0) / duration);
         const ease = 1 - (1 - t) ** 3;
-        this.scale = from + (to - from) * ease;
+        const s = fromScale + (to - fromScale) * ease;
+        // Ancre depuis l’état de départ (évite la dérive flottante frame à frame).
+        const anchored = panForZoomToCenter(fromPanX, fromPanY, fromScale, s);
+        this.panX = anchored.panX;
+        this.panY = anchored.panY;
+        this.scale = s;
         if (t < 1) {
           this._zoomRaf = requestAnimationFrame(step);
         } else {
+          const finalPan = panForZoomToCenter(fromPanX, fromPanY, fromScale, to);
+          this.panX = finalPan.panX;
+          this.panY = finalPan.panY;
           this.scale = to;
           this._zoomRaf = null;
         }
@@ -420,7 +446,9 @@ export const useReaderStore = defineStore('reader', {
     },
     zoomBy(steps) {
       if (this.webtoonMode) return;
-      this.fitMode = 'custom';
+      // Garder le gabarit CSS fit courant (height/width %) : le zoom D-Pad
+      // multiplie uniquement via transform scale ancré au centre.
+      // Passer en `custom` (taille naturelle) provoquait un saut vertical.
       this.animateScaleTo(this.targetScale + Number(steps) * ZOOM_STEP);
     },
     /**
@@ -435,8 +463,8 @@ export const useReaderStore = defineStore('reader', {
      * du natural size).
      *
      * Déjà en fit-width → retour Fit Height ; sinon → Fit Width
-     * (depuis fit-height, zoom-100 ou custom). Animation : pulse CSS
-     * width/height + animateScaleTo(1).
+     * (depuis fit-height, zoom-100 ou échelle custom). Animation : pulse CSS
+     * width/height + animateScaleTo(1) ancré centre.
      */
     toggleZoom() {
       if (this.webtoonMode) return;
