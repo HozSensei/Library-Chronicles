@@ -14,7 +14,7 @@ import {
 } from '../../../shared/portrait-remap.js';
 import { actionForBinding, GamepadButtons } from '../../../shared/controls.js';
 import { hasHaptics, pulseHaptic } from './useHaptics.js';
-import { markProfileSelected, clearSetupGate } from '../router';
+import { markProfileSelected, clearProfileSelected, clearSetupGate } from '../router';
 import {
   setupFocusRows,
   moveSetupFocus,
@@ -410,6 +410,39 @@ function createLoop(ctx) {
         vibe('light');
       }
       if (action === 'open-book' || action === 'confirm') {
+        // Header : A active l’item focus (onglet → contenu, actions → route)
+        if (library.focusZone === 'nav') {
+          const item = library.selectedHeaderNav;
+          if (!item) return;
+          if (item.kind === 'tab') {
+            library.setCatalogTab(item.tab, { keepNav: false });
+            vibe('confirm');
+            afterFocusMove();
+            return;
+          }
+          if (item.action === 'scan') {
+            vibe('light');
+            void library.scan();
+            return;
+          }
+          if (item.action === 'import') {
+            vibe('light');
+            router.push({ name: 'import' });
+            return;
+          }
+          if (item.action === 'settings') {
+            vibe('light');
+            router.push({ name: 'settings' });
+            return;
+          }
+          if (item.action === 'profile') {
+            vibe('light');
+            clearProfileSelected();
+            router.push({ name: 'profiles', query: { manage: '1' } });
+            return;
+          }
+          return;
+        }
         if (!library.books.length) {
           router.push({ name: 'import' });
           return;

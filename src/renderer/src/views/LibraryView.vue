@@ -1,5 +1,5 @@
 <script setup>
-import { computed, nextTick, onMounted, watch } from 'vue';
+import { nextTick, onMounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import ControlHint from '../components/ControlHint.vue';
 import LazyCover from '../components/LazyCover.vue';
@@ -29,36 +29,18 @@ const navItems = [
   { id: 'series', label: 'Séries' },
 ];
 
-const activeHero = computed(
-  () => library.heroSlides[library.heroIndex] || library.heroBook,
-);
-
-const heroMeta = computed(() => {
-  const b = activeHero.value;
-  if (!b) return null;
-  const progress =
-    b.pageTotal > 0
-      ? Math.round(((b.pageCurrent + 1) / b.pageTotal) * 100)
-      : null;
-  return {
-    year: b.year || null,
-    series: b.series,
-    volume: b.volume,
-    progress,
-    status:
-      b.status === 'reading'
-        ? 'En cours'
-        : b.status === 'finished'
-          ? 'Terminé'
-          : 'Non lu',
-    format: (b.format || '').toUpperCase(),
-  };
-});
+function navFocused(id) {
+  if (library.focusZone !== 'nav') return false;
+  const item = library.selectedHeaderNav;
+  if (!item) return false;
+  if (item.kind === 'tab') return item.tab === id;
+  return item.id === id || item.action === id;
+}
 
 onMounted(async () => {
   await profiles.refresh();
   await library.refresh();
-  library.focusHero(0);
+  library.enterBoardContent();
   nextTick(scrollFocusIntoView);
 });
 
@@ -68,7 +50,7 @@ watch(
     library.cursor,
     library.recentCursor,
     library.readingCursor,
-    library.heroIndex,
+    library.navIndex,
     library.catalogTab,
     library.filter,
   ],
@@ -119,6 +101,12 @@ function scrollRail(refEl, dir) {
   if (!el) return;
   el.scrollBy({ left: dir * 320, behavior: 'smooth' });
 }
+
+function selectTab(tab) {
+  const idx = library.headerNav.findIndex((n) => n.kind === 'tab' && n.tab === tab);
+  if (idx >= 0) library.focusNav(idx);
+  library.setCatalogTab(tab, { keepNav: false });
+}
 </script>
 
 <template>
@@ -126,7 +114,7 @@ function scrollRail(refEl, dir) {
     <div class="catalog__bg pointer-events-none absolute inset-0" aria-hidden="true" />
 
     <div class="relative z-10 flex h-full min-h-0 min-w-0 flex-col overflow-x-hidden">
-      <!-- Header Movie Gather style -->
+      <!-- Header -->
       <header class="catalog__header">
         <p class="catalog__logo">Vertical Deck Reader</p>
 
@@ -136,26 +124,40 @@ function scrollRail(refEl, dir) {
             :key="item.id"
             type="button"
             class="catalog__nav-link"
-            :class="{ 'is-active': library.catalogTab === item.id }"
-            @click="library.setCatalogTab(item.id)"
+            :class="{
+              'is-active': library.catalogTab === item.id,
+              'is-focused': navFocused(item.id),
+            }"
+            @click="selectTab(item.id)"
           >
             {{ item.label }}
           </button>
         </nav>
 
         <div class="catalog__tools">
-          <button type="button" class="ghost catalog__tool" @click="library.scan()">
+          <button
+            type="button"
+            class="ghost catalog__tool"
+            :class="{ 'is-focused': navFocused('scan') }"
+            @click="library.focusNav(library.headerNav.findIndex((n) => n.id === 'scan')); library.scan()"
+          >
             Scanner
           </button>
-          <button type="button" class="ghost catalog__tool" @click="router.push({ name: 'import' })">
+          <button
+            type="button"
+            class="ghost catalog__tool"
+            :class="{ 'is-focused': navFocused('import') }"
+            @click="library.focusNav(library.headerNav.findIndex((n) => n.id === 'import')); router.push({ name: 'import' })"
+          >
             Import
           </button>
           <button
             type="button"
             class="catalog__settings"
+            :class="{ 'is-focused': navFocused('settings') }"
             title="Paramètres (Start)"
             aria-label="Paramètres"
-            @click="router.push({ name: 'settings' })"
+            @click="library.focusNav(library.headerNav.findIndex((n) => n.id === 'settings')); router.push({ name: 'settings' })"
           >
             <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="currentColor">
               <path
@@ -166,8 +168,9 @@ function scrollRail(refEl, dir) {
           <button
             type="button"
             class="catalog__profile"
+            :class="{ 'is-focused': navFocused('profile') }"
             :title="library.profileName || 'Profil'"
-            @click="switchProfile"
+            @click="library.focusNav(library.headerNav.findIndex((n) => n.id === 'profile')); switchProfile()"
           >
             <span
               class="catalog__avatar"
@@ -184,92 +187,46 @@ function scrollRail(refEl, dir) {
         <div class="catalog__scroll-inner">
         <!-- BOARD -->
         <template v-if="library.catalogTab === 'board'">
-          <!-- Hero + En cours -->
-          <div class="catalog__hero-row">
-            <button
-              type="button"
-              class="hero"
-              :class="{
-                'is-focused': library.focusZone === 'hero',
-                'hero--empty': library.isEmpty,
-              }"
-              @click="library.focusHero(); openSelected()"
+          <!-- Continuer : liste / grille des tomes en cours -->
+          <section class="continue-section" aria-label="Continuer">
+            <div class="rail-head">
+              <h2>Continuer</h2>
+            </div>
+            <div v-if="!library.readingBooks.length" class="continue-empty">
+              Aucune lecture en cours.
+            </div>
+            <div
+              v-else
+              class="book-grid"
+              :style="{ '--grid-cols': String(library.columns || 6) }"
+              role="list"
             >
-              <div class="hero__media" aria-hidden="true">
-                <LazyCover
-                  v-if="activeHero"
-                  :book-id="activeHero.id"
-                  :alt="activeHero.title"
-                  :format="activeHero.format"
-                  eager
-                />
-                <div v-else class="hero__void" />
-                <div class="hero__veil" />
-              </div>
-
-              <div v-if="library.heroSlides.length > 1" class="hero__dots">
-                <span
-                  v-for="(s, i) in library.heroSlides"
-                  :key="s.id"
-                  class="hero__dot"
-                  :class="{ 'is-on': i === library.heroIndex }"
-                />
-              </div>
-
-              <div class="hero__body">
-                <p v-if="heroMeta?.year" class="hero__year">{{ heroMeta.year }}</p>
-                <h1 class="hero__title">
-                  <template v-if="activeHero">{{ activeHero.title }}</template>
-                  <template v-else>Aucun tome encore</template>
-                </h1>
-                <p class="hero__lead">
-                  <template v-if="activeHero && heroMeta">
-                    {{ heroMeta.status }}
-                    <template v-if="heroMeta.series"> · {{ heroMeta.series }}</template>
-                    <template v-if="heroMeta.volume != null"> · T{{ heroMeta.volume }}</template>
-                    <template v-if="heroMeta.progress != null"> · {{ heroMeta.progress }}%</template>
-                  </template>
-                  <template v-else>
-                    Importe un CBZ, CBR ou PDF pour démarrer ta collection.
-                  </template>
-                </p>
-                <span class="hero__play" aria-hidden="true">▶</span>
-              </div>
-            </button>
-
-            <aside class="watching" aria-label="En cours">
-              <h2 class="watching__title">En cours</h2>
-              <div v-if="!library.readingBooks.length" class="watching__empty">
-                Aucune lecture en cours.
-              </div>
               <button
                 v-for="(book, index) in library.readingBooks"
-                :key="'w-' + book.id"
+                :key="'c-' + book.id"
                 type="button"
-                class="watching__item"
+                class="poster poster--grid"
                 :class="{
                   'is-focused':
-                    library.focusZone === 'watching' && index === library.readingCursor,
+                    library.focusZone === 'continue' && index === library.readingCursor,
                 }"
-                @click="library.focusWatching(index); openBook(book)"
+                role="listitem"
+                @click="library.focusContinue(index); openBook(book)"
               >
-                <div class="watching__thumb">
+                <div class="poster__art">
                   <LazyCover :book-id="book.id" :alt="book.title" :format="book.format" />
-                  <span class="watching__play">▶</span>
                 </div>
-                <div class="watching__meta">
-                  <p class="watching__name">{{ book.title }}</p>
-                  <p class="watching__sub">
-                    <template v-if="book.pageTotal">
-                      p. {{ book.pageCurrent + 1 }}/{{ book.pageTotal }}
-                    </template>
-                    <template v-else>{{ statusBadge(book.status) }}</template>
-                    <template v-if="book.series"> · {{ book.series }}</template>
-                  </p>
-                </div>
+                <span class="poster__title">{{ book.title }}</span>
+                <span class="poster__meta">
+                  <template v-if="book.pageTotal">
+                    p. {{ book.pageCurrent + 1 }}/{{ book.pageTotal }}
+                  </template>
+                  <template v-else>{{ statusBadge(book.status) }}</template>
+                  <template v-if="book.series"> · {{ book.series }}</template>
+                </span>
               </button>
-            </aside>
-          </div>
+            </div>
+          </section>
 
           <!-- Filtres pills -->
           <section class="filters" aria-label="Filtres">
@@ -567,6 +524,12 @@ function scrollRail(refEl, dir) {
   border-bottom-color: var(--paper);
 }
 
+.catalog__nav-link.is-focused {
+  color: var(--brass-bright);
+  border-bottom-color: var(--brass-bright);
+  box-shadow: 0 2px 0 0 var(--focus-glow);
+}
+
 .catalog__tools {
   display: flex;
   align-items: center;
@@ -578,6 +541,12 @@ function scrollRail(refEl, dir) {
 
 .catalog__tool {
   font-size: 0.8rem;
+}
+
+.catalog__tool.is-focused {
+  border-color: var(--brass-bright);
+  color: var(--brass-bright);
+  box-shadow: 0 0 0 2px var(--focus-glow);
 }
 
 .catalog__settings {
@@ -599,7 +568,8 @@ function scrollRail(refEl, dir) {
 }
 
 .catalog__settings:hover,
-.catalog__settings:focus-visible {
+.catalog__settings:focus-visible,
+.catalog__settings.is-focused {
   outline: none;
   border-color: var(--brass-bright);
   color: var(--brass-bright);
@@ -618,6 +588,11 @@ function scrollRail(refEl, dir) {
   padding: 0.25rem 0.75rem 0.25rem 0.3rem;
   cursor: pointer;
   font: inherit;
+}
+
+.catalog__profile.is-focused {
+  border-color: var(--brass-bright);
+  box-shadow: 0 0 0 2px var(--focus-glow);
 }
 
 .catalog__avatar {
@@ -651,218 +626,14 @@ function scrollRail(refEl, dir) {
   box-sizing: border-box;
 }
 
-.catalog__hero-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(200px, 280px);
-  gap: 1.1rem;
-  min-height: 280px;
-  min-width: 0;
-  max-width: 100%;
+.continue-section {
+  margin-top: 0.35rem;
 }
 
-.hero {
-  position: relative;
-  appearance: none;
-  border: 1px solid var(--border);
-  border-radius: 22px;
-  overflow: hidden;
-  min-height: 280px;
-  padding: 0;
-  text-align: left;
-  color: inherit;
-  cursor: pointer;
-  background: var(--ink-800);
-}
-
-.hero.is-focused {
-  box-shadow: 0 0 0 3px var(--focus-glow);
-  border-color: var(--brass-bright);
-}
-
-.hero__media {
-  position: absolute;
-  inset: 0;
-}
-
-.hero__media :deep(img),
-.hero__void {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.hero__void {
-  background:
-    linear-gradient(135deg, var(--ink-700), var(--ink-900));
-}
-
-.hero__veil {
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(90deg, rgba(8, 12, 16, 0.92) 0%, rgba(8, 12, 16, 0.35) 55%, rgba(8, 12, 16, 0.2) 100%),
-    linear-gradient(0deg, rgba(8, 12, 16, 0.85) 0%, transparent 45%);
-}
-
-.hero__dots {
-  position: absolute;
-  top: 1rem;
-  left: 1.1rem;
-  display: flex;
-  gap: 0.35rem;
-  z-index: 2;
-}
-
-.hero__dot {
-  width: 0.45rem;
-  height: 0.45rem;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--paper) 35%, transparent);
-}
-
-.hero__dot.is-on {
-  background: var(--paper);
-}
-
-.hero__body {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 2;
-  padding: 1.4rem 1.5rem 1.35rem;
-  max-width: 70%;
-}
-
-.hero__year {
-  margin: 0;
-  font-size: 0.85rem;
+.continue-empty {
   color: var(--paper-dim);
-}
-
-.hero__title {
-  margin: 0.2rem 0 0;
-  font-family: var(--font-display);
-  font-size: clamp(1.6rem, 3vw, 2.35rem);
-  font-weight: 800;
-  line-height: 1.05;
-  letter-spacing: -0.02em;
-}
-
-.hero__lead {
-  margin: 0.55rem 0 0;
-  color: var(--paper-dim);
-  font-size: 0.92rem;
-}
-
-.hero__play {
-  position: absolute;
-  right: 1.5rem;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 3.4rem;
-  height: 3.4rem;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  background: color-mix(in srgb, var(--paper) 18%, transparent);
-  backdrop-filter: blur(8px);
-  font-size: 1rem;
-  color: var(--paper);
-}
-
-.watching {
-  border: 1px solid var(--border);
-  border-radius: 22px;
-  background: color-mix(in srgb, var(--ink-900) 88%, transparent);
-  padding: 1rem 0.9rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.55rem;
-  overflow: auto;
-  max-height: 320px;
-}
-
-.watching__title {
-  margin: 0 0 0.35rem;
-  font-family: var(--font-display);
-  font-size: 1.05rem;
-  font-weight: 700;
-}
-
-.watching__empty {
-  color: var(--paper-dim);
-  font-size: 0.85rem;
-  padding: 0.5rem 0.25rem;
-}
-
-.watching__item {
-  display: grid;
-  grid-template-columns: 64px 1fr;
-  gap: 0.65rem;
-  align-items: center;
-  appearance: none;
-  border: 1px solid transparent;
-  background: transparent;
-  color: inherit;
-  text-align: left;
-  padding: 0.35rem;
-  border-radius: 12px;
-  cursor: pointer;
-  font: inherit;
-}
-
-.watching__item.is-focused {
-  border-color: var(--brass-bright);
-  background: color-mix(in srgb, var(--brass) 12%, transparent);
-  box-shadow: 0 0 0 2px var(--focus-glow);
-}
-
-.watching__thumb {
-  position: relative;
-  width: 64px;
-  height: 40px;
-  max-width: 64px;
-  max-height: 40px;
-  flex-shrink: 0;
-  border-radius: 8px;
-  overflow: hidden;
-  background: var(--ink-800);
-}
-
-.watching__thumb :deep(.lazy-cover),
-.watching__thumb :deep(img) {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: cover;
-}
-
-.watching__play {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  background: rgba(0, 0, 0, 0.35);
-  font-size: 0.7rem;
-}
-
-.watching__name {
-  margin: 0;
-  font-weight: 700;
-  font-size: 0.88rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.watching__sub {
-  margin: 0.15rem 0 0;
-  font-size: 0.72rem;
-  color: var(--paper-dim);
+  font-size: 0.9rem;
+  padding: 0.75rem 0.15rem 0.25rem;
 }
 
 .filters {
@@ -1146,18 +917,6 @@ function scrollRail(refEl, dir) {
     justify-content: flex-start;
     flex-wrap: wrap;
     gap: 1rem;
-  }
-
-  .catalog__hero-row {
-    grid-template-columns: 1fr;
-  }
-
-  .watching {
-    max-height: none;
-  }
-
-  .hero__body {
-    max-width: 90%;
   }
 }
 
