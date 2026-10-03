@@ -1,10 +1,36 @@
 import { defineStore } from 'pinia';
+import {
+  META_SOURCE,
+  computeMetaSource,
+  metadataFromDetected,
+  normalizeImportMetadata,
+  resolveItemMetadata,
+} from '../../../shared/import-meta.js';
+
+function draftFromItem(item) {
+  if (item?.selectedMeta) {
+    return normalizeImportMetadata(item.selectedMeta, item);
+  }
+  return metadataFromDetected(item);
+}
+
+function annotateItem(item, prev = null) {
+  const selectedMeta = prev?.selectedMeta ?? item.selectedMeta ?? null;
+  return {
+    ...item,
+    selectedMeta,
+    metaSource: computeMetaSource({
+      selectedMeta,
+      detected: item.detected,
+    }),
+  };
+}
 
 export const useImportStore = defineStore('import', {
   state: () => ({
     items: [],
     cursor: 0,
-    /** Chemins sélectionnés (interne : commitAll). */
+    /** Chemins sélectionnés (interne : commitSelection). */
     selectedPaths: [],
     /** list = fichiers · detail = fiche méta / search API. */
     viewMode: 'list',
@@ -118,7 +144,10 @@ export const useImportStore = defineStore('import', {
         await this.loadProviders();
         const result = await window.vdr.import.scan();
         this.root = result.root;
-        this.items = result.found || [];
+        const prevByPath = new Map(this.items.map((i) => [i.filePath, i]));
+        this.items = (result.found || []).map((raw) =>
+          annotateItem(raw, prevByPath.get(raw.filePath)),
+        );
         this.error = result.error || null;
         this.cursor = Math.min(this.cursor, Math.max(0, this.items.length - 1));
         const valid = new Set(this.items.map((i) => i.filePath));
@@ -156,12 +185,12 @@ export const useImportStore = defineStore('import', {
     async loadDraftFromSelected({ keepResults = false } = {}) {
       const item = this.selected;
       if (!item) return;
-      const d = item.detected || {};
+      const d = draftFromItem(item);
       this.draft = {
-        title: d.title || item.name,
-        series: d.series || '',
+        title: d.title,
+        series: d.series,
         volume: d.volume,
-        author: d.author || '',
+        author: d.author,
         year: d.year,
         description: d.description || '',
       };
@@ -183,8 +212,16 @@ export const useImportStore = defineStore('import', {
         this.coverPreview = null;
       }
     },
+    /** Met à jour selectedMeta si l’item a un choix API (pastille verte). */
+    syncSelectedMetaFromDraft() {
+      const item = this.selected;
+      if (!item || item.metaSource !== META_SOURCE.SELECTED) return;
+      item.selectedMeta = normalizeImportMetadata(this.draft, item);
+      item.metaSource = META_SOURCE.SELECTED;
+    },
     patchDraft(patch) {
       this.draft = { ...this.draft, ...patch };
+      this.syncSelectedMetaFromDraft();
     },
     setSearchQuery(query) {
       this.searchQuery = String(query ?? '');
@@ -236,6 +273,10 @@ export const useImportStore = defineStore('import', {
         this.enrichLoading = false;
       }
     },
+    /**
+     * Applique un résultat API → draft + selectedMeta (pastille verte).
+     * @param {object} result
+     */
     applyEnrichResult(result) {
       if (!result) return;
       this.patchDraft({
@@ -246,22 +287,31 @@ export const useImportStore = defineStore('import', {
         year: result.year ?? this.draft.year,
         description: result.description || this.draft.description,
       });
+      const item = this.selected;
+      if (!item) return;
+      item.selectedMeta = normalizeImportMetadata(this.draft, item);
+      item.metaSource = META_SOURCE.SELECTED;
     },
     applyEnrichCursor() {
       const result = this.enrichResults[this.enrichResultCursor];
       if (result) this.applyEnrichResult(result);
     },
+    /**
+     * X — importer le tome focus.
+     * Méta : sélectionnées (API) si présentes, sinon défaut / draft fiche.
+     */
     async commitSelected({ copyToLibrary = true } = {}) {
       const item = this.selected;
       if (!item) return null;
       this.committing = true;
       try {
+        const meta = resolveItemMetadata(item, {
+          draft: this.draft,
+          preferDraft: this.isDetail,
+        });
         const result = await window.vdr.import.commit({
           sourcePath: item.filePath,
-          metadata: {
-            ...this.draft,
-            description: this.draft.description || null,
-          },
+          metadata: meta,
           copyToLibrary,
         });
         this.lastImported = result.book;
@@ -287,20 +337,12 @@ export const useImportStore = defineStore('import', {
         for (const filePath of paths) {
           const item = this.items.find((i) => i.filePath === filePath);
           if (!item) continue;
-          const useDraft = this.selected?.filePath === filePath;
-          const meta = useDraft
-            ? {
-                ...this.draft,
-                description: this.draft.description || null,
-              }
-            : {
-                title: item.detected?.title || item.name,
-                series: item.detected?.series || '',
-                volume: item.detected?.volume ?? null,
-                author: item.detected?.author || '',
-                year: item.detected?.year ?? null,
-                description: item.detected?.description || null,
-              };
+          const preferDraft =
+            this.isDetail && this.selected?.filePath === filePath;
+          const meta = resolveItemMetadata(item, {
+            draft: this.draft,
+            preferDraft,
+          });
           const result = await window.vdr.import.commit({
             sourcePath: filePath,
             metadata: meta,
@@ -319,10 +361,37 @@ export const useImportStore = defineStore('import', {
       }
       return results;
     },
-    /** Importe tous les fichiers avec méta détectées / draft curseur. */
+    /**
+     * Y — tout importer.
+     * Chaque item : méta sélectionnées (API) si présentes, sinon défaut détecté.
+     */
     async commitAll({ copyToLibrary = true } = {}) {
-      this.selectAll();
-      return this.commitSelection({ copyToLibrary });
+      if (!this.items.length) return [];
+      this.committing = true;
+      const results = [];
+      try {
+        for (const item of this.items) {
+          const preferDraft =
+            this.isDetail && this.selected?.filePath === item.filePath;
+          const meta = resolveItemMetadata(item, {
+            draft: this.draft,
+            preferDraft,
+          });
+          const result = await window.vdr.import.commit({
+            sourcePath: item.filePath,
+            metadata: meta,
+            copyToLibrary,
+          });
+          item.alreadyInLibrary = true;
+          item.existingBookId = result.book?.id;
+          this.lastImported = result.book;
+          results.push(result);
+        }
+        this.selectedPaths = [];
+      } finally {
+        this.committing = false;
+      }
+      return results;
     },
   },
 });

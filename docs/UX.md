@@ -31,7 +31,7 @@ L’app appelle `setSessionMode('reader'|'ui')` à l’entrée / sortie du lecte
 1. **Profils** — premier écran (ronds + bouton **+**), même à zéro profil
 2. **Setup** — wizard **par profil** (dossiers, thème, langue) — pas d’orientation
 3. **Boot** — marque + actions (Continuer / Bibliothèque / Import / Paramètres)
-4. **Import** — liste simple (A = fiche détail méta / search API, Y = tout importer) + check « déjà importé » + footer compact
+4. **Import** — liste simple (A = fiche détail, X = importer ce tome, Y = tout importer) + pastilles méta (bleu / rouge / vert) + check « déjà importé »
 5. **Bibliothèque** — catalogue TV (héro large, sidebar En cours, pills, rails posters verticaux)
 6. **Fiche livre** — layout type streaming (cover portrait + méta labels/valeurs + synopsis) · rail série sous le contenu · Lire / Retour / Options (footer fixe)
 7. **Lecteur** — portrait (+90° CSS), menu pause Select en **modal** (quitter, signets, filtres, webtoon, sens)
@@ -68,7 +68,7 @@ L’app appelle `setSessionMode('reader'|'ui')` à l’entrée / sortie du lecte
 - [x] Setup sans choix orientation
 - [x] Bibliothèque vide → un seul CTA Importer
 - [x] Grille store + fiche livre détail
-- [x] Import liste → fiche détail (méta + search API) · Y tout importer · A détail
+- [x] Import liste → fiche détail (méta + search API) · X un tome · Y tous · pastilles metaSource
 - [x] Enrichir métadonnées (warning + AniList défaut)
 - [x] Select → menu pause lecture
 - [x] Tailwind + tokens mode/accent (hors Steam cyan)

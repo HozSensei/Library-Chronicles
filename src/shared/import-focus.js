@@ -3,6 +3,9 @@
  *
  * Liste : zone `list` (curseur store) ou `actions` (footer réservé).
  * Détail : zones `fields` | `results` | `actions`.
+ *
+ * Bindings : A = détail / valider · X = importer un tome · Y = tout importer
+ * (liste) ou rechercher (fiche). Voir `import-meta.js` pour metaSource.
  */
 
 /** Champs / contrôles de la fiche détail (hors résultats API). */
@@ -26,7 +29,7 @@ export const IMPORT_DETAIL_ACTIONS = Object.freeze({
   MAX: 1,
 });
 
-/** Actions footer liste (rescanner / retour — hints Y/A/B sont dans ControlHint). */
+/** Actions footer liste (rescanner / retour — hints X/Y/A/B dans ControlHint). */
 export const IMPORT_LIST_ACTIONS = Object.freeze({
   RESCAN: 0,
   BACK: 1,

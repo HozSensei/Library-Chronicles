@@ -66,7 +66,7 @@ Voir [`docs/UX.md`](./docs/UX.md), [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.
 - [x] Setup sans choix orientation ; prefs thème côte à côte
 - [x] Bibliothèque grille store ; vide = CTA Importer unique
 - [x] Fiche livre (cover | détails + synopsis)
-- [x] Import rows + check déjà importé ; enrich AniList défaut
+- [x] Import rows + check déjà importé ; enrich AniList défaut ; X/Y + pastilles metaSource
 - [x] Select → menu pause lecture ; D-Pad ←→ zoom
 
 ### Phase 0 — Squelette *(fait)*

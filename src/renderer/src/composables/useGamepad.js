@@ -637,6 +637,20 @@ function createLoop(ctx) {
           }
         }
 
+        // X sur fiche = importer ce tome (méta sélectionnées ou défaut / draft)
+        if (action === 'import-one') {
+          if (imp.selected && !imp.committing) {
+            vibe('confirm');
+            void (async () => {
+              await imp.commitSelected({ copyToLibrary: true });
+              imp.closeDetail();
+              ui.setImportFocusZone('list');
+              ui.setImportFocus(0);
+              afterFocusMove();
+            })();
+          }
+        }
+
         // Y sur fiche = lancer la recherche API (mots-clés)
         if (action === 'import-all' || action === 'enrich') {
           void (async () => {
@@ -720,9 +734,16 @@ function createLoop(ctx) {
           })();
         }
       }
-      // Y = tout importer (méta détectées / draft)
+      // X = importer le tome focus (méta sélectionnées ou défaut)
+      if (action === 'import-one') {
+        if (imp.selected && !imp.committing) {
+          vibe('confirm');
+          void imp.commitSelected({ copyToLibrary: true });
+        }
+      }
+      // Y = tout importer (chaque item : méta sélectionnées ou défaut)
       if (action === 'import-all' || action === 'enrich') {
-        if (imp.items.length) {
+        if (imp.items.length && !imp.committing) {
           vibe('confirm');
           void imp.commitAll({ copyToLibrary: true });
         }
