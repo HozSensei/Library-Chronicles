@@ -1,23 +1,19 @@
 # Mapping manette — ROG Ally X (portrait)
 
-Implémentation : `src/shared/portrait-remap.js` + `src/renderer/src/composables/useGamepad.js`.
+Implémentation : `portrait-remap.js` → `key-bindings.js` → `useGamepad.js`.
+
+## Pipeline d’entrée
+
+1. **Physique** (indices Gamepad API / XInput)
+2. **Remap orientation** (`portrait-ccw` ou `landscape`) pour D-Pad / stick
+3. **Mapping utilisateur** (défauts + overrides persistés dans la config)
+4. **Action** dispatchée selon l’écran (boot / library / reader / …)
+
+Le remapping se configure dans **Paramètres → Manette**.
 
 ## Orientation appareil
 
-La Ally est tenue **en portrait**, tournée de **90° anti-horaire** par rapport au landscape :
-
-```
-        [ ABXY · stick R ]          ← haut (ex-poignée droite)
-   ┌─────────────────────────┐
-   │                         │
-   │      écran 1080×1920    │
-   │                         │
-   └─────────────────────────┘
-        [ D-Pad · stick L ]         ← bas (ex-poignée gauche)
-```
-
-Les entrées XInput restent celles du landscape matériel.  
-**VDR convertit tout en directions logiques (repère écran).**
+Ally tenue **en portrait**, tournée de **90° anti-horaire** :
 
 | Physique (XInput) | Logique (écran portrait) |
 |-------------------|--------------------------|
@@ -28,43 +24,31 @@ Les entrées XInput restent celles du landscape matériel.
 
 Stick : `logicalX = physicalY`, `logicalY = physicalX`.
 
-## Mode Lecture *(directions = écran)*
+## Mode Lecture *(directions = écran, mapping défaut)*
 
-| Contrôle (logique) | Action |
-|--------------------|--------|
-| Stick L (bas) | Pan / drag sur la planche |
+| Contrôle | Action |
+|----------|--------|
+| Stick L | Pan |
 | L3 / R3 | Toggle Fit Height ↔ Zoom 100 % |
-| D-Pad ↑ / ↓ | Zoom +15 % / −15 % |
-| D-Pad ← / → | Page précédente / suivante (inversé en Manga) |
-| A | Occidental (LTR) ↔ Manga (RTL) |
-| B | Fermer le livre → bibliothèque |
-| Y | Afficher / masquer overlay |
-| LT / RT | Chapitre précédent / suivant |
+| D-Pad ↑ / ↓ | Zoom ±15 % |
+| D-Pad ← / → | Page ±1 (inversé en Manga) |
+| A | LTR ↔ RTL |
+| B | Fermer → bibliothèque |
+| X | Fit Width |
+| Y | HUD on/off |
+| LT / RT | Chapitre ±1 (ou ±10 pages) |
 
-En pratique sur le D-Pad physique en bas de la console :
+## Mode Bibliothèque
 
-- les branches qui pointent **gauche/droite** à l’écran (physique ↑/↓) tournent les pages ;
-- les branches qui pointent **haut/bas** à l’écran (physique ←/→) gèrent le zoom.
+| Contrôle | Action |
+|----------|--------|
+| D-Pad / stick | Curseur grille |
+| A | Ouvrir |
+| B | Retour |
+| X | Import |
+| Start | Paramètres |
+| LT / RT | Filtre statut |
 
-## Mode Bibliothèque / menus *(directions = écran)*
+## Dev desktop
 
-| Contrôle (logique) | Action |
-|--------------------|--------|
-| Stick | Défilement liste |
-| L3 / R3 | Valider / sélectionner |
-| D-Pad ↑↓←→ | Curseur / catégorie |
-| A | Ouvrir l’album |
-| B | Retour menu précédent |
-| Y | Options du livre |
-| LT / RT | Changement d’onglet |
-
-## Paramètres techniques
-
-- Orientation par défaut : `portrait-ccw` (`DeviceOrientation.PORTRAIT_CCW`)
-- Deadzone joystick : `0.18`
-- Pas de zoom : `0.15` (15 %)
-- Polling : `requestAnimationFrame` (~60/120 Hz)
-
-## Dev desktop (optionnel)
-
-Pour tester à plat sans Ally, on pourra exposer un override config `orientation: 'landscape'` qui désactive le remap (TODO Phase 1 polish).
+Config `orientation: 'landscape'` (setup ou paramètres) désactive le remap portrait.

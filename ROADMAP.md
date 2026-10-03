@@ -7,7 +7,7 @@ Lecteur BD · Comics · Manga en mode portrait, optimisé manette (ROG Ally X).
 
 ## Vision
 
-Application Electron légère qui relie une ergonomie manette naturelle à la lecture de formats compressés (CBZ/CBR/PDF/ZIP), en fenêtre portrait 1080×1920.
+Application Electron légère qui relie une ergonomie manette naturelle à la lecture de formats compressés (CBZ/CBR/PDF/ZIP), avec **setup initial**, **import guidé**, **thèmes**, et **remapping des touches**.
 
 ---
 
@@ -16,115 +16,101 @@ Application Electron légère qui relie une ergonomie manette naturelle à la le
 ```
 Renderer                          Main (Electron)
 ─────────────────────             ─────────────────────────────
-Gamepad Loop (60/120 Hz)  ──IPC──► Extractors (ZIP / RAR / PDF)
-Moteur de rendu (CSS GPU) ──IPC──► SQLite (progression / covers)
-UI Bibliothèque / HUD     ──IPC──► FS watcher + cache miniatures
+Setup / Import / Settings ──IPC──► Config + secrets (userData)
+Gamepad (remap→bindings)  ──IPC──► Extractors (ZIP / RAR / PDF)
+Moteur de rendu (CSS GPU) ──IPC──► SQLite (+ fallback JSON)
+Bibliothèque / HUD        ──IPC──► Import + metadata providers
 ```
 
 | Couche | Rôle |
 |--------|------|
-| `src/main` | Fenêtre, IPC, extraction, SQLite, scan bibliothèque |
+| `src/main` | Fenêtre, IPC, extraction, SQLite, import, metadata |
 | `src/preload` | Bridge sécurisé `contextBridge` |
-| `src/renderer` | **Vue 3 + Pinia + Router** — UI console-first, gamepad, zoom/pan |
+| `src/renderer` | Vue 3 + Pinia + Router — UI console-first |
+| `src/shared` | IPC, portrait-remap, key-bindings |
 
-Voir aussi [`docs/UX.md`](./docs/UX.md) pour la stratégie front / qualité UX.
+Voir [`docs/UX.md`](./docs/UX.md), [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md), [`docs/CONTROLS.md`](./docs/CONTROLS.md).
 
 ---
 
 ## Mapping manette (référence)
 
-> **Portrait Ally (90° CCW)** : les directions ci-dessous sont **logiques (écran)**.  
-> Physique ↑ = logique ←, etc. Voir `docs/CONTROLS.md` et `src/shared/portrait-remap.js`.
+> **Portrait Ally (90° CCW)** puis **mapping utilisateur**.  
+> Voir `docs/CONTROLS.md`, `portrait-remap.js`, `key-bindings.js`.
 
 | Contrôle (écran) | Mode Lecture | Mode Bibliothèque |
 |----------|--------------|-------------------|
-| Stick L | Pan / drag planche | Scroll liste |
-| L3 / R3 | Toggle Fit Height ↔ Zoom 100 % | Valider / sélectionner |
+| Stick L | Pan / drag planche | Scroll grille |
+| L3 / R3 | Toggle Fit Height ↔ Zoom 100 % | Valider |
 | D-Pad Haut / Bas | Zoom ±15 % | Curseur |
 | D-Pad Gauche / Droite | Page ±1 | Catégorie |
 | A | Sens Occidental ↔ Manga | Ouvrir album |
 | B | Fermer livre → bibliothèque | Retour menu |
-| Y | Overlay options | Options du livre |
-| LT / RT | Chapitre ±1 | Onglet ±1 |
+| X | Fit Width | Ouvrir Import |
+| Y | Overlay options | Options |
+| Start | — | Paramètres |
+| LT / RT | Chapitre ±1 | Filtre ±1 |
 
 ---
 
 ## Phases
 
-### Phase 0 — Squelette *(actuel)*
+### Phase 0 — Squelette *(fait)*
 
-- [x] Projet Electron + structure dossiers
+- [x] Electron + Vue 3 + Pinia + Router
 - [x] Fenêtre portrait 1080×1920
-- [x] Preload / IPC stubs
-- [x] Modules stub : gamepad, reader, library, extractors, database
-- [x] Ce plan (`ROADMAP.md`)
-- [x] Front **Vue 3 + Vite + Pinia + Vue Router** (`electron-vite`)
-- [x] UI boot console-first (marque, focus manette, motion, tokens)
-- [x] Remap manette portrait 90° CCW (`portrait-remap.js`)
+- [x] Remap manette portrait 90° CCW
+- [x] UI boot console-first
 
-### Phase 1 — MVP Prototype Gamepad
+### Phase Setup & préférences *(nouveau — fait)*
 
-**Objectif :** prouver que la lecture manette est fluide.
+- [x] Wizard premier lancement (`setupCompleted`)
+- [x] Dossiers library / import, langue, thème, orientation
+- [x] Thème sombre / clair (tokens CSS + persistance)
+- [x] Remapping touches (UI settings + persistance)
+- [x] Intégration gamepad : remap orientation → bindings user
 
-| # | Fonctionnalité | Critère de done |
-|---|----------------|-----------------|
-| 1.1 | Boucle Gamepad API (polling 60/120 Hz) | Détection ROG Ally / XInput, deadzone |
-| 1.2 | Chargement CBZ en dur (chemin config) | Pages = images triées |
-| 1.3 | Affichage Fit Height | Image = hauteur écran |
-| 1.4 | Pan joystick (CSS `translate3d`) | 60 FPS ressenti |
-| 1.5 | Zoom D-Pad ±15 % + toggle L3 | Fit Height ↔ 100 % |
-| 1.6 | Pages D-Pad Gauche / Droite | Navigation sans souris |
+### Phase 1 — MVP lecteur *(fait)*
 
-**Hors scope Phase 1 :** bibliothèque, SQLite, CBR/PDF, overlay Y.
+- [x] CBZ/ZIP réel via JSZip (pages triées, getPage)
+- [x] Fit Height, pan stick (`translate3d`), zoom D-Pad ±15 %, toggle L3
+- [x] Pages D-Pad (avec remap portrait)
 
-### Phase 2 — Lecteur complet
+### Phase 2 — Lecteur complet *(fait / partiel)*
 
-| # | Fonctionnalité | Critère de done |
-|---|----------------|-----------------|
-| 2.1 | Support CBR / RAR (`node-unrar-js`) | Ouverture + pages |
-| 2.2 | Support PDF (`pdfjs-dist` → canvas) | Rendu page à page |
-| 2.3 | Mode Manga (A) | Inversion Gauche/Droite |
-| 2.4 | Overlay HUD (Y) | Progression, n° page, sens, retour |
-| 2.5 | Fit Width | Scroll vertical joystick pour lire |
-| 2.6 | LT / RT chapitres | Si structure multi-chapitre détectée |
+- [x] CBR (`node-unrar-js`)
+- [x] PDF (`pdfjs-dist`) — rendu canvas si dispo, placeholder sinon
+- [x] Mode Manga LTR/RTL (A)
+- [x] Overlay HUD (Y)
+- [x] Fit Width (X)
+- [x] LT/RT chapitres si structure dossiers détectée
 
-### Phase 3 — Bibliothèque & persistance
+### Phase 3 — Bibliothèque & import *(fait)*
 
-| # | Fonctionnalité | Critère de done |
-|---|----------------|-----------------|
-| 3.1 | Choix dossier racine | Dialog + mémorisation |
-| 3.2 | Scan récursif `.cbz|.cbr|.pdf|.zip` | Liste à jour |
-| 3.3 | Miniatures (1ʳᵉ image) + cache disque | Couvertures affichées |
-| 3.4 | SQLite (`better-sqlite3`) | Chemin, titre, cover, progression, last_access |
-| 3.5 | Grille focus manette | Navigation console-first |
-| 3.6 | Sauvegarde page à la fermeture | Reprise « Continuer » |
-| 3.7 | Statuts Non lu / En cours / Terminé | Calcul auto |
+- [x] SQLite `better-sqlite3` (+ fallback JSON si natif KO)
+- [x] Grille couvertures, progression, Continuer, statuts
+- [x] Flux import (scan → review métadonnées → commit)
+- [x] Provider métadonnées pluggable (stub + ComicVine câblé)
 
-### Phase 4 — Polish ROG Ally *(optionnel)*
+### Phase 4 — Polish *(reporté / partiel)*
 
-| # | Fonctionnalité |
-|---|----------------|
-| 4.1 | Plein écran portrait + gestion DPI Ally |
-| 4.2 | Watcher FS (ajouts/suppressions) |
-| 4.3 | Thème UI console (focus glow, sans dépendance souris) |
-| 4.4 | Packaging Windows (installeur / portable) |
-| 4.5 | Raccourcis clavier miroir (dev / fallback) |
+- [ ] Watcher FS
+- [ ] Packaging Windows
+- [ ] Haptics Ally
+- [x] Notes rebuild native / fallback documentées
 
 ---
 
-## Ordre d’implémentation recommandé
+## Flux produit cible
 
 ```
-Phase 1.1 Gamepad  →  1.2 CBZ  →  1.3–1.6 Zoom/Pan/Pages
-        ↓
-Phase 2 formats + Manga + Overlay
-        ↓
-Phase 3 bibliothèque + SQLite + Continuer
-        ↓
-Phase 4 polish & packaging
+Setup (1ʳᵉ fois)
+  → Boot
+  → Import (dossier import → métadonnées → bibliothèque)
+  → Bibliothèque (grille / Continuer)
+  → Lecteur (CBZ/CBR/PDF + manette)
+  → Paramètres (thème / remap / clé API)
 ```
-
-Commencer par le **moteur de lecture + gamepad** avant la bibliothèque : c’est le risque UX principal sur Ally X.
 
 ---
 
@@ -136,20 +122,15 @@ Commencer par le **moteur de lecture + gamepad** avant la bibliothèque : c’es
 | Archives ZIP/CBZ | JSZip |
 | Archives RAR/CBR | node-unrar-js |
 | PDF | pdfjs-dist |
-| DB | better-sqlite3 |
-| Rendu zoom/pan | CSS transform GPU (`translate3d` / `matrix`) |
+| DB | better-sqlite3 (fallback JSON) |
+| Rendu zoom/pan | CSS transform GPU |
+| Métadonnées | stub + ComicVine (clé en userData) |
 
 ---
 
-## Conventions code
+## Conventions
 
-- **Main** : Node, accès disque, extracteurs lourds, DB.
-- **Renderer** : UI, Gamepad, transforms ; pas d’accès FS direct.
-- **IPC** : canaux nommés dans `src/shared/ipc-channels.js`.
-- Stubs marqués `TODO[Phase X]` pour retrouver rapidement le travail restant.
-
----
-
-## Prochaine action
-
-Implémenter **Phase 1.1 + 1.2** : boucle gamepad réelle + ouverture d’un CBZ de test.
+- **Main** : Node, FS, extracteurs, DB, secrets
+- **Renderer** : UI / Gamepad ; pas d’accès FS direct
+- **IPC** : `src/shared/ipc-channels.js`
+- Secrets API : `userData/vdr-secrets.json` (chmod 600 si possible), jamais dans le repo

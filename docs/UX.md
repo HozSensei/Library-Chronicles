@@ -4,50 +4,51 @@ Objectif : une expérience **console-first** irréprochable sur ROG Ally X (port
 
 ## Stack front
 
-| Couche | Choix | Pourquoi |
-|--------|--------|----------|
-| UI | **Vue 3** (Composition API) | Préférence projet, composants clairs, transitions natives |
-| Build | **Vite** via `electron-vite` | HMR rapide, séparation main/preload/renderer |
-| État | **Pinia** | Lecteur / bibliothèque / UI découpés, testables |
-| Navigation | **Vue Router** (hash) | Écrans boot → bibliothèque → lecteur + transitions |
-| Gamepad | Composable `useGamepad` | Boucle rAF unique, actions routées par écran |
+| Couche | Choix |
+|--------|--------|
+| UI | Vue 3 (Composition API) |
+| Build | Vite via `electron-vite` |
+| État | Pinia |
+| Navigation | Vue Router (hash) + gate setup |
+| Gamepad | `useGamepad` + remap + key-bindings |
 
-Pas de framework CSS lourd : design tokens CSS + composants Vue ciblés = contrôle total du feeling console.
+## Écrans
 
-## Orientation portrait (critique)
+1. **Setup** — wizard obligatoire au premier lancement
+2. **Boot** — marque dominante + actions (Continuer / Bibliothèque / Import / Paramètres)
+3. **Import** — review métadonnées par tome
+4. **Bibliothèque** — grille couvertures focusable
+5. **Lecteur** — planche plein écran, HUD discret (Y)
+6. **Paramètres** — thème, remap, API
 
-Sur Ally tenue verticalement (90° CCW), le D-Pad / stick physique ne correspondent plus au haut/bas de l’écran.  
-Toute navigation passe par un **remap logique** (`portrait-remap.js`) pour que « haut » signifie toujours le haut de la planche.
+## Thèmes
 
-Sans ce remap, zoom/pages/menus deviennent inutilisables d’une main.
+Tokens CSS `data-theme="dark|light"` :
+- sombre : encre nuit + laiton (lecteur / console)
+- clair : papier chaud + encre (bibliothèque / setup)
 
-## Principes UX
+Persistance via config `theme`.
 
-1. **Zéro dépendance souris** — toute action a un équivalent manette ; focus toujours visible.
-2. **Une intention par écran** — boot = marque + 2 actions ; lecteur = planche plein écran ; bibliothèque = choix de tome.
-3. **Feedback immédiat** — edge boutons, glow focus, transitions de route, HUD qui apparaît/disparaît.
-4. **60/120 FPS ressenti** — pan/zoom via `translate3d` / `scale` (GPU), pas de layout thrash.
-5. **HUD discret** — l’image domine ; Y révèle progression / sens / sortie.
-6. **Reduced motion** — respecter `prefers-reduced-motion`.
+## Principes
+
+1. Zéro dépendance souris — focus toujours visible
+2. Une intention par écran
+3. Feedback immédiat (edge boutons, glow focus)
+4. 60/120 FPS ressenti — `translate3d` / `scale`
+5. HUD discret
+6. Reduced motion respecté
 
 ## Direction visuelle
 
-- Encre nuit (`#0b0c0f`) + **laiton / papier** (atelier BD)
-- Display : **Syne** · Body : **Figtree**
-- Focus : anneau laiton, pas de glow violet générique
-- Grain + wash radial pour l’atmosphère (pas un fond plat)
+- Display **Syne** · Body **Figtree**
+- Focus laiton, pas de glow violet
+- Grain + wash radial
 
-## Checklist qualité (à valider à chaque phase)
+## Checklist
 
 - [ ] Focus manette lisible à 60 cm
-- [ ] Aucun dead-end sans bouton B
-- [ ] Transitions ≤ ~300 ms, easing cohérent
-- [ ] Texte contrasté sur fond sombre
+- [ ] Aucun dead-end sans B
+- [ ] Setup bloquant tant que non complété
+- [ ] Thème clair/sombre cohérent sur tous les écrans
 - [ ] Lecteur : 0 chrome sauf overlay Y
 - [ ] Boot : marque dominante dans le 1er viewport
-
-## Prochaines raffinements UX
-
-- Micro-interactions couverture (Phase 3)
-- Haptics Ally si API dispo (Phase 4)
-- Thème « papier » optionnel pour bibliothèque (Phase 4)

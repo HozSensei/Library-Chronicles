@@ -11,18 +11,28 @@ npm install
 npm run dev
 ```
 
-Build / preview :
+Build / tests :
 
 ```bash
 npm run build
+npm run test:remap
+npm run test:cbz
 npm start
 ```
 
 Fenêtre cible : **1080 × 1920** (portrait).
 
-## Stack front (UX)
+Au **premier lancement**, un wizard configure dossiers (library / import), langue, thème et orientation. L’app reste bloquée sur le setup tant que `setupCompleted` n’est pas vrai.
 
-Pour une interface léchée et une UX console irréprochable :
+## Parcours
+
+1. **Setup** — dossiers, thème sombre/clair, orientation Ally
+2. **Import** — déposer des CBZ/CBR/PDF dans le dossier import → review métadonnées → bibliothèque
+3. **Bibliothèque** — grille couvertures, filtres, Continuer
+4. **Lecteur** — pan / zoom / pages manette, HUD (Y), Fit Width (X), Manga (A)
+5. **Paramètres** — thème, remapping touches, clé API ComicVine
+
+## Stack
 
 | Couche | Techno |
 |--------|--------|
@@ -30,30 +40,25 @@ Pour une interface léchée et une UX console irréprochable :
 | Bundler | Vite (`electron-vite`) |
 | État | Pinia |
 | Routes | Vue Router |
-| Manette | Composable `useGamepad` (rAF) |
-
-Détails des principes UI/UX : [`docs/UX.md`](./docs/UX.md).
+| Manette | `useGamepad` + `portrait-remap` + `key-bindings` |
+| DB | better-sqlite3 (+ fallback JSON) |
 
 ## Documentation
 
 | Fichier | Contenu |
 |---------|---------|
-| [`ROADMAP.md`](./ROADMAP.md) | Phases & critères de done |
+| [`ROADMAP.md`](./ROADMAP.md) | Phases & statut |
 | [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) | Main / preload / renderer |
-| [`docs/CONTROLS.md`](./docs/CONTROLS.md) | Mapping manette |
-| [`docs/UX.md`](./docs/UX.md) | Principes UX & direction visuelle |
+| [`docs/CONTROLS.md`](./docs/CONTROLS.md) | Mapping manette + remap |
+| [`docs/UX.md`](./docs/UX.md) | Principes UX |
+| [`docs/NATIVE.md`](./docs/NATIVE.md) | better-sqlite3 / Electron rebuild |
 
-## Structure
+## better-sqlite3 sous Electron
 
+Si le module natif ne charge pas dans Electron :
+
+```bash
+npx @electron/rebuild -f -w better-sqlite3
 ```
-src/
-  main/           # Electron main (FS, extracteurs, DB, IPC)
-  preload/        # contextBridge → window.vdr
-  renderer/       # App Vue (vues, stores, composables)
-  shared/         # IPC + mapping contrôles
-```
 
-## État
-
-Phase 0 : squelette + **socle Vue** + UI boot soignée.  
-Suite : Phase 1 — CBZ réel + pan / zoom / pages manette.
+Sinon l’app bascule automatiquement sur un **store JSON** dans `userData` (voir `docs/NATIVE.md`).
