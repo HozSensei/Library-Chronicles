@@ -11,7 +11,11 @@ const DEFAULTS = {
   theme: 'dark',
   readingDirection: 'ltr',
   defaultFitMode: 'fit-height',
-  /** Ally portrait : 'portrait-ccw' | 'landscape' (dev). */
+  /**
+   * Orientation app / fenêtre :
+   * - `portrait-ccw` — Ally verticale (remap manette 90°)
+   * - `landscape` — usage classique desktop (directions physiques = logiques)
+   */
   orientation: 'portrait-ccw',
   lastOpenedPath: null,
   phase1TestCbz: null,

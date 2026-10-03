@@ -1,4 +1,4 @@
-# Mapping manette — ROG Ally X (portrait)
+# Mapping manette — ROG Ally X & landscape
 
 Implémentation : `portrait-remap.js` → `key-bindings.js` → `useGamepad.js`.
 
@@ -13,6 +13,8 @@ Le remapping se configure dans **Paramètres → Manette**.
 
 ## Orientation appareil
 
+### Portrait Ally (`portrait-ccw`) — défaut produit
+
 Ally tenue **en portrait**, tournée de **90° anti-horaire** :
 
 | Physique (XInput) | Logique (écran portrait) |
@@ -22,7 +24,27 @@ Ally tenue **en portrait**, tournée de **90° anti-horaire** :
 | D-Pad / stick ←   | ↑ haut                   |
 | D-Pad / stick →   | ↓ bas                    |
 
-Stick : `logicalX = physicalY`, `logicalY = physicalX`.
+Stick : `logicalX = physicalY`, `logicalY = physicalX`.  
+Fenêtre Electron : **1080×1920**.
+
+### Landscape classique (`landscape`)
+
+Manette et écran alignés (desktop / usage horizontal) :
+
+| Physique (XInput) | Logique |
+|-------------------|---------|
+| D-Pad / stick ↑↓←→ | **inchangé** (physique = logique) |
+
+Aucun remap 90°. Fenêtre Electron : **1920×1080** (redimensionnable, min 960×540).
+
+### Activer landscape
+
+1. **Setup** (1ʳᵉ fois) — étape Préférences → « Landscape classique »
+2. **Paramètres → Général** — « Landscape classique » / « Portrait Ally »
+3. **CLI** — `npm run dev -- --landscape` (ou `--portrait`)
+4. **Raccourci clavier (dev)** — `Ctrl+Shift+L` pour basculer
+
+La préférence est persistée dans `vdr-config.json` (`orientation`).
 
 ## Mode Lecture *(directions = écran, mapping défaut)*
 
@@ -53,16 +75,14 @@ Stick : `logicalX = physicalY`, `logicalY = physicalX`.
 | Start | Paramètres |
 | LT / RT | Filtre statut |
 
+Grille : **3 colonnes** en portrait, **6** en landscape (curseur aligné).
+
 ## Mode Profils
 
 | Contrôle | Action |
 |----------|--------|
 | D-Pad / stick | Curseur profil |
 | A | Choisir |
-
-## Dev desktop
-
-Config `orientation: 'landscape'` (setup ou paramètres) désactive le remap portrait.
 
 ## Clavier / souris (dev sans Ally)
 

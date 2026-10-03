@@ -39,9 +39,11 @@ export const useLibraryStore = defineStore('library', {
     continueBook: null,
     lastAccessedBook: null,
     filter: 'all', // all | reading | unread | finished
+    /** Colonnes grille — 3 portrait Ally, 6 landscape desktop. */
     columns: 3,
   }),
   getters: {
+    isLandscapeGrid: (s) => s.columns >= 6,
     filtered(s) {
       let list = s.books;
       if (s.filter !== 'all') {
@@ -92,12 +94,17 @@ export const useLibraryStore = defineStore('library', {
     },
   },
   actions: {
+    /** Aligne le curseur grille sur le nombre de colonnes CSS (portrait 3 / landscape 6). */
+    syncColumns(orientation) {
+      this.columns = orientation === 'landscape' ? 6 : 3;
+    },
     async refresh() {
       this.loading = true;
       try {
         const config = await window.vdr.getConfig();
         this.root = config.libraryRoot;
         this.importRoot = config.importRoot;
+        this.syncColumns(config.orientation);
         this.books = (await window.vdr.library.list()) || [];
         try {
           const series = await window.vdr.library.series();

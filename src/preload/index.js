@@ -12,6 +12,8 @@ contextBridge.exposeInMainWorld('vdr', {
   setConfig: (patch) => ipcRenderer.invoke(IpcChannels.APP_SET_CONFIG, patch),
   getDefaultPaths: () => ipcRenderer.invoke(IpcChannels.APP_GET_DEFAULT_PATHS),
   pickDirectory: (opts) => ipcRenderer.invoke(IpcChannels.APP_PICK_DIRECTORY, opts),
+  onOrientationChanged: (handler) =>
+    subscribe(IpcChannels.APP_ORIENTATION_CHANGED, handler),
 
   library: {
     selectRoot: () => ipcRenderer.invoke(IpcChannels.LIBRARY_SELECT_ROOT),

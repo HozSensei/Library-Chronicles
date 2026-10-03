@@ -18,19 +18,19 @@ import {
   getWatcherStatus,
 } from './library/watcher.js';
 import { destroyPdfElectronHost } from './extractors/pdf-electron-canvas.js';
-
-/** Résolution portrait cible ROG Ally X (mode vertical). */
-const PORTRAIT = { width: 1080, height: 1920 };
+import { applyWindowOrientation, boundsForOrientation } from './window-bounds.js';
 
 let mainWindow = null;
 
 function createWindow() {
-  const theme = getConfig().theme || 'dark';
+  const config = getConfig();
+  const theme = config.theme || 'dark';
+  const bounds = boundsForOrientation(config.orientation);
   mainWindow = new BrowserWindow({
-    width: PORTRAIT.width,
-    height: PORTRAIT.height,
-    minWidth: 540,
-    minHeight: 960,
+    width: bounds.width,
+    height: bounds.height,
+    minWidth: bounds.minWidth,
+    minHeight: bounds.minHeight,
     title: 'Vertical Deck Reader',
     backgroundColor: theme === 'light' ? '#f4efe6' : '#0b0c0f',
     autoHideMenuBar: true,
@@ -64,12 +64,27 @@ function createWindow() {
   });
 }
 
+function notifyOrientation(orientation) {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  mainWindow.webContents.send(IpcChannels.APP_ORIENTATION_CHANGED, {
+    orientation,
+  });
+}
+
 function registerAppIpc() {
   ipcMain.handle(IpcChannels.APP_GET_CONFIG, () => getConfig());
   ipcMain.handle(IpcChannels.APP_SET_CONFIG, (_event, patch) => {
+    const prev = getConfig();
     const next = setConfig(patch);
     if (patch.libraryRoot !== undefined || patch.importRoot !== undefined) {
       syncWatchersFromConfig();
+    }
+    if (
+      patch.orientation !== undefined &&
+      patch.orientation !== prev.orientation
+    ) {
+      applyWindowOrientation(mainWindow, next.orientation);
+      notifyOrientation(next.orientation);
     }
     return next;
   });
@@ -93,6 +108,13 @@ app.whenReady().then(() => {
   getActiveProfileId();
   // Choix profil à chaque lancement (après setup)
   setConfig({ profileSelected: false });
+
+  // Raccourci CLI : `--landscape` / `--portrait` (persiste en config)
+  if (process.argv.includes('--landscape')) {
+    setConfig({ orientation: 'landscape' });
+  } else if (process.argv.includes('--portrait')) {
+    setConfig({ orientation: 'portrait-ccw' });
+  }
 
   registerAppIpc();
   registerLibraryIpc();

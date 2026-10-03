@@ -1,0 +1,93 @@
+/**
+ * Adaptations layout pour usage landscape (desktop / classique).
+ * L’attribut data-orientation est posé sur .app-shell (App.vue).
+ */
+
+[data-orientation='landscape'] {
+  --pad: 1.35rem;
+}
+
+/* —— Bibliothèque —— */
+[data-orientation='landscape'] .hero {
+  min-height: min(38vh, 20rem);
+}
+
+[data-orientation='landscape'] .hero__content {
+  max-width: 42rem;
+}
+
+[data-orientation='landscape'] .hero__title {
+  max-width: 28ch;
+  font-size: clamp(1.65rem, 3.2vw, 2.35rem);
+}
+
+[data-orientation='landscape'] .library__grid,
+[data-orientation='landscape'] .catalog-skel__grid {
+  gap: 0.9rem;
+}
+
+[data-orientation='landscape'] .rail__item {
+  width: 8.5rem;
+}
+
+[data-orientation='landscape'] .series-card {
+  grid-template-columns: 5.5rem 1fr;
+}
+
+/* —— Lecteur HUD —— */
+[data-orientation='landscape'] .hud {
+  left: auto;
+  right: 0;
+  width: min(26rem, 38vw);
+  max-height: 100%;
+  padding: 1.25rem 1.35rem 1.5rem;
+  background: linear-gradient(270deg, var(--hud-fade) 55%, transparent);
+}
+
+[data-orientation='landscape'] .hud__actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+[data-orientation='landscape'] .reader__strip-page {
+  max-width: min(52vw, 720px);
+  margin-inline: auto;
+}
+
+/* —— Import : liste | fiche côte à côte —— */
+[data-orientation='landscape'] .import__layout {
+  grid-template-rows: none;
+  grid-template-columns: minmax(18rem, 34%) minmax(0, 1fr);
+  gap: 1.25rem;
+}
+
+/* —— Setup / profils —— */
+[data-orientation='landscape'] .setup__body,
+[data-orientation='landscape'] .profiles {
+  max-width: 52rem;
+  margin-inline: auto;
+}
+
+[data-orientation='landscape'] .choice-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+[data-orientation='landscape'] .profiles__grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+/* —— Boot —— */
+[data-orientation='landscape'] .boot__nav {
+  max-width: 32rem;
+}
+
+/* —— Paramètres —— */
+[data-orientation='landscape'] .settings .body {
+  max-width: 48rem;
+}
+
+[data-orientation='landscape'] .provider-list {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}

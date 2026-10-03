@@ -115,6 +115,15 @@ Voir [`docs/UX.md`](./docs/UX.md), [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.
 - [x] Notes rebuild native / fallback JSON documentées (`docs/NATIVE.md`, `docs/PACKAGING.md`)
 - [x] Polish UX manette (focus, transitions settings/import, messages vides)
 
+### Phase 6 — Orientation landscape *(fait)*
+
+- [x] Mode app `portrait-ccw` **et** `landscape` (préférence persistée)
+- [x] Fenêtre Electron 1920×1080 en landscape (démarrage + bascule runtime)
+- [x] Remap manette : pas de rotation 90° en landscape (directions physiques = logiques)
+- [x] Layouts responsives catalogue / lecteur HUD / import / setup (`data-orientation`)
+- [x] Setup + Paramètres + CLI `--landscape` / `--portrait` + raccourci `Ctrl+Shift+L`
+- [x] Docs [`docs/CONTROLS.md`](./docs/CONTROLS.md)
+
 ### Merge
 
 - **PR #1** mergée dans `main` — squelette produit + PDF + watcher initial + packaging.
@@ -122,6 +131,7 @@ Voir [`docs/UX.md`](./docs/UX.md), [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.
 - **PR #3** catalogue UI mergée dans `main`.
 - **PR #4** features locales mergée dans `main`.
 - **PR #5** providers métadonnées mergée dans `main`.
+- Mode landscape intégré sur `main` (branche `cursor/vdr-landscape-mode-d859`).
 
 ### Hors scope (volontairement)
 

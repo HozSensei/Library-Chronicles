@@ -33,11 +33,18 @@ assert(remapDpad(o, 'down') === 'right', 'physique ↓ → logique →');
 assert(remapDpad(o, 'left') === 'up', 'physique ← → logique ↑');
 assert(remapDpad(o, 'right') === 'down', 'physique → → logique ↓');
 assert(remapDpad(DeviceOrientation.LANDSCAPE, 'up') === 'up', 'landscape inchangé');
+assert(remapDpad(DeviceOrientation.LANDSCAPE, 'left') === 'left', 'landscape ← inchangé');
 
 const stickUp = remapStick(o, 0, -1);
 assert(stickUp.x === -1 && stickUp.y === 0, 'stick physique ↑ → logique ←');
 const stickLeft = remapStick(o, -1, 0);
 assert(stickLeft.x === 0 && stickLeft.y === -1, 'stick physique ← → logique ↑');
+
+const landStick = remapStick(DeviceOrientation.LANDSCAPE, 0.5, -0.7);
+assert(
+  landStick.x === 0.5 && landStick.y === -0.7,
+  'landscape stick : physique = logique',
+);
 
 assert(readingActionForLogicalDpad('left') === 'page-prev', '← écran = page prev');
 assert(readingActionForLogicalDpad('right') === 'page-next', '→ écran = page next');

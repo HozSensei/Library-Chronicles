@@ -67,6 +67,7 @@ const showSeries = computed(
 const viewLabel = computed(() =>
   library.viewMode === 'series' ? 'Séries' : 'Livres',
 );
+const gridCols = computed(() => library.columns);
 
 onMounted(() => {
   library.refresh().then(() => {
@@ -652,7 +653,7 @@ function statusBadge(status) {
 
 .library__grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(v-bind(gridCols), minmax(0, 1fr));
   gap: 0.75rem;
 }
 
@@ -823,7 +824,7 @@ function statusBadge(status) {
 
 .catalog-skel__grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(v-bind(gridCols), minmax(0, 1fr));
   gap: 0.75rem;
 }
 

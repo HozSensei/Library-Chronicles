@@ -5,6 +5,9 @@ interface VdrApi {
   setConfig: (patch: Record<string, unknown>) => Promise<Record<string, unknown>>;
   getDefaultPaths: () => Promise<{ libraryRoot: string; importRoot: string; covers: string }>;
   pickDirectory: (opts?: { title?: string }) => Promise<string | null>;
+  onOrientationChanged: (
+    handler: (payload: { orientation: string }) => void,
+  ) => () => void;
   library: {
     selectRoot: () => Promise<string | null>;
     selectImport: () => Promise<string | null>;

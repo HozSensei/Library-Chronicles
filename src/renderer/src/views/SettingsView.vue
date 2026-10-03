@@ -82,8 +82,7 @@ async function toggleHaptics() {
 }
 
 async function setOrientation(orientation) {
-  ui.orientation = orientation;
-  await window.vdr.setConfig({ orientation });
+  await ui.setOrientation(orientation);
 }
 
 const hapticsSubtitle = computed(() => {
@@ -186,17 +185,17 @@ const listeningLabel = computed(() => {
         </FocusButton>
         <FocusButton
           :focused="ui.settingsFocusIndex === 1"
-          :subtitle="ui.orientation === 'portrait-ccw' ? 'Actif' : ''"
+          :subtitle="ui.orientation === 'portrait-ccw' ? 'Actif · remap 90°' : ''"
           @select="setOrientation('portrait-ccw')"
         >
-          Orientation portrait Ally
+          Portrait Ally (vertical)
         </FocusButton>
         <FocusButton
           :focused="ui.settingsFocusIndex === 2"
-          :subtitle="ui.orientation === 'landscape' ? 'Actif' : ''"
+          :subtitle="ui.orientation === 'landscape' ? 'Actif · 1920×1080' : ''"
           @select="setOrientation('landscape')"
         >
-          Orientation landscape (dev)
+          Landscape classique
         </FocusButton>
         <FocusButton
           :focused="ui.settingsFocusIndex === 3"

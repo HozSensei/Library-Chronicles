@@ -11,18 +11,44 @@ const router = useRouter();
 const ui = useUiStore();
 const library = useLibraryStore();
 const imp = useImportStore();
-const { start, stop } = useGamepad();
+const { start, stop, refreshOrientation } = useGamepad();
 
 /** @type {Array<() => void>} */
 let unsubs = [];
+
+function syncOrientationSideEffects(orientation) {
+  ui.applyOrientation(orientation);
+  library.syncColumns(orientation);
+  refreshOrientation();
+}
+
+function onDevOrientationToggle(event) {
+  // Raccourci dev : Ctrl+Shift+L (landscape ↔ portrait)
+  if (!(event.ctrlKey && event.shiftKey) || event.key.toLowerCase() !== 'l') {
+    return;
+  }
+  event.preventDefault();
+  ui.toggleOrientation().then(() => {
+    syncOrientationSideEffects(ui.orientation);
+  });
+}
 
 onMounted(async () => {
   ui.refreshGamepadHint();
   try {
     const config = await ui.loadConfig();
+    library.syncColumns(ui.orientation);
     if (config.setupCompleted) markSetupCompleted();
   } catch (err) {
     console.warn('[VDR] config:', err);
+  }
+
+  if (window.vdr?.onOrientationChanged) {
+    unsubs.push(
+      window.vdr.onOrientationChanged((payload) => {
+        syncOrientationSideEffects(payload?.orientation || ui.orientation);
+      }),
+    );
   }
 
   if (window.vdr?.watch) {
@@ -62,11 +88,13 @@ onMounted(async () => {
     );
   }
 
+  window.addEventListener('keydown', onDevOrientationToggle);
   start();
 });
 
 onUnmounted(() => {
   stop();
+  window.removeEventListener('keydown', onDevOrientationToggle);
   for (const off of unsubs) off();
   unsubs = [];
 });
@@ -77,7 +105,12 @@ router.afterEach((to) => {
 </script>
 
 <template>
-  <div class="app-shell" :data-route="ui.routeName" :data-theme="ui.theme">
+  <div
+    class="app-shell"
+    :data-route="ui.routeName"
+    :data-theme="ui.theme"
+    :data-orientation="ui.orientation"
+  >
     <RouterView v-slot="{ Component, route }">
       <Transition :name="route.meta.transition || 'fade-slide'" mode="out-in">
         <component :is="Component" :key="route.path" />

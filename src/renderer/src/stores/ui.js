@@ -60,11 +60,16 @@ export const useUiStore = defineStore('ui', {
       this.theme = theme === 'light' ? 'light' : 'dark';
       document.documentElement.setAttribute('data-theme', this.theme);
     },
+    applyOrientation(orientation) {
+      this.orientation =
+        orientation === 'landscape' ? 'landscape' : 'portrait-ccw';
+      document.documentElement.setAttribute('data-orientation', this.orientation);
+    },
     async loadConfig() {
       const config = await window.vdr.getConfig();
       this.setupCompleted = Boolean(config.setupCompleted);
       this.language = config.language || 'fr';
-      this.orientation = config.orientation || 'portrait-ccw';
+      this.applyOrientation(config.orientation || 'portrait-ccw');
       this.userKeyBindings = config.keyBindings || null;
       this.keyBindings = resolveKeyBindings(this.userKeyBindings);
       this.hapticsEnabled = config.hapticsEnabled !== false;
@@ -75,6 +80,19 @@ export const useUiStore = defineStore('ui', {
     async setTheme(theme) {
       this.applyTheme(theme);
       await window.vdr.setConfig({ theme: this.theme });
+    },
+    /**
+     * Persiste l’orientation, redimensionne la fenêtre Electron (via main)
+     * et met à jour data-orientation pour les layouts responsives.
+     */
+    async setOrientation(orientation) {
+      this.applyOrientation(orientation);
+      await window.vdr.setConfig({ orientation: this.orientation });
+    },
+    async toggleOrientation() {
+      await this.setOrientation(
+        this.orientation === 'landscape' ? 'portrait-ccw' : 'landscape',
+      );
     },
     async persistKeyBindings(userBindings) {
       this.userKeyBindings = userBindings;

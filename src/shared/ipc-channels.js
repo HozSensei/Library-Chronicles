@@ -53,6 +53,8 @@ export const IpcChannels = Object.freeze({
   APP_SET_CONFIG: 'app:set-config',
   APP_PICK_DIRECTORY: 'app:pick-directory',
   APP_GET_DEFAULT_PATHS: 'app:get-default-paths',
+  /** Push Main → Renderer après bascule d’orientation fenêtre. */
+  APP_ORIENTATION_CHANGED: 'app:orientation-changed',
 
   /** Événements push Main → Renderer (fs.watch). */
   WATCH_LIBRARY_CHANGED: 'watch:library-changed',

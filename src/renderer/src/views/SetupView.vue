@@ -89,7 +89,7 @@ async function finish() {
   ui.setupCompleted = true;
   markSetupCompleted();
   ui.applyTheme(form.theme);
-  ui.orientation = form.orientation;
+  ui.applyOrientation(form.orientation);
   ui.language = form.language;
   router.replace({ name: 'profiles' });
 }
@@ -167,7 +167,7 @@ defineExpose({ next, back, finish, activateFocused, focusables });
 
       <template v-else-if="step === 2">
         <h1>Préférences</h1>
-        <p class="lead">Thème, langue et orientation manette.</p>
+        <p class="lead">Thème, langue et orientation d’usage (fenêtre + manette).</p>
         <div class="choice-row">
           <FocusButton
             :focused="focusedId === 'theme-dark'"
@@ -187,17 +187,17 @@ defineExpose({ next, back, finish, activateFocused, focusables });
         <div class="choice-row">
           <FocusButton
             :focused="focusedId === 'orient-ccw'"
-            :subtitle="form.orientation === 'portrait-ccw' ? 'Ally portrait' : ''"
+            :subtitle="form.orientation === 'portrait-ccw' ? 'Ally · remap 90°' : ''"
             @select="form.orientation = 'portrait-ccw'"
           >
-            Portrait 90° CCW
+            Portrait Ally
           </FocusButton>
           <FocusButton
             :focused="focusedId === 'orient-land'"
-            :subtitle="form.orientation === 'landscape' ? 'Dev desktop' : ''"
+            :subtitle="form.orientation === 'landscape' ? 'Desktop · 16:9' : ''"
             @select="form.orientation = 'landscape'"
           >
-            Landscape
+            Landscape classique
           </FocusButton>
         </div>
         <FocusButton

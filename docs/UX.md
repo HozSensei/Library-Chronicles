@@ -21,7 +21,14 @@ Application **100 % locale** — pas d’OPDS ni de dossier distant.
 4. **Import** — review métadonnées par tome
 5. **Bibliothèque (catalogue)** — héro reprise, rail récents, grille livres **ou** vue séries
 6. **Lecteur** — planche plein écran, HUD (Y) : lecture / filtres / signets ; mode webtoon
-7. **Paramètres** — thème, profils, orientation, haptics, remap, API
+7. **Paramètres** — thème, profils, orientation (portrait Ally / landscape), haptics, remap, API
+
+## Orientation
+
+- **Portrait Ally** (`portrait-ccw`) — fenêtre 1080×1920, remap manette 90° CCW
+- **Landscape classique** (`landscape`) — fenêtre 1920×1080, directions physiques = logiques
+- Layouts adaptés via `data-orientation` (catalogue 6 colonnes, HUD latéral, import côte-à-côte)
+- Voir [`CONTROLS.md`](./CONTROLS.md)
 
 ## Thèmes
 

@@ -54,9 +54,13 @@ export function useGamepad() {
     sharedLoop.stop();
   }
 
+  function refreshOrientation() {
+    return sharedLoop?.refreshOrientation?.();
+  }
+
   onScopeDispose(() => {});
 
-  return { start, stop };
+  return { start, stop, refreshOrientation };
 }
 
 function createLoop(ctx) {

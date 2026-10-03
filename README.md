@@ -1,6 +1,6 @@
 # Vertical Deck Reader (VDR)
 
-Lecteur de BD, comics et mangas **vertical**, pensé manette pour **ROG Ally X** (Windows, portrait).
+Lecteur de BD, comics et mangas **vertical**, pensé manette pour **ROG Ally X** (portrait) — aussi utilisable en **landscape** classique (desktop).
 
 **Electron + Vue 3 + Vite + Pinia** — *Library Chronicles*.
 
@@ -9,6 +9,8 @@ Lecteur de BD, comics et mangas **vertical**, pensé manette pour **ROG Ally X**
 ```bash
 npm install
 npm run dev
+# landscape immédiat :
+npm run dev -- --landscape
 ```
 
 Build / tests :
@@ -27,17 +29,18 @@ npm run dist:win
 
 Voir [`docs/PACKAGING.md`](./docs/PACKAGING.md).
 
-Fenêtre cible : **1080 × 1920** (portrait).
+Fenêtres cibles : **1080 × 1920** (portrait Ally) ou **1920 × 1080** (landscape).  
+Bascule : Setup / Paramètres / `Ctrl+Shift+L` / flags `--landscape` · `--portrait`.
 
 Au **premier lancement**, un wizard configure dossiers (library / import), langue, thème et orientation. L’app reste bloquée sur le setup tant que `setupCompleted` n’est pas vrai.
 
 ## Parcours
 
-1. **Setup** — dossiers, thème sombre/clair, orientation Ally
+1. **Setup** — dossiers, thème sombre/clair, orientation (portrait Ally / landscape)
 2. **Import** — déposer des CBZ/CBR/PDF dans le dossier import → review métadonnées → bibliothèque (rafraîchi aussi via watcher FS)
-3. **Bibliothèque** — grille couvertures, filtres, Continuer
+3. **Bibliothèque** — catalogue héro / récents / grille (3 ou 6 colonnes selon orientation)
 4. **Lecteur** — pan / zoom / pages manette, HUD (Y), Fit Width (X), Manga (A) ; PDF fidèle via Chromium
-5. **Paramètres** — thème, haptics, remapping, providers métadonnées (clés en userData)
+5. **Paramètres** — thème, haptics, orientation, remapping, providers métadonnées (clés en userData)
 
 ## Stack
 
