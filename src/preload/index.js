@@ -20,6 +20,9 @@ contextBridge.exposeInMainWorld('vdr', {
     }),
   onOrientationChanged: (handler) =>
     subscribe(IpcChannels.APP_ORIENTATION_CHANGED, handler),
+  /** Clavier virtuel Windows (TabTip / osk) — no-op ailleurs. */
+  showVirtualKeyboard: () =>
+    ipcRenderer.invoke(IpcChannels.APP_SHOW_VIRTUAL_KEYBOARD),
 
   library: {
     selectRoot: () => ipcRenderer.invoke(IpcChannels.LIBRARY_SELECT_ROOT),

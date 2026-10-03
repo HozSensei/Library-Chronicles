@@ -10,6 +10,7 @@ import {
   ensureSetupGate,
 } from '../router';
 import { scheduleScrollFocusedIntoView } from '../../../shared/focus-scroll.js';
+import { focusTextInputForEdit } from '../../../shared/virtual-keyboard.js';
 
 const router = useRouter();
 const profiles = useProfilesStore();
@@ -43,8 +44,9 @@ const hints = computed(() => {
   if (isNaming.value) {
     return [
       { key: '←→', label: 'champ / valider' },
-      { key: 'A', label: 'valider' },
+      { key: 'A', label: formFocus.value === 1 ? 'valider' : 'clavier' },
       { key: 'B', label: 'annuler' },
+      { key: '⏎', label: 'valider' },
     ];
   }
   return [
@@ -59,7 +61,8 @@ watch(isNaming, async (on) => {
   if (!on) return;
   formFocus.value = 0;
   await nextTick();
-  nameInput.value?.focus?.();
+  // Focus champ + clavier virtuel — ne pas soumettre au premier A
+  await focusTextInputForEdit(nameInput.value);
   nameInput.value?.select?.();
 });
 
@@ -182,7 +185,7 @@ async function activateFocused() {
   if (isNaming.value) {
     if (formFocus.value === 0) {
       await nextTick();
-      nameInput.value?.focus?.();
+      await focusTextInputForEdit(nameInput.value);
       return;
     }
     await submitName();
@@ -277,6 +280,7 @@ defineExpose({
           placeholder="Pseudo"
           autocomplete="off"
           enterkeyhint="done"
+          inputmode="text"
           :class="{ 'is-focused': formFocus === 0 }"
           @focus="formFocus = 0"
         />

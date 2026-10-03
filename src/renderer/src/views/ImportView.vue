@@ -164,29 +164,34 @@ async function doEnrich() {
               </div>
               <div class="field">
                 <label>Titre</label>
-                <input v-model="imp.draft.title" type="text" />
+                <input v-model="imp.draft.title" type="text" inputmode="text" autocomplete="off" />
               </div>
               <div class="field">
                 <label>Série</label>
-                <input v-model="imp.draft.series" type="text" />
+                <input v-model="imp.draft.series" type="text" inputmode="text" autocomplete="off" />
               </div>
               <div class="grid grid-cols-2 gap-3">
                 <div class="field">
                   <label>Tome</label>
-                  <input v-model.number="imp.draft.volume" type="number" min="0" />
+                  <input v-model.number="imp.draft.volume" type="number" min="0" inputmode="numeric" />
                 </div>
                 <div class="field">
                   <label>Année</label>
-                  <input v-model.number="imp.draft.year" type="number" min="1900" />
+                  <input v-model.number="imp.draft.year" type="number" min="1900" inputmode="numeric" />
                 </div>
               </div>
               <div class="field">
                 <label>Auteur</label>
-                <input v-model="imp.draft.author" type="text" />
+                <input v-model="imp.draft.author" type="text" inputmode="text" autocomplete="off" />
               </div>
               <div class="field">
                 <label>Synopsis</label>
-                <textarea v-model="imp.draft.description" rows="3" class="w-full resize-y" />
+                <textarea
+                  v-model="imp.draft.description"
+                  rows="3"
+                  class="w-full resize-y"
+                  inputmode="text"
+                />
               </div>
             </div>
           </div>

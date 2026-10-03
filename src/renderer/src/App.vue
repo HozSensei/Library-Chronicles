@@ -7,6 +7,7 @@ import { useLibraryStore } from './stores/library';
 import { useImportStore } from './stores/import';
 import { markSetupCompleted } from './router';
 import { sessionOrientationForRoute } from '../../shared/portrait-remap.js';
+import { installVirtualKeyboardOnFocus } from '../../shared/virtual-keyboard.js';
 
 const router = useRouter();
 const ui = useUiStore();
@@ -16,6 +17,8 @@ const { start, stop, refreshOrientation } = useGamepad();
 
 /** @type {Array<() => void>} */
 let unsubs = [];
+/** @type {(() => void) | null} */
+let uninstallVk = null;
 
 /** Évite double enter/exit (watch + autre appel concurrent). */
 let sessionTransition = Promise.resolve();
@@ -108,10 +111,13 @@ onMounted(async () => {
   }
 
   start();
+  uninstallVk = installVirtualKeyboardOnFocus(document);
 });
 
 onUnmounted(() => {
   stop();
+  uninstallVk?.();
+  uninstallVk = null;
   for (const off of unsubs) off();
   unsubs = [];
 });

@@ -25,6 +25,7 @@ import {
   centerInWorkArea,
   needsCssPortraitRotate,
 } from './window-bounds.js';
+import { showWindowsVirtualKeyboard } from './virtual-keyboard.js';
 
 let mainWindow = null;
 
@@ -170,6 +171,9 @@ function registerAppIpc() {
     return dir;
   });
   ipcMain.handle(IpcChannels.WATCH_STATUS, () => getWatcherStatus());
+  ipcMain.handle(IpcChannels.APP_SHOW_VIRTUAL_KEYBOARD, () =>
+    showWindowsVirtualKeyboard(),
+  );
 }
 
 app.whenReady().then(() => {

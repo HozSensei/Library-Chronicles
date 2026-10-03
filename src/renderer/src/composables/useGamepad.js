@@ -24,6 +24,11 @@ import {
   scheduleScrollFocusedIntoView,
 } from '../../../shared/focus-scroll.js';
 import { createStickMenuNav } from '../../../shared/stick-menu-nav.js';
+import {
+  isTextInputFocused,
+  shouldBlockGamepadConfirmForText,
+} from '../../../shared/text-input-focus.js';
+import { focusTextInputForEdit, showVirtualKeyboard } from '../../../shared/virtual-keyboard.js';
 
 const BUTTON = GamepadButtons;
 
@@ -178,6 +183,27 @@ function createLoop(ctx) {
       return;
     }
 
+    // Champ texte focusé : A/confirm n’envoie pas de submit global — clavier seulement.
+    // Exception : CTA Valider (bouton) focusé → isTextInputFocused = false.
+    if (
+      (action === 'confirm' || action === 'open-book') &&
+      shouldBlockGamepadConfirmForText()
+    ) {
+      void showVirtualKeyboard(document.activeElement);
+      vibe('light');
+      return;
+    }
+
+    // B hors naming profil : quitter l’édition (blur) sans submit
+    if (action === 'back' && isTextInputFocused()) {
+      const namingForm = document.querySelector('.profiles__create');
+      if (!namingForm) {
+        /** @type {HTMLElement} */ (document.activeElement)?.blur?.();
+        vibe('light');
+        return;
+      }
+    }
+
     if (route === 'profiles') {
       const { profiles } = handlers;
       const naming = Boolean(document.querySelector('.profiles__create'));
@@ -185,7 +211,7 @@ function createLoop(ctx) {
       if (naming) {
         if (action === 'cursor-left' || action === 'cursor-up') {
           const input = document.querySelector('.profiles__create input');
-          input?.focus?.();
+          void focusTextInputForEdit(input);
           vibe('nav');
           afterFocusMove();
           return;
@@ -198,13 +224,25 @@ function createLoop(ctx) {
           return;
         }
         if (action === 'confirm' || action === 'open-book') {
-          // A valide le pseudo (création / édition) — focus input pour OSK SteamOS
-          document.querySelector('.profiles__create input')?.focus?.();
-          document.querySelector('.profiles__create')?.requestSubmit?.();
-          vibe('confirm');
+          const input = document.querySelector('.profiles__create input');
+          const btn = document.querySelector('.profiles__create .btn-primary');
+          const onValidate =
+            document.activeElement === btn ||
+            (btn?.classList.contains('is-focused') &&
+              !input?.classList.contains('is-focused') &&
+              !isTextInputFocused());
+          if (onValidate) {
+            document.querySelector('.profiles__create')?.requestSubmit?.();
+            vibe('confirm');
+            return;
+          }
+          // Premier A / focus champ : ouvrir clavier, ne pas soumettre au nom défaut
+          void focusTextInputForEdit(input);
+          vibe('light');
           return;
         }
         if (action === 'back') {
+          // Annuler sans forcer le nom par défaut
           document.querySelector('.profiles__create .ghost')?.click();
           vibe('light');
         }
