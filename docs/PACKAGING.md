@@ -23,7 +23,7 @@ npm run dist:win
 
 | Script | Résultat |
 |--------|----------|
-| `npm run rebuild:native` | Rebuild `better-sqlite3` pour la version Electron du projet |
+| `npm run rebuild:native` | Installe `better-sqlite3` si absent, puis rebuild pour Electron |
 | `npm run dist` / `npm run dist:win` | Rebuild natif + build + installeur **NSIS** + **portable** → `dist/` |
 | `npm run dist:dir` / `npm run pack` | Décompressé (smoke test sans installeur) |
 

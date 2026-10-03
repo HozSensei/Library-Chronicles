@@ -14,12 +14,14 @@ npm run rebuild:native
 
 Le script :
 
+- s’assure que `better-sqlite3` est présent (sinon tente `npm install better-sqlite3 --no-save`) ;
 - lit la version Electron installée ;
 - lance `@electron/rebuild -f -w better-sqlite3` ;
-- affiche un diagnostic clair si VS Build Tools manquent.
+- distingue clairement **module manquant** vs **échec de compile** (VS Build Tools).
 
-`better-sqlite3` est en **`optionalDependencies`** : un échec de compile/prebuild
-ne fait **pas** échouer `npm install` (l’app a un fallback JSON).
+`better-sqlite3` est en **`dependencies`** (installé par défaut). Le vrai garde-fou
+Windows reste le **`postinstall` soft** : un échec de compile/prebuild ne fait
+**pas** échouer `npm install` (l’app a un fallback JSON).
 
 `postinstall` (`scripts/postinstall.mjs`) tente le rebuild Electron en mode **soft**
 et **termine toujours en succès** — y compris sous Windows (`cmd.exe`), où

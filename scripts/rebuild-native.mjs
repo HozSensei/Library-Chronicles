@@ -23,6 +23,15 @@ function fail(message, code = 1) {
   process.exit(soft ? 0 : code);
 }
 
+function runNpm(args) {
+  return spawnSync('npm', args, {
+    cwd: root,
+    stdio: 'inherit',
+    shell: process.platform === 'win32',
+    env: process.env,
+  });
+}
+
 function electronVersion() {
   try {
     const pkg = JSON.parse(readFileSync(join(root, 'node_modules/electron/package.json'), 'utf8'));
@@ -32,12 +41,53 @@ function electronVersion() {
   }
 }
 
-const sqlitePkg = join(root, 'node_modules/better-sqlite3/package.json');
-if (!existsSync(sqlitePkg)) {
+function sqlitePresent() {
+  return existsSync(join(root, 'node_modules/better-sqlite3/package.json'));
+}
+
+function ensureBetterSqlite3() {
+  if (sqlitePresent()) return true;
+
+  console.warn(`
+[VDR] better-sqlite3 absent de node_modules.
+  Tentative d’installation (npm install better-sqlite3 --no-save)…
+`);
+
+  const install = runNpm(['install', 'better-sqlite3', '--no-save']);
+  if (install.error) {
+    console.warn(`[VDR] npm install better-sqlite3 a échoué au lancement: ${install.error.message}`);
+  } else if (install.status !== 0) {
+    console.warn(`[VDR] npm install better-sqlite3 a échoué (exit ${install.status}).`);
+  }
+
+  if (sqlitePresent()) {
+    console.info('[VDR] better-sqlite3 installé — suite du rebuild Electron.');
+    return true;
+  }
+
+  // Second essai : installer depuis package.json (dependencies).
+  console.warn('[VDR] Second essai : npm install better-sqlite3…');
+  const install2 = runNpm(['install', 'better-sqlite3']);
+  if (install2.error) {
+    console.warn(`[VDR] Second essai échoué au lancement: ${install2.error.message}`);
+  }
+
+  return sqlitePresent();
+}
+
+if (!ensureBetterSqlite3()) {
   fail(`
-[VDR] better-sqlite3 absent de node_modules (dépendance optionnelle non installée).
-  • Relance : npm install
-  • Sans ce module, l’app utilise le fallback JSON (docs/NATIVE.md).
+[VDR] Module manquant : better-sqlite3 n’est toujours pas dans node_modules.
+  Cause probable : l’installation npm a omis le module (réseau, cache, ou
+  ancienne config optionalDependencies) ou la compile native a échoué.
+
+  Que faire :
+  1. npm install better-sqlite3
+  2. puis : npm run rebuild:native
+
+  Sans ce module, l’app utilise le fallback JSON (docs/NATIVE.md).
+  Ce n’est PAS un problème de Visual Studio Build Tools — le package
+  lui-même n’est pas présent.
 `);
 }
 
@@ -69,11 +119,18 @@ if (result.error) {
 
 if (result.status !== 0) {
   fail(`
-[VDR] Échec du rebuild natif better-sqlite3.
-  • Sur Windows (Ally / PC de build) : installe les Build Tools Visual Studio (C++),
-    puis relance : npm run rebuild:native
-  • Sans binaire natif, l’app bascule automatiquement sur le fallback JSON
-    (voir docs/NATIVE.md) — l’app démarre quand même.
+[VDR] Échec du rebuild natif better-sqlite3 (module présent, compile KO).
+  Cause probable : outils de compilation manquants ou incompatibles.
+
+  Sur Windows (Ally / PC de build) :
+  • Installe Visual Studio Build Tools (workload « Desktop development with C++ »)
+  • Relance : npm run rebuild:native
+
+  Ce n’est PAS « module absent » — better-sqlite3 est bien installé, mais
+  le binaire natif n’a pas pu être reconstruit pour Electron.
+
+  Sans binaire natif, l’app bascule automatiquement sur le fallback JSON
+  (voir docs/NATIVE.md) — l’app démarre quand même.
 `, result.status || 1);
 }
 

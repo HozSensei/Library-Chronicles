@@ -69,8 +69,10 @@ Au **premier lancement**, un wizard configure dossiers (library / import), langu
 
 ## better-sqlite3 sous Electron
 
-`npm install` doit réussir sans Build Tools : `better-sqlite3` est optionnel et
-le `postinstall` ne bloque jamais (Linux / Windows).
+`npm install` doit réussir sans Build Tools : `better-sqlite3` est en
+`dependencies`, mais le `postinstall` est **soft** et ne bloque jamais
+(Linux / Windows). Si le module manque, `npm run rebuild:native` tente
+de l’installer puis de rebuild pour Electron.
 
 Si le module natif ne charge pas dans Electron (lecture SQLite) :
 
