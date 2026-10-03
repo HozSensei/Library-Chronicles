@@ -23,6 +23,11 @@ import {
   focusRootForRoute,
   scheduleScrollFocusedIntoView,
 } from '../../../shared/focus-scroll.js';
+import {
+  BOOK_FOCUS,
+  clampBookFocus,
+  isBookActionFocus,
+} from '../../../shared/book-focus.js';
 import { createStickMenuNav } from '../../../shared/stick-menu-nav.js';
 import {
   isTextInputFocused,
@@ -441,20 +446,32 @@ function createLoop(ctx) {
         vibe('light');
         router.push({ name: 'library' });
       }
+      // ↑↓ / stick : parcours blocs focusables (méta, synopsis…) → scrollIntoView
+      // ←→ : même chaîne (footer CTA inclus), comme Import en paysage console.
       if (action === 'cursor-left' || action === 'cursor-up') {
-        ui.setBookFocus(Math.max(0, ui.bookFocusIndex - 1));
+        ui.setBookFocus(clampBookFocus(ui.bookFocusIndex - 1));
         vibe('nav');
         afterFocusMove();
       }
       if (action === 'cursor-right' || action === 'cursor-down') {
-        ui.setBookFocus(Math.min(2, ui.bookFocusIndex + 1));
+        ui.setBookFocus(clampBookFocus(ui.bookFocusIndex + 1));
         vibe('nav');
         afterFocusMove();
       }
       if (action === 'open-book' || action === 'confirm') {
         vibe('confirm');
-        const el = document.querySelectorAll('.book-detail .focus-btn')[ui.bookFocusIndex];
-        el?.click();
+        const focused = document.querySelector('.book-detail .is-focused');
+        if (focused?.classList?.contains('book-detail__action')) {
+          focused.click();
+        } else if (
+          focused?.classList?.contains('book-detail__row') ||
+          !isBookActionFocus(ui.bookFocusIndex)
+        ) {
+          // Sur un bloc texte : A = CTA principal Lire
+          document
+            .querySelector(`.book-detail [data-book-action="${BOOK_FOCUS.READ}"]`)
+            ?.click();
+        }
       }
       if (action === 'settings') {
         router.push({ name: 'settings' });
