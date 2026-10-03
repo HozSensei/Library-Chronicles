@@ -45,10 +45,13 @@ L’app appelle `setSessionMode('reader'|'ui')` à l’entrée / sortie du lecte
 - Pas de sync cloud
 - Reset : `npm run reset:library` · `npm run reset:app -- --all`
 
-## Thèmes
+## Thèmes & accents
 
-Tokens CSS `data-theme="dark|light"` — direction Steam (encre bleutée + accent cyan).  
-Persistance via prefs profil + miroir config `theme`.
+- Mode : `data-theme="dark|light"` sur `:root` / `#app`
+- Accent : `data-accent="blue|orange|green|amber|rose|violet"` — focus glow, boutons, pills, progress
+- Défaut : sombre + **laiton** (`amber`) — plus de cyan Steam Deck
+- Persistance : prefs profil (`theme` + `accent`) + miroir config
+- UI : Setup étape Préférences + Paramètres → Général (mode côte à côte, swatches ←→)
 
 ## Principes
 
@@ -68,4 +71,4 @@ Persistance via prefs profil + miroir config `theme`.
 - [x] Import rows + check déjà importé
 - [x] Enrichir métadonnées (warning + AniList défaut)
 - [x] Select → menu pause lecture
-- [x] Tailwind + tokens Steam OS
+- [x] Tailwind + tokens mode/accent (hors Steam cyan)

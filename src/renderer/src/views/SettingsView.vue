@@ -12,6 +12,10 @@ import {
 } from '../../../shared/key-bindings.js';
 import { clearProfileSelected } from '../router';
 import { scheduleScrollFocusedIntoView } from '../../../shared/focus-scroll.js';
+import {
+  ACCENTS,
+  accentLabel,
+} from '../../../shared/theme-accents.js';
 
 const router = useRouter();
 const ui = useUiStore();
@@ -24,6 +28,7 @@ const newProfileName = ref('');
 const profileMsg = ref('');
 const providers = ref([]);
 const activeProvider = ref('stub');
+const accents = ACCENTS;
 
 const sections = [
   { id: 'general', label: 'Général' },
@@ -101,12 +106,27 @@ watch(section, () => {
   ui.setSettingsFocus(0);
 });
 
-async function toggleTheme() {
-  await ui.setTheme(ui.theme === 'dark' ? 'light' : 'dark');
+async function setTheme(theme) {
+  await ui.setTheme(theme);
+}
+
+async function setAccent(accent) {
+  await ui.setAccent(accent);
 }
 
 async function toggleHaptics() {
   await ui.setHapticsEnabled(!ui.hapticsEnabled);
+}
+
+function generalFocusIndex(kind, id) {
+  if (kind === 'theme-dark') return 0;
+  if (kind === 'theme-light') return 1;
+  if (kind === 'accent') {
+    const i = accents.findIndex((a) => a.id === id);
+    return i >= 0 ? 2 + i : 2;
+  }
+  if (kind === 'haptics') return 2 + accents.length;
+  return 0;
 }
 
 const hapticsSubtitle = computed(() => {
@@ -187,7 +207,7 @@ const listeningLabel = computed(() => {
       <p class="brand">Vertical Deck Reader</p>
       <h1>Paramètres</h1>
       <p class="lead">
-        Thème, profils, haptics, remapping lecture, providers métadonnées.
+        Apparence (mode + accent), profils, haptics, remapping lecture, providers.
         Orientation automatique : paysage (menus) → portrait (lecture).
       </p>
     </header>
@@ -208,20 +228,65 @@ const listeningLabel = computed(() => {
     <div class="body">
       <template v-if="section === 'general'">
         <p class="hint">
-          Orientation : <strong>automatique</strong> — menus en paysage (1920×1080),
-          lecture en portrait Ally (1080×1920 + remap manette).
+          Mode clair/sombre + accent de contraste (profil actif).
+          Orientation : <strong>automatique</strong>.
         </p>
+
+        <div class="choice-group">
+          <p class="choice-group__label">Mode</p>
+          <div class="choice-row">
+            <FocusButton
+              data-settings-item
+              data-focus-row="theme"
+              :focused="ui.settingsFocusIndex === generalFocusIndex('theme-dark')"
+              :subtitle="ui.theme === 'dark' ? 'Actif' : ''"
+              @select="setTheme('dark')"
+            >
+              Sombre
+            </FocusButton>
+            <FocusButton
+              data-settings-item
+              data-focus-row="theme"
+              :focused="ui.settingsFocusIndex === generalFocusIndex('theme-light')"
+              :subtitle="ui.theme === 'light' ? 'Actif' : ''"
+              @select="setTheme('light')"
+            >
+              Clair
+            </FocusButton>
+          </div>
+        </div>
+
+        <div class="choice-group">
+          <p class="choice-group__label">
+            Accent · {{ accentLabel(ui.accent) }}
+          </p>
+          <div class="accent-row" role="listbox" aria-label="Accent">
+            <button
+              v-for="a in accents"
+              :key="a.id"
+              type="button"
+              class="accent-swatch"
+              data-settings-item
+              data-focus-row="accent"
+              role="option"
+              :aria-selected="ui.accent === a.id"
+              :class="{
+                'is-focused': ui.settingsFocusIndex === generalFocusIndex('accent', a.id),
+                'is-active': ui.accent === a.id,
+              }"
+              :title="a.label"
+              :aria-label="a.label"
+              @click="setAccent(a.id)"
+            >
+              <span class="accent-swatch__dot" :style="{ background: a.swatch }" />
+              <span class="accent-swatch__label">{{ a.label }}</span>
+            </button>
+          </div>
+        </div>
+
         <FocusButton
           data-settings-item
-          :focused="ui.settingsFocusIndex === 0"
-          :subtitle="ui.theme === 'dark' ? 'Sombre actif' : 'Clair actif'"
-          @select="toggleTheme"
-        >
-          Basculer thème
-        </FocusButton>
-        <FocusButton
-          data-settings-item
-          :focused="ui.settingsFocusIndex === 1"
+          :focused="ui.settingsFocusIndex === generalFocusIndex('haptics')"
           :subtitle="hapticsSubtitle"
           @select="toggleHaptics"
         >
@@ -739,4 +804,81 @@ footer {
     animation: none;
   }
 }
+
+.choice-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.choice-group__label {
+  margin: 0;
+  font-size: 0.75rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--brass);
+}
+
+.choice-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  min-width: 0;
+  width: 100%;
+}
+
+.accent-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  min-width: 0;
+  width: 100%;
+}
+
+.accent-swatch {
+  appearance: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 4.25rem;
+  padding: 0.55rem 0.45rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--paper-dim);
+  cursor: pointer;
+  transition:
+    border-color 160ms var(--ease-soft),
+    box-shadow 160ms var(--ease-soft),
+    transform 160ms var(--ease-soft);
+}
+
+.accent-swatch__dot {
+  width: 1.55rem;
+  height: 1.55rem;
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.2);
+}
+
+.accent-swatch__label {
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.accent-swatch.is-active {
+  border-color: var(--brass);
+  color: var(--paper);
+}
+
+.accent-swatch.is-focused,
+.accent-swatch:focus-visible {
+  outline: none;
+  border-color: var(--brass-bright);
+  box-shadow: 0 0 0 3px var(--focus-glow);
+  transform: translate3d(0, -1px, 0);
+  color: var(--paper);
+}
+
 </style>

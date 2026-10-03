@@ -1,5 +1,11 @@
 import { defineStore } from 'pinia';
 import { resolveKeyBindings } from '../../../shared/key-bindings.js';
+import {
+  DEFAULT_ACCENT,
+  DEFAULT_THEME,
+  normalizeAccent,
+  normalizeTheme,
+} from '../../../shared/theme-accents.js';
 
 export const useUiStore = defineStore('ui', {
   state: () => ({
@@ -8,7 +14,8 @@ export const useUiStore = defineStore('ui', {
     gamepadConnected: false,
     bootFocusIndex: 0,
     reducedMotion: false,
-    theme: 'dark',
+    theme: DEFAULT_THEME,
+    accent: DEFAULT_ACCENT,
     language: 'fr',
     /** Session : landscape (menus) ou portrait-ccw (lecteur). */
     orientation: 'landscape',
@@ -70,8 +77,16 @@ export const useUiStore = defineStore('ui', {
       this.reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     },
     applyTheme(theme) {
-      this.theme = theme === 'light' ? 'light' : 'dark';
+      this.theme = normalizeTheme(theme);
       document.documentElement.setAttribute('data-theme', this.theme);
+    },
+    applyAccent(accent) {
+      this.accent = normalizeAccent(accent);
+      document.documentElement.setAttribute('data-accent', this.accent);
+    },
+    applyAppearance({ theme, accent } = {}) {
+      if (theme !== undefined) this.applyTheme(theme);
+      if (accent !== undefined) this.applyAccent(accent);
     },
     applyOrientation(orientation) {
       this.orientation =
@@ -132,13 +147,30 @@ export const useUiStore = defineStore('ui', {
       this.userKeyBindings = config.keyBindings || null;
       this.keyBindings = resolveKeyBindings(this.userKeyBindings);
       this.hapticsEnabled = config.hapticsEnabled !== false;
-      this.applyTheme(config.theme || 'dark');
+      this.applyTheme(config.theme || DEFAULT_THEME);
+      this.applyAccent(config.accent || DEFAULT_ACCENT);
       this.configLoaded = true;
       return config;
     },
+    async persistAppearance(patch = {}) {
+      if (patch.theme !== undefined) this.applyTheme(patch.theme);
+      if (patch.accent !== undefined) this.applyAccent(patch.accent);
+      const payload = {};
+      if (patch.theme !== undefined) payload.theme = this.theme;
+      if (patch.accent !== undefined) payload.accent = this.accent;
+      if (!Object.keys(payload).length) return;
+      await window.vdr.setConfig(payload);
+      try {
+        await window.vdr.profiles.setPrefs(payload);
+      } catch {
+        // Pas de profil actif (boot / setup précoce)
+      }
+    },
     async setTheme(theme) {
-      this.applyTheme(theme);
-      await window.vdr.setConfig({ theme: this.theme });
+      await this.persistAppearance({ theme });
+    },
+    async setAccent(accent) {
+      await this.persistAppearance({ accent });
     },
     async persistKeyBindings(userBindings) {
       this.userKeyBindings = userBindings;

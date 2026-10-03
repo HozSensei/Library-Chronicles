@@ -139,7 +139,11 @@ async function choose(index) {
   const p = profiles.profiles[index];
   if (!p) return;
   await profiles.select(p.id);
-  ui.applyTheme((await window.vdr.profiles.getPrefs(p.id))?.theme || 'dark');
+  const prefs = await window.vdr.profiles.getPrefs(p.id);
+  ui.applyAppearance({
+    theme: prefs?.theme,
+    accent: prefs?.accent,
+  });
   await afterSelect();
 }
 

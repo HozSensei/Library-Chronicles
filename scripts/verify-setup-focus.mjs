@@ -42,13 +42,18 @@ assert(setupFocusables(1)[idx] === 'next', '↓ : import → next');
 idx = moveSetupFocus(folders, idx, 'up');
 assert(setupFocusables(1)[idx] === 'library' || setupFocusables(1)[idx] === 'import', '↑ retour rangée');
 
-// Thème côte à côte
+// Mode côte à côte + rangée accents
 const prefs = setupFocusRows(2);
+assert(prefs.length === 4, 'prefs : 4 rangées (mode, accents, langue, next)');
 idx = 0;
 idx = moveSetupFocus(prefs, idx, 'right');
 assert(setupFocusables(2)[idx] === 'theme-light', 'thème → light');
 idx = moveSetupFocus(prefs, idx, 'left');
 assert(setupFocusables(2)[idx] === 'theme-dark', 'thème ← dark');
+idx = moveSetupFocus(prefs, idx, 'down');
+assert(String(setupFocusables(2)[idx]).startsWith('accent-'), '↓ → rangée accents');
+idx = moveSetupFocus(prefs, idx, 'right');
+assert(String(setupFocusables(2)[idx]).startsWith('accent-'), '←→ dans accents');
 
 assert(SETUP_FOLDER_IDS.has('library') && SETUP_FOLDER_IDS.has('import'), 'ids dossier connus');
 

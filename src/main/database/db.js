@@ -71,6 +71,7 @@ CREATE TABLE IF NOT EXISTS profile_prefs (
   library_root TEXT,
   import_root TEXT,
   theme TEXT DEFAULT 'dark',
+  accent TEXT DEFAULT 'amber',
   language TEXT DEFAULT 'fr',
   setup_completed INTEGER DEFAULT 0,
   updated_at TEXT DEFAULT (datetime('now'))
@@ -190,6 +191,7 @@ function defaultPrefsRow(profileId) {
     library_root: null,
     import_root: null,
     theme: 'dark',
+    accent: 'amber',
     language: 'fr',
     setup_completed: 0,
     updated_at: new Date().toISOString(),
@@ -360,6 +362,7 @@ function migrateProfilePrefsColumns(instance) {
   add('library_root', 'library_root TEXT');
   add('import_root', 'import_root TEXT');
   add('theme', "theme TEXT DEFAULT 'dark'");
+  add('accent', "accent TEXT DEFAULT 'amber'");
   add('language', "language TEXT DEFAULT 'fr'");
   add('setup_completed', 'setup_completed INTEGER DEFAULT 0');
 }

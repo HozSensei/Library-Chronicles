@@ -159,6 +159,7 @@ watch(
     class="app-shell"
     :data-route="ui.routeName"
     :data-theme="ui.theme"
+    :data-accent="ui.accent"
     :data-orientation="ui.orientation"
     :data-reader-rotate="ui.readerCssRotate ? '1' : '0'"
     :data-input="ui.inputContext"

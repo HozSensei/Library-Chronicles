@@ -10,6 +10,12 @@ import {
   defaultPrefsRow,
 } from './db.js';
 import { getConfig, setConfig, getDefaultPaths } from '../config.js';
+import {
+  DEFAULT_ACCENT,
+  DEFAULT_THEME,
+  normalizeAccent,
+  normalizeTheme,
+} from '../../shared/theme-accents.js';
 
 const AVATAR_COLORS = [
   '#c4a35a',
@@ -43,7 +49,8 @@ function mapPrefs(row) {
       sepia: 0,
       libraryRoot: null,
       importRoot: null,
-      theme: 'dark',
+      theme: DEFAULT_THEME,
+      accent: DEFAULT_ACCENT,
       language: 'fr',
       setupCompleted: false,
     };
@@ -57,7 +64,8 @@ function mapPrefs(row) {
     sepia: Number(row.sepia ?? 0),
     libraryRoot: row.library_root || null,
     importRoot: row.import_root || null,
-    theme: row.theme || 'dark',
+    theme: normalizeTheme(row.theme),
+    accent: normalizeAccent(row.accent),
     language: row.language || 'fr',
     setupCompleted: Boolean(row.setup_completed),
   };
@@ -100,8 +108,8 @@ export function createProfile({ name, color, avatarPath } = {}) {
     const defaults = getDefaultPathsForProfile(id, trimmed);
     db.prepare(
       `INSERT OR IGNORE INTO profile_prefs (
-        profile_id, library_root, import_root, theme, language, setup_completed
-      ) VALUES (?, ?, ?, 'dark', 'fr', 0)`,
+        profile_id, library_root, import_root, theme, accent, language, setup_completed
+      ) VALUES (?, ?, ?, 'dark', 'amber', 'fr', 0)`,
     ).run(id, defaults.libraryRoot, defaults.importRoot);
     return getProfile(id);
   }
@@ -267,7 +275,8 @@ export function setActiveProfileId(id) {
       {
         libraryRoot: cfg.libraryRoot,
         importRoot: cfg.importRoot,
-        theme: cfg.theme || 'dark',
+        theme: normalizeTheme(cfg.theme),
+        accent: normalizeAccent(cfg.accent),
         language: cfg.language || 'fr',
         setupCompleted: true,
       },
@@ -281,6 +290,7 @@ export function setActiveProfileId(id) {
     libraryRoot: nextPrefs.libraryRoot,
     importRoot: nextPrefs.importRoot,
     theme: nextPrefs.theme,
+    accent: nextPrefs.accent,
     language: nextPrefs.language,
     setupCompleted: nextPrefs.setupCompleted,
     orientation: 'landscape',
@@ -366,7 +376,12 @@ export function setProfilePrefs(patch = {}, profileId = null) {
       patch.libraryRoot !== undefined ? patch.libraryRoot : current.libraryRoot,
     importRoot:
       patch.importRoot !== undefined ? patch.importRoot : current.importRoot,
-    theme: patch.theme !== undefined ? patch.theme : current.theme,
+    theme:
+      patch.theme !== undefined ? normalizeTheme(patch.theme) : current.theme,
+    accent:
+      patch.accent !== undefined
+        ? normalizeAccent(patch.accent)
+        : current.accent,
     language: patch.language !== undefined ? patch.language : current.language,
     setupCompleted:
       patch.setupCompleted !== undefined
@@ -381,10 +396,10 @@ export function setProfilePrefs(patch = {}, profileId = null) {
         `INSERT INTO profile_prefs (
           profile_id, reading_direction, default_fit_mode, webtoon_mode,
           brightness, contrast, sepia,
-          library_root, import_root, theme, language, setup_completed, updated_at
+          library_root, import_root, theme, accent, language, setup_completed, updated_at
         ) VALUES (
           @pid, @dir, @fit, @webtoon, @brightness, @contrast, @sepia,
-          @libraryRoot, @importRoot, @theme, @language, @setup, datetime('now')
+          @libraryRoot, @importRoot, @theme, @accent, @language, @setup, datetime('now')
         )
         ON CONFLICT(profile_id) DO UPDATE SET
           reading_direction = @dir,
@@ -396,6 +411,7 @@ export function setProfilePrefs(patch = {}, profileId = null) {
           library_root = @libraryRoot,
           import_root = @importRoot,
           theme = @theme,
+          accent = @accent,
           language = @language,
           setup_completed = @setup,
           updated_at = datetime('now')`,
@@ -411,6 +427,7 @@ export function setProfilePrefs(patch = {}, profileId = null) {
         libraryRoot: next.libraryRoot,
         importRoot: next.importRoot,
         theme: next.theme,
+        accent: next.accent,
         language: next.language,
         setup: next.setupCompleted ? 1 : 0,
       });
@@ -427,6 +444,7 @@ export function setProfilePrefs(patch = {}, profileId = null) {
       library_root: next.libraryRoot,
       import_root: next.importRoot,
       theme: next.theme,
+      accent: next.accent,
       language: next.language,
       setup_completed: next.setupCompleted ? 1 : 0,
       updated_at: new Date().toISOString(),
@@ -441,6 +459,7 @@ export function setProfilePrefs(patch = {}, profileId = null) {
       libraryRoot: next.libraryRoot,
       importRoot: next.importRoot,
       theme: next.theme,
+      accent: next.accent,
       language: next.language,
       setupCompleted: next.setupCompleted,
     });

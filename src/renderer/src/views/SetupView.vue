@@ -11,17 +11,27 @@ import {
   moveSetupFocus,
 } from '../../../shared/setup-focus.js';
 import { scheduleScrollFocusedIntoView } from '../../../shared/focus-scroll.js';
+import {
+  ACCENTS,
+  DEFAULT_ACCENT,
+  DEFAULT_THEME,
+  accentLabel,
+  normalizeAccent,
+  normalizeTheme,
+} from '../../../shared/theme-accents.js';
 
 const router = useRouter();
 const ui = useUiStore();
 
 const step = ref(0);
 const defaults = ref({ libraryRoot: '', importRoot: '' });
+const accents = ACCENTS;
 const form = reactive({
   libraryRoot: '',
   importRoot: '',
   language: 'fr',
-  theme: 'dark',
+  theme: DEFAULT_THEME,
+  accent: DEFAULT_ACCENT,
 });
 
 const steps = [
@@ -56,8 +66,9 @@ onMounted(async () => {
   form.libraryRoot = prefs?.libraryRoot || paths.libraryRoot;
   form.importRoot = prefs?.importRoot || paths.importRoot;
   form.language = prefs?.language || 'fr';
-  form.theme = prefs?.theme || 'dark';
-  ui.applyTheme(form.theme);
+  form.theme = normalizeTheme(prefs?.theme);
+  form.accent = normalizeAccent(prefs?.accent);
+  ui.applyAppearance({ theme: form.theme, accent: form.accent });
   ui.setSetupFocus(0);
 });
 
@@ -72,8 +83,13 @@ async function pickImport() {
 }
 
 function setTheme(theme) {
-  form.theme = theme;
-  ui.applyTheme(theme);
+  form.theme = normalizeTheme(theme);
+  ui.applyTheme(form.theme);
+}
+
+function setAccent(accent) {
+  form.accent = normalizeAccent(accent);
+  ui.applyAccent(form.accent);
 }
 
 function next() {
@@ -94,6 +110,7 @@ async function finish() {
     importRoot: form.importRoot,
     language: form.language,
     theme: form.theme,
+    accent: form.accent,
     setupCompleted: true,
   });
   await window.vdr.setConfig({
@@ -101,12 +118,13 @@ async function finish() {
     importRoot: form.importRoot,
     language: form.language,
     theme: form.theme,
+    accent: form.accent,
     orientation: 'landscape',
     setupCompleted: true,
   });
   ui.setupCompleted = true;
   markSetupCompleted();
-  ui.applyTheme(form.theme);
+  ui.applyAppearance({ theme: form.theme, accent: form.accent });
   ui.language = form.language;
   router.replace({ name: 'library' });
 }
@@ -124,6 +142,7 @@ function activateFocused() {
   else if (id === 'import') pickImport();
   else if (id === 'theme-dark') setTheme('dark');
   else if (id === 'theme-light') setTheme('light');
+  else if (id?.startsWith('accent-')) setAccent(id.slice('accent-'.length));
   else if (id === 'lang-fr') form.language = 'fr';
 }
 
@@ -209,11 +228,11 @@ defineExpose({
         <template v-else-if="step === 2">
           <h1>Préférences</h1>
           <p class="lead">
-            Thème et langue. L’orientation est automatique (paysage menus → portrait lecteur).
+            Mode clair/sombre et couleur de contraste. Orientation automatique.
           </p>
 
           <div class="choice-group">
-            <p class="choice-group__label">Thème</p>
+            <p class="choice-group__label">Mode</p>
             <div class="choice-row">
               <FocusButton
                 :focused="focusedId === 'theme-dark'"
@@ -229,6 +248,30 @@ defineExpose({
               >
                 Clair
               </FocusButton>
+            </div>
+          </div>
+
+          <div class="choice-group">
+            <p class="choice-group__label">Accent</p>
+            <div class="accent-row" role="listbox" aria-label="Couleur de contraste">
+              <button
+                v-for="a in accents"
+                :key="a.id"
+                type="button"
+                class="accent-swatch"
+                role="option"
+                :aria-selected="form.accent === a.id"
+                :class="{
+                  'is-focused': focusedId === `accent-${a.id}`,
+                  'is-active': form.accent === a.id,
+                }"
+                :title="a.label"
+                :aria-label="a.label"
+                @click="setAccent(a.id)"
+              >
+                <span class="accent-swatch__dot" :style="{ background: a.swatch }" />
+                <span class="accent-swatch__label">{{ a.label }}</span>
+              </button>
             </div>
           </div>
 
@@ -256,7 +299,11 @@ defineExpose({
           <ul class="summary">
             <li><strong>Bibliothèque</strong> — {{ form.libraryRoot }}</li>
             <li><strong>Import</strong> — {{ form.importRoot }}</li>
-            <li><strong>Thème</strong> — {{ form.theme }}</li>
+            <li>
+              <strong>Thème</strong> —
+              {{ form.theme === 'light' ? 'Clair' : 'Sombre' }} ·
+              {{ accentLabel(form.accent) }}
+            </li>
             <li><strong>Orientation</strong> — automatique</li>
           </ul>
           <FocusButton :focused="focusedId === 'finish'" subtitle="Entrer dans VDR" @select="finish">
@@ -390,6 +437,60 @@ h1 {
   gap: 0.75rem;
   min-width: 0;
   width: 100%;
+}
+
+.accent-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  min-width: 0;
+  width: 100%;
+}
+
+.accent-swatch {
+  appearance: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 4.25rem;
+  padding: 0.55rem 0.45rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--paper-dim);
+  cursor: pointer;
+  transition:
+    border-color 160ms var(--ease-soft),
+    box-shadow 160ms var(--ease-soft),
+    transform 160ms var(--ease-soft);
+}
+
+.accent-swatch__dot {
+  width: 1.55rem;
+  height: 1.55rem;
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.2);
+}
+
+.accent-swatch__label {
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.accent-swatch.is-active {
+  border-color: var(--brass);
+  color: var(--paper);
+}
+
+.accent-swatch.is-focused,
+.accent-swatch:focus-visible {
+  outline: none;
+  border-color: var(--brass-bright);
+  box-shadow: 0 0 0 3px var(--focus-glow);
+  transform: translate3d(0, -1px, 0);
+  color: var(--paper);
 }
 
 .field-card {

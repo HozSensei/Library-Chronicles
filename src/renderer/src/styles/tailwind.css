@@ -4,20 +4,20 @@
   --font-display: 'Syne', 'Avenir Next', 'Segoe UI', sans-serif;
   --font-body: 'Figtree', 'Avenir Next', 'Segoe UI', sans-serif;
 
-  --color-ink-950: #0e1419;
-  --color-ink-900: #141c24;
-  --color-ink-800: #1b2632;
-  --color-ink-700: #243141;
-  --color-paper: #e8eef4;
-  --color-paper-dim: #9aafc0;
-  --color-accent: #3d9be9;
-  --color-accent-bright: #66b5f5;
-  --color-accent-deep: #1f6fb8;
-  --color-success: #3db88a;
-  --color-danger: #e36a5d;
-  --color-surface: rgba(20, 28, 36, 0.92);
-  --color-border: rgba(232, 238, 244, 0.12);
-  --color-focus-glow: rgba(61, 155, 233, 0.35);
+  --color-ink-950: var(--ink-950);
+  --color-ink-900: var(--ink-900);
+  --color-ink-800: var(--ink-800);
+  --color-ink-700: var(--ink-700);
+  --color-paper: var(--paper);
+  --color-paper-dim: var(--paper-dim);
+  --color-accent: var(--brass);
+  --color-accent-bright: var(--brass-bright);
+  --color-accent-deep: var(--brass-deep);
+  --color-success: var(--success);
+  --color-danger: var(--danger);
+  --color-surface: var(--surface);
+  --color-border: var(--border);
+  --color-focus-glow: var(--focus-glow);
 
   --radius-sm: 8px;
   --radius-md: 12px;
