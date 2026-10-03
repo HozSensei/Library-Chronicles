@@ -14,6 +14,7 @@ import {
   resolveKeyBindings,
   actionForBinding,
   DEFAULT_KEY_BINDINGS,
+  REMAP_UI_CONTEXT,
 } from '../src/shared/key-bindings.js';
 import { detectFromFilename } from '../src/main/metadata/parse-filename.js';
 import { naturalCompare, detectChapters } from '../src/main/extractors/cbz.js';
@@ -117,6 +118,38 @@ assert(
   actionForBinding(bindings, 'reader', 'button:0') === 'toggle-direction',
   'binding défaut A = sens',
 );
+assert(
+  actionForBinding(bindings, 'library', `button:${GamepadButtons.LB}`) === 'tab-prev',
+  'biblio LB = onglet catalogue précédent',
+);
+assert(
+  actionForBinding(bindings, 'library', `button:${GamepadButtons.RB}`) === 'tab-next',
+  'biblio RB = onglet catalogue suivant',
+);
+assert(
+  actionForBinding(bindings, 'library', `button:${GamepadButtons.LT}`) === 'filter-prev',
+  'biblio LT = filtre précédent',
+);
+assert(
+  actionForBinding(bindings, 'library', `button:${GamepadButtons.RT}`) === 'filter-next',
+  'biblio RT = filtre suivant',
+);
+assert(
+  actionForBinding(bindings, 'library', `button:${GamepadButtons.B}`) == null,
+  'biblio B = no-op (pas de back)',
+);
+assert(
+  actionForBinding(bindings, 'library', `button:${GamepadButtons.START}`) === 'settings',
+  'biblio Start = paramètres',
+);
+assert(
+  actionForBinding(bindings, 'settings', `button:${GamepadButtons.LT}`) === 'tab-prev',
+  'settings LT = section précédente',
+);
+assert(
+  actionForBinding(bindings, 'settings', 'dpad:left') === 'cursor-left',
+  'settings dpad:left = focus (pas section)',
+);
 
 const custom = resolveKeyBindings({
   reader: { 'button:0': 'close-book' },
@@ -146,4 +179,6 @@ if (failed) {
   console.error(`\n${failed} assertion(s) en échec`);
   process.exit(1);
 }
+assert(REMAP_UI_CONTEXT === 'reader', 'remap UI = reader only');
+
 console.log('\nTests remap / bindings / metadata OK');

@@ -15,6 +15,7 @@ export {
 export {
   DEFAULT_KEY_BINDINGS,
   BINDABLE_ACTIONS,
+  REMAP_UI_CONTEXT,
   resolveKeyBindings,
   actionForBinding,
   labelForBindingKey,

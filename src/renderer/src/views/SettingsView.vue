@@ -7,6 +7,7 @@ import { useUiStore } from '../stores/ui';
 import { useProfilesStore } from '../stores/profiles';
 import {
   BINDABLE_ACTIONS,
+  REMAP_UI_CONTEXT,
   labelForBindingKey,
 } from '../../../shared/key-bindings.js';
 import { clearProfileSelected } from '../router';
@@ -17,7 +18,6 @@ const ui = useUiStore();
 const profiles = useProfilesStore();
 
 const section = ref('general'); // general | profiles | bindings | api
-const context = ref('reader');
 const apiKeyInput = ref('');
 const apiStatus = ref('');
 const newProfileName = ref('');
@@ -32,14 +32,16 @@ const sections = [
   { id: 'api', label: 'API métadonnées' },
 ];
 
-const actions = computed(() => BINDABLE_ACTIONS[context.value] || []);
+/** Remap UI = lecture uniquement. */
+const context = REMAP_UI_CONTEXT;
+const actions = computed(() => BINDABLE_ACTIONS[context] || []);
 
 const selectedProvider = computed(
   () => providers.value.find((p) => p.id === activeProvider.value) || null,
 );
 
 function keysForAction(actionId) {
-  const map = ui.keyBindings[context.value] || {};
+  const map = ui.keyBindings[context] || {};
   return Object.entries(map)
     .filter(([, v]) => v === actionId)
     .map(([k]) => labelForBindingKey(k));
@@ -67,18 +69,37 @@ function syncApiStatus() {
     : `Aucune clé ${p.label}`;
 }
 
+function syncSettingsFocusClass() {
+  const items = document.querySelectorAll('.settings [data-settings-item]');
+  items.forEach((el, i) => {
+    el.classList.toggle('is-focused', i === ui.settingsFocusIndex);
+  });
+  scheduleScrollFocusedIntoView('.settings');
+}
+
 onMounted(async () => {
   await ui.loadConfig();
   await profiles.refresh();
   await refreshProviders();
   ui.setSettingsFocus(0);
-  nextTick(() => scheduleScrollFocusedIntoView('.settings'));
+  nextTick(syncSettingsFocusClass);
 });
 
 watch(
-  () => [ui.settingsFocusIndex, section.value],
-  () => nextTick(() => scheduleScrollFocusedIntoView('.settings')),
+  () => [
+    ui.settingsFocusIndex,
+    section.value,
+    activeProvider.value,
+    providers.value.length,
+    actions.value.length,
+    profiles.profiles.length,
+  ],
+  () => nextTick(syncSettingsFocusClass),
 );
+
+watch(section, () => {
+  ui.setSettingsFocus(0);
+});
 
 async function toggleTheme() {
   await ui.setTheme(ui.theme === 'dark' ? 'light' : 'dark');
@@ -125,7 +146,11 @@ async function openProviderHelp(provider) {
 }
 
 function startRebind(actionId) {
-  ui.startListening(context.value, actionId);
+  ui.startListening(context, actionId);
+}
+
+async function resetReaderBindings() {
+  await ui.resetKeyBindings();
 }
 
 async function createProfile() {
@@ -162,7 +187,7 @@ const listeningLabel = computed(() => {
       <p class="brand">Vertical Deck Reader</p>
       <h1>Paramètres</h1>
       <p class="lead">
-        Thème, profils, haptics, remapping manette, providers métadonnées.
+        Thème, profils, haptics, remapping lecture, providers métadonnées.
         Orientation automatique : paysage (menus) → portrait (lecture).
       </p>
     </header>
@@ -187,6 +212,7 @@ const listeningLabel = computed(() => {
           lecture en portrait Ally (1080×1920 + remap manette).
         </p>
         <FocusButton
+          data-settings-item
           :focused="ui.settingsFocusIndex === 0"
           :subtitle="ui.theme === 'dark' ? 'Sombre actif' : 'Clair actif'"
           @select="toggleTheme"
@@ -194,6 +220,7 @@ const listeningLabel = computed(() => {
           Basculer thème
         </FocusButton>
         <FocusButton
+          data-settings-item
           :focused="ui.settingsFocusIndex === 1"
           :subtitle="hapticsSubtitle"
           @select="toggleHaptics"
@@ -217,11 +244,14 @@ const listeningLabel = computed(() => {
               v-if="p.id !== profiles.activeProfileId"
               type="button"
               class="ghost"
+              data-settings-item
               @click="activateProfile(p.id)"
             >
               Activer
             </button>
-            <button type="button" class="ghost" @click="removeProfile(p.id)">Suppr.</button>
+            <button type="button" class="ghost" data-settings-item @click="removeProfile(p.id)">
+              Suppr.
+            </button>
           </li>
         </ul>
         <div class="field">
@@ -233,36 +263,33 @@ const listeningLabel = computed(() => {
             placeholder="Nom"
             inputmode="text"
             autocomplete="off"
+            data-settings-item
           />
         </div>
         <div class="row">
-          <button type="button" class="btn-primary" @click="createProfile">Créer</button>
-          <button type="button" class="ghost" @click="openProfilePicker">Écran choix</button>
+          <button type="button" class="btn-primary" data-settings-item @click="createProfile">
+            Créer
+          </button>
+          <button type="button" class="ghost" data-settings-item @click="openProfilePicker">
+            Écran choix
+          </button>
         </div>
       </template>
 
       <template v-else-if="section === 'bindings'">
+        <p class="hint">
+          Remap des touches <strong>lecture</strong> uniquement.
+          La navigation des menus (bibliothèque, setup…) reste fixe.
+        </p>
         <p v-if="listeningLabel" class="listen">{{ listeningLabel }}</p>
-        <div class="ctx">
-          <button
-            v-for="c in ['reader', 'library', 'book', 'boot', 'profiles', 'import', 'settings']"
-            :key="c"
-            type="button"
-            class="chip"
-            :class="{ 'is-active': context === c }"
-            @click="context = c"
-          >
-            {{ c }}
-          </button>
-        </div>
         <div class="bind-list">
           <button
-            v-for="(action, index) in actions"
+            v-for="action in actions"
             :key="action.id"
             type="button"
             class="bind-row"
+            data-settings-item
             :class="{
-              'is-focused': ui.settingsFocusIndex === index,
               'is-listening':
                 ui.listeningForBind?.actionId === action.id &&
                 ui.listeningForBind?.context === context,
@@ -275,8 +302,13 @@ const listeningLabel = computed(() => {
             </span>
           </button>
         </div>
-        <button type="button" class="ghost" @click="ui.resetKeyBindings()">
-          Réinitialiser mapping
+        <button
+          type="button"
+          class="btn-reset"
+          data-settings-item
+          @click="resetReaderBindings"
+        >
+          Reset — rétablir les défauts lecture
         </button>
       </template>
 
@@ -291,6 +323,7 @@ const listeningLabel = computed(() => {
             :key="p.id"
             type="button"
             class="provider-card"
+            data-settings-item
             :class="{ 'is-active': p.id === activeProvider }"
             role="option"
             :aria-selected="p.id === activeProvider"
@@ -314,6 +347,7 @@ const listeningLabel = computed(() => {
             v-if="selectedProvider.helpUrl"
             type="button"
             class="link-btn"
+            data-settings-item
             @click="openProviderHelp(selectedProvider)"
           >
             {{ selectedProvider.helpLinkLabel || 'Documentation' }}
@@ -329,11 +363,16 @@ const listeningLabel = computed(() => {
               autocomplete="off"
               inputmode="text"
               placeholder="Stockée localement (userData)"
+              data-settings-item
             />
           </div>
           <div class="row">
-            <button type="button" class="btn-primary" @click="saveApiKey">Enregistrer</button>
-            <button type="button" class="ghost" @click="clearApiKey">Effacer</button>
+            <button type="button" class="btn-primary" data-settings-item @click="saveApiKey">
+              Enregistrer
+            </button>
+            <button type="button" class="ghost" data-settings-item @click="clearApiKey">
+              Effacer
+            </button>
           </div>
         </template>
 
@@ -344,12 +383,12 @@ const listeningLabel = computed(() => {
     </div>
 
     <footer>
-      <button type="button" class="ghost" @click="router.push({ name: 'boot' })">Retour</button>
+      <button type="button" class="ghost" @click="router.push({ name: 'library' })">Retour</button>
       <ControlHint
         :items="[
-          { key: '↑↓', label: 'naviguer' },
-          { key: '←→', label: 'section' },
-          { key: 'A', label: 'modifier' },
+          { key: '↑↓←→', label: 'naviguer' },
+          { key: 'LT/RT', label: 'section' },
+          { key: 'A', label: 'valider' },
           { key: 'B', label: 'retour' },
         ]"
       />
@@ -450,28 +489,6 @@ h1 {
   animation: pulse 1.2s var(--ease-soft) infinite;
 }
 
-.ctx {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-}
-
-.chip {
-  appearance: none;
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--paper-dim);
-  border-radius: 999px;
-  padding: 0.3rem 0.65rem;
-  font-size: 0.78rem;
-  cursor: pointer;
-}
-
-.chip.is-active {
-  border-color: var(--brass);
-  color: var(--paper);
-}
-
 .bind-list {
   display: flex;
   flex-direction: column;
@@ -513,6 +530,29 @@ h1 {
   text-overflow: ellipsis;
 }
 
+.btn-reset {
+  appearance: none;
+  align-self: flex-start;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--paper);
+  border-radius: var(--radius-md);
+  padding: 0.7rem 1rem;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-reset.is-focused,
+.btn-primary.is-focused,
+.ghost.is-focused,
+.link-btn.is-focused,
+.field input.is-focused {
+  border-color: var(--brass-bright);
+  box-shadow: 0 0 0 3px var(--focus-glow);
+  outline: none;
+}
+
 .api-status {
   margin: 0;
   color: var(--success);
@@ -540,6 +580,11 @@ h1 {
 }
 
 .provider-card.is-active {
+  border-color: var(--brass);
+  background: color-mix(in srgb, var(--brass) 10%, var(--surface));
+}
+
+.provider-card.is-focused {
   border-color: var(--brass-bright);
   box-shadow: 0 0 0 3px var(--focus-glow);
 }
@@ -566,12 +611,13 @@ h1 {
 .link-btn {
   appearance: none;
   align-self: flex-start;
-  border: none;
+  border: 1px solid transparent;
   background: transparent;
   color: var(--brass-bright);
   text-decoration: underline;
   text-underline-offset: 0.18em;
-  padding: 0;
+  padding: 0.25rem 0.35rem;
+  border-radius: var(--radius-sm);
   font: inherit;
   font-size: 0.9rem;
   cursor: pointer;
