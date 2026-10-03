@@ -730,8 +730,9 @@ function createLoop(ctx) {
         reader.stepChapter(1);
       }
       if ((action === 'pan' || action === 'stick') && payload) {
-        // payload = axes logiques (repère utilisateur). Si le plan est en
-        // rotate(+90°), convertir vers le repère local du stage.
+        // payload = axes logiques (repère écran). Sous rotate(+90°) :
+        // visualPanToLocal — Haut→page droite, Bas→gauche, Gauche→haut, Droite→bas.
+        // remapStick inchangé (modal pause / menus).
         const local = ui.readerCssRotate
           ? visualPanToLocal(payload.x, payload.y)
           : payload;

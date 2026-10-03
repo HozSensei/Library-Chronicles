@@ -39,7 +39,17 @@ Ally tenue **en portrait**, tournée de **90° anti-horaire** (D-Pad en bas) :
 | D-Pad / stick →   | ↑ haut                       |
 
 Stick : `logicalX = physicalY`, `logicalY = −physicalX`.
-Pan dans le plan tourné : `local = visualPanToLocal(logical)` (`localX = −visualY`, `localY = visualX`) — signes anti-inversion pour que stick ↑ = pan ressenti vers le haut écran.
+Pan dans le plan tourné : `local = visualPanToLocal(logical)` avec
+`localX = −visualY`, `localY = visualX`.
+
+Spec glissement page (stick logique, plan +90° CSS) :
+
+| Stick | Page glisse |
+|-------|-------------|
+| ↑     | droite      |
+| ↓     | gauche      |
+| ←     | haut        |
+| →     | bas         |
 
 ## Mode Lecture *(directions = écran logique)*
 
