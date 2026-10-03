@@ -226,7 +226,14 @@ const listeningLabel = computed(() => {
         </ul>
         <div class="field">
           <label>Nouveau profil</label>
-          <input v-model="newProfileName" type="text" maxlength="32" placeholder="Nom" />
+          <input
+            v-model="newProfileName"
+            type="text"
+            maxlength="32"
+            placeholder="Nom"
+            inputmode="text"
+            autocomplete="off"
+          />
         </div>
         <div class="row">
           <button type="button" class="btn-primary" @click="createProfile">Créer</button>
@@ -320,6 +327,7 @@ const listeningLabel = computed(() => {
               v-model="apiKeyInput"
               type="password"
               autocomplete="off"
+              inputmode="text"
               placeholder="Stockée localement (userData)"
             />
           </div>

@@ -61,6 +61,8 @@ export const IpcChannels = Object.freeze({
   APP_SET_SESSION_MODE: 'app:set-session-mode',
   /** Push Main → Renderer après bascule d’orientation fenêtre. */
   APP_ORIENTATION_CHANGED: 'app:orientation-changed',
+  /** Ouvre le clavier tactile Windows (TabTip / osk). */
+  APP_SHOW_VIRTUAL_KEYBOARD: 'app:show-virtual-keyboard',
 
   /** Événements push Main → Renderer (fs.watch). */
   WATCH_LIBRARY_CHANGED: 'watch:library-changed',
