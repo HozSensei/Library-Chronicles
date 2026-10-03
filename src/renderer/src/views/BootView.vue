@@ -113,10 +113,16 @@ function select(index) {
 .boot {
   position: relative;
   height: 100%;
+  width: 100%;
+  max-width: 100%;
   display: flex;
   flex-direction: column;
   padding: var(--pad);
   overflow: hidden;
+  overflow-x: hidden;
+  min-height: 0;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .boot__atmosphere {
@@ -213,6 +219,9 @@ function select(index) {
   flex-direction: column;
   gap: 0.75rem;
   width: min(100%, 24rem);
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: hidden;
   animation: rise 700ms var(--ease-out) 140ms both;
 }
 

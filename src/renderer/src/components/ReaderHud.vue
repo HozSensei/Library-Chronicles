@@ -15,7 +15,7 @@ function nudge(key, delta) {
 
 async function quitReading() {
   await reader.close();
-  await ui.exitReaderMode();
+  // Resize landscape = App.vue watch (sortie route reader) — une seule transition.
   router.push({ name: 'library' });
 }
 </script>
@@ -189,7 +189,11 @@ async function quitReading() {
   color: #f2ebe0;
   animation: hud-up 220ms var(--ease-out);
   max-height: 55%;
+  max-width: 100%;
+  min-width: 0;
   overflow: auto;
+  overflow-x: hidden;
+  box-sizing: border-box;
 }
 
 .hud--static {
@@ -270,6 +274,13 @@ async function quitReading() {
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.hud__actions > * {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .hud__hint,

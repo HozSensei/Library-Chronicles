@@ -8,9 +8,14 @@ interface VdrApi {
   setSessionMode: (
     mode: 'ui' | 'reader',
     opts?: { force?: boolean },
-  ) => Promise<{ mode: string; orientation: string }>;
+  ) => Promise<{
+    mode: string;
+    orientation: string;
+    bounds?: { width: number; height: number };
+    cssRotate?: boolean;
+  }>;
   onOrientationChanged: (
-    handler: (payload: { orientation: string }) => void,
+    handler: (payload: { orientation: string; cssRotate?: boolean }) => void,
   ) => () => void;
   library: {
     selectRoot: () => Promise<string | null>;

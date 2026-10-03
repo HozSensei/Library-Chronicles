@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import ControlHint from '../components/ControlHint.vue';
 import FocusButton from '../components/FocusButton.vue';
@@ -10,6 +10,7 @@ import {
   labelForBindingKey,
 } from '../../../shared/key-bindings.js';
 import { clearProfileSelected } from '../router';
+import { scheduleScrollFocusedIntoView } from '../../../shared/focus-scroll.js';
 
 const router = useRouter();
 const ui = useUiStore();
@@ -71,7 +72,13 @@ onMounted(async () => {
   await profiles.refresh();
   await refreshProviders();
   ui.setSettingsFocus(0);
+  nextTick(() => scheduleScrollFocusedIntoView('.settings'));
 });
+
+watch(
+  () => [ui.settingsFocusIndex, section.value],
+  () => nextTick(() => scheduleScrollFocusedIntoView('.settings')),
+);
 
 async function toggleTheme() {
   await ui.setTheme(ui.theme === 'dark' ? 'light' : 'dark');
@@ -345,9 +352,16 @@ const listeningLabel = computed(() => {
 <style scoped>
 .settings {
   height: 100%;
+  width: 100%;
+  max-width: 100%;
   display: flex;
   flex-direction: column;
   padding: var(--pad);
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  overflow-x: hidden;
+  box-sizing: border-box;
   background:
     radial-gradient(ellipse 70% 35% at 80% 0%, var(--wash-a), transparent 55%),
     var(--ink-950);
@@ -409,7 +423,9 @@ h1 {
 .body {
   flex: 1;
   min-height: 0;
+  min-width: 0;
   overflow: auto;
+  overflow-x: hidden;
   margin-top: 1rem;
   display: flex;
   flex-direction: column;
@@ -483,6 +499,10 @@ h1 {
   color: var(--brass-bright);
   font-size: 0.85rem;
   white-space: nowrap;
+  flex-shrink: 0;
+  max-width: 45%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .api-status {
@@ -631,6 +651,9 @@ footer {
   flex-direction: column;
   align-items: center;
   gap: 0.75rem;
+  flex-shrink: 0;
+  min-width: 0;
+  max-width: 100%;
 }
 
 @keyframes pulse {

@@ -26,11 +26,14 @@ defineEmits(['select']);
 .focus-btn {
   position: relative;
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   grid-template-rows: auto auto;
   column-gap: 0.75rem;
   align-items: center;
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   padding: 1rem 1.2rem;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -51,6 +54,8 @@ defineEmits(['select']);
   font-weight: 700;
   font-size: 1.1rem;
   letter-spacing: 0.01em;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .focus-btn__sub {
@@ -59,6 +64,8 @@ defineEmits(['select']);
   margin-top: 0.2rem;
   color: var(--paper-dim);
   font-size: 0.85rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .focus-btn__chev {

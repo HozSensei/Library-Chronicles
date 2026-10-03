@@ -18,6 +18,10 @@ import {
   setupFocusRows,
   moveSetupFocus,
 } from '../../../shared/setup-focus.js';
+import {
+  focusRootForRoute,
+  scheduleScrollFocusedIntoView,
+} from '../../../shared/focus-scroll.js';
 
 const BUTTON = GamepadButtons;
 
@@ -155,6 +159,11 @@ function createLoop(ctx) {
     return actionForBinding(ui.keyBindings, ctxName, key);
   }
 
+  function afterFocusMove() {
+    const { ui } = handlers;
+    scheduleScrollFocusedIntoView(focusRootForRoute(ui.routeName));
+  }
+
   function dispatch(action, payload) {
     if (!action) return;
     const { router, ui, reader, library, imp } = handlers;
@@ -175,12 +184,14 @@ function createLoop(ctx) {
           const input = document.querySelector('.profiles__create input');
           input?.focus?.();
           vibe('nav');
+          afterFocusMove();
           return;
         }
         if (action === 'cursor-right' || action === 'cursor-down') {
           const btn = document.querySelector('.profiles__create .btn-primary');
           btn?.focus?.();
           vibe('nav');
+          afterFocusMove();
           return;
         }
         if (action === 'confirm' || action === 'open-book') {
@@ -200,18 +211,22 @@ function createLoop(ctx) {
       if (action === 'cursor-up' || (action === 'scroll' && payload?.y < -0.45)) {
         profiles.moveFocus(-1);
         vibe('nav');
+        afterFocusMove();
       }
       if (action === 'cursor-down' || (action === 'scroll' && payload?.y > 0.45)) {
         profiles.moveFocus(1);
         vibe('nav');
+        afterFocusMove();
       }
       if (action === 'cursor-left') {
         profiles.moveFocus(-1);
         vibe('nav');
+        afterFocusMove();
       }
       if (action === 'cursor-right') {
         profiles.moveFocus(1);
         vibe('nav');
+        afterFocusMove();
       }
       if (action === 'rename' || action === 'book-options') {
         window.dispatchEvent(new CustomEvent('vdr-profile-rename'));
@@ -247,10 +262,12 @@ function createLoop(ctx) {
       if (action === 'cursor-up') {
         ui.setBootFocus(Math.max(0, ui.bootFocusIndex - 1));
         vibe('nav');
+        afterFocusMove();
       }
       if (action === 'cursor-down') {
         ui.setBootFocus(Math.min(max, ui.bootFocusIndex + 1));
         vibe('nav');
+        afterFocusMove();
       }
       if (action === 'confirm' || action === 'open-book') {
         vibe('confirm');
@@ -268,19 +285,23 @@ function createLoop(ctx) {
       if (action === 'cursor-up') {
         ui.setSetupFocus(moveSetupFocus(rows, ui.setupFocusIndex, 'up'));
         vibe('nav');
+        afterFocusMove();
       }
       if (action === 'cursor-down') {
         ui.setSetupFocus(moveSetupFocus(rows, ui.setupFocusIndex, 'down'));
         vibe('nav');
+        afterFocusMove();
       }
       if (action === 'cursor-left') {
         // Navigation horizontale UNIQUEMENT — ne jamais ouvrir le sélecteur de dossier
         ui.setSetupFocus(moveSetupFocus(rows, ui.setupFocusIndex, 'left'));
         vibe('nav');
+        afterFocusMove();
       }
       if (action === 'cursor-right') {
         ui.setSetupFocus(moveSetupFocus(rows, ui.setupFocusIndex, 'right'));
         vibe('nav');
+        afterFocusMove();
       }
       if (action === 'back') {
         document.querySelector('.setup__footer .ghost, .setup .ghost')?.click();
@@ -303,18 +324,22 @@ function createLoop(ctx) {
       if (action === 'cursor-up') {
         library.moveCatalog(0, -1);
         vibe('nav');
+        afterFocusMove();
       }
       if (action === 'cursor-down') {
         library.moveCatalog(0, 1);
         vibe('nav');
+        afterFocusMove();
       }
       if (action === 'cursor-left') {
         library.moveCatalog(-1, 0);
         vibe('nav');
+        afterFocusMove();
       }
       if (action === 'cursor-right') {
         library.moveCatalog(1, 0);
         vibe('nav');
+        afterFocusMove();
       }
       if (action === 'toggle-series') {
         library.toggleViewMode();
@@ -366,6 +391,7 @@ function createLoop(ctx) {
           library.moveCatalog(payload.x > 0 ? 1 : -1, 0);
         }
         vibe('nav');
+        afterFocusMove();
       }
       return;
     }
@@ -378,10 +404,12 @@ function createLoop(ctx) {
       if (action === 'cursor-left' || action === 'cursor-up') {
         ui.setBookFocus(Math.max(0, ui.bookFocusIndex - 1));
         vibe('nav');
+        afterFocusMove();
       }
       if (action === 'cursor-right' || action === 'cursor-down') {
         ui.setBookFocus(Math.min(2, ui.bookFocusIndex + 1));
         vibe('nav');
+        afterFocusMove();
       }
       if (action === 'open-book' || action === 'confirm') {
         vibe('confirm');
@@ -405,18 +433,22 @@ function createLoop(ctx) {
       if (action === 'cursor-up') {
         imp.moveCursor(-1);
         vibe('nav');
+        afterFocusMove();
       }
       if (action === 'cursor-down') {
         imp.moveCursor(1);
         vibe('nav');
+        afterFocusMove();
       }
       if (action === 'cursor-left') {
         ui.setImportFocus(Math.max(0, ui.importFocusIndex - 1));
         vibe('nav');
+        afterFocusMove();
       }
       if (action === 'cursor-right') {
         ui.setImportFocus(Math.min(1, ui.importFocusIndex + 1));
         vibe('nav');
+        afterFocusMove();
       }
       if (action === 'confirm') {
         vibe('confirm');
@@ -448,10 +480,12 @@ function createLoop(ctx) {
       if (action === 'cursor-up') {
         ui.setSettingsFocus(Math.max(0, ui.settingsFocusIndex - 1));
         vibe('nav');
+        afterFocusMove();
       }
       if (action === 'cursor-down') {
         ui.setSettingsFocus(Math.min(maxSettings, ui.settingsFocusIndex + 1));
         vibe('nav');
+        afterFocusMove();
       }
       if (action === 'tab-prev' || action === 'cursor-left') {
         const tabs = [...document.querySelectorAll('.settings .tab')];
@@ -461,6 +495,7 @@ function createLoop(ctx) {
           vibe('light');
         }
         ui.setSettingsFocus(0);
+        afterFocusMove();
       }
       if (action === 'tab-next' || action === 'cursor-right') {
         const tabs = [...document.querySelectorAll('.settings .tab')];
@@ -470,6 +505,7 @@ function createLoop(ctx) {
           vibe('light');
         }
         ui.setSettingsFocus(0);
+        afterFocusMove();
       }
       if (action === 'confirm') {
         const row = document.querySelector(
@@ -484,8 +520,8 @@ function createLoop(ctx) {
     if (route === 'reader') {
       if (action === 'close-book' || action === 'back') {
         vibe('light');
-        reader.close().then(async () => {
-          await ui.exitReaderMode();
+        // Sortie lecture : navigation seule → App.vue fait exitReaderMode une fois.
+        reader.close().then(() => {
           router.push({ name: 'library' });
         });
         return;

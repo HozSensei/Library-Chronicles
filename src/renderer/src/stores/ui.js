@@ -12,6 +12,11 @@ export const useUiStore = defineStore('ui', {
     language: 'fr',
     /** Session : landscape (menus) ou portrait-ccw (lecteur). */
     orientation: 'landscape',
+    /**
+     * Fallback Windows : fenêtre clampée encore landscape →
+     * rotation CSS 90° du stage lecteur (Ally tenue en portrait).
+     */
+    readerCssRotate: false,
     /** Contexte manette dérivé : ui | reader */
     inputContext: 'ui',
     setupCompleted: false,
@@ -72,10 +77,24 @@ export const useUiStore = defineStore('ui', {
       this.orientation =
         orientation === 'portrait-ccw' ? 'portrait-ccw' : 'landscape';
       document.documentElement.setAttribute('data-orientation', this.orientation);
+      this.syncReaderRotateAttr();
+    },
+    setReaderCssRotate(enabled) {
+      this.readerCssRotate = Boolean(enabled);
+      this.syncReaderRotateAttr();
+    },
+    syncReaderRotateAttr() {
+      const on =
+        this.orientation === 'portrait-ccw' && this.readerCssRotate;
+      document.documentElement.setAttribute(
+        'data-reader-rotate',
+        on ? '1' : '0',
+      );
     },
     /**
      * Bascule fenêtre Electron + remap manette.
      * Resize uniquement si orientation change (main) — sauf opts.force.
+     * Ne jamais appeler hors entrée/sortie route `reader` (pas sur fiche livre).
      * @param {'ui'|'reader'} mode
      * @param {{ force?: boolean }} [opts]
      */
@@ -85,6 +104,9 @@ export const useUiStore = defineStore('ui', {
       const orientation =
         result?.orientation || (next === 'reader' ? 'portrait-ccw' : 'landscape');
       this.applyOrientation(orientation);
+      this.setReaderCssRotate(
+        next === 'reader' ? Boolean(result?.cssRotate) : false,
+      );
       this.inputContext = next === 'reader' ? 'reader' : 'ui';
       return result;
     },
@@ -93,7 +115,9 @@ export const useUiStore = defineStore('ui', {
     },
     /** Retour menus — resize seulement si on quitte vraiment le portrait. */
     async exitReaderMode(opts = {}) {
-      return this.setSessionMode('ui', opts);
+      const result = await this.setSessionMode('ui', opts);
+      this.setReaderCssRotate(false);
+      return result;
     },
     async loadConfig() {
       const config = await window.vdr.getConfig();

@@ -7,6 +7,7 @@ import { useLibraryStore } from '../stores/library';
 import { useUiStore } from '../stores/ui';
 import { useProfilesStore } from '../stores/profiles';
 import { clearProfileSelected } from '../router';
+import { scheduleScrollFocusedIntoView } from '../../../shared/focus-scroll.js';
 
 const router = useRouter();
 const library = useLibraryStore();
@@ -66,10 +67,10 @@ watch(
 );
 
 function scrollFocusIntoView() {
-  const el = document.querySelector('.catalog .is-focused');
-  el?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+  scheduleScrollFocusedIntoView('.catalog');
 }
 
+/** Fiche détail uniquement — pas de setSessionMode / resize fenêtre. */
 function openBook(book) {
   if (!book?.id) {
     router.push({ name: 'import' });
@@ -112,10 +113,10 @@ function scrollRail(refEl, dir) {
 </script>
 
 <template>
-  <section class="catalog relative h-full overflow-hidden" aria-label="Catalogue Vertical Deck Reader">
+  <section class="catalog relative h-full min-h-0 min-w-0 overflow-hidden overflow-x-hidden" aria-label="Catalogue Vertical Deck Reader">
     <div class="catalog__bg pointer-events-none absolute inset-0" aria-hidden="true" />
 
-    <div class="relative z-10 flex h-full flex-col">
+    <div class="relative z-10 flex h-full min-h-0 min-w-0 flex-col overflow-x-hidden">
       <!-- Header Movie Gather style -->
       <header class="catalog__header">
         <p class="catalog__logo">Vertical Deck Reader</p>
@@ -157,7 +158,7 @@ function scrollRail(refEl, dir) {
         </div>
       </header>
 
-      <div class="catalog__scroll min-h-0 flex-1 overflow-auto">
+      <div class="catalog__scroll min-h-0 min-w-0 flex-1 overflow-auto overflow-x-hidden">
         <!-- BOARD -->
         <template v-if="library.catalogTab === 'board'">
           <!-- Hero + En cours -->
@@ -433,10 +434,13 @@ function scrollRail(refEl, dir) {
 
 .catalog__header {
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 1.5rem;
-  padding: 1.1rem 2rem 0.75rem;
+  gap: 1rem 1.5rem;
+  padding: 1.1rem clamp(1rem, 2.5vw, 2rem) 0.75rem;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .catalog__logo {
@@ -452,7 +456,9 @@ function scrollRail(refEl, dir) {
 .catalog__nav {
   display: flex;
   justify-content: center;
-  gap: 1.75rem;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.75rem;
+  min-width: 0;
 }
 
 .catalog__nav-link {
@@ -478,7 +484,10 @@ function scrollRail(refEl, dir) {
 .catalog__tools {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 0.65rem;
+  min-width: 0;
 }
 
 .catalog__tool {
@@ -520,14 +529,18 @@ function scrollRail(refEl, dir) {
 }
 
 .catalog__scroll {
-  padding: 0.5rem 2rem 1.5rem;
+  padding: 0.5rem clamp(1rem, 2.5vw, 2rem) 1.5rem;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .catalog__hero-row {
   display: grid;
-  grid-template-columns: 1fr minmax(220px, 280px);
+  grid-template-columns: minmax(0, 1fr) minmax(200px, 280px);
   gap: 1.1rem;
   min-height: 280px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .hero {
@@ -804,8 +817,11 @@ function scrollRail(refEl, dir) {
   display: flex;
   gap: 1rem;
   overflow-x: auto;
+  overflow-y: hidden;
+  max-width: 100%;
   padding-bottom: 0.5rem;
   scroll-snap-type: x mandatory;
+  min-width: 0;
 }
 
 .rail--wrap {

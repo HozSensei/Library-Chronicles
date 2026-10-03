@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import FocusButton from '../components/FocusButton.vue';
 import ControlHint from '../components/ControlHint.vue';
@@ -10,6 +10,7 @@ import {
   setupFocusables,
   moveSetupFocus,
 } from '../../../shared/setup-focus.js';
+import { scheduleScrollFocusedIntoView } from '../../../shared/focus-scroll.js';
 
 const router = useRouter();
 const ui = useUiStore();
@@ -39,6 +40,11 @@ const focusedId = computed(
 watch(step, () => {
   ui.setSetupFocus(0);
 });
+
+watch(
+  () => [ui.setupFocusIndex, step.value],
+  () => nextTick(() => scheduleScrollFocusedIntoView('.setup')),
+);
 
 onMounted(async () => {
   const paths =
