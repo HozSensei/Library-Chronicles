@@ -1,5 +1,6 @@
 /**
- * Garde-fous UX Import : liste → fiche Infos/Recherche + bindings A/X/Y/B + pastilles.
+ * Garde-fous UX Import : liste → fiche Infos/Recherche + bindings A/X/Y/B/LB/RB + pastilles.
+ * Pas de boutons footer (hints manette comme Bibliothèque).
  */
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -61,6 +62,18 @@ const focusSrc = readFileSync(
   join(root, 'src/shared/import-focus.js'),
   'utf8',
 );
+const keys = readFileSync(
+  join(root, 'src/shared/key-bindings.js'),
+  'utf8',
+);
+const importMain = readFileSync(
+  join(root, 'src/main/library/import.js'),
+  'utf8',
+);
+const booksDb = readFileSync(
+  join(root, 'src/main/database/books.js'),
+  'utf8',
+);
 
 const bindings = resolveKeyBindings(null);
 assert(
@@ -84,6 +97,16 @@ assert(
   'B → back',
 );
 assert(
+  actionForBinding(bindings, 'import', `button:${GamepadButtons.LB}`) ===
+    'tab-prev',
+  'LB → tab-prev (onglets méta)',
+);
+assert(
+  actionForBinding(bindings, 'import', `button:${GamepadButtons.RB}`) ===
+    'tab-next',
+  'RB → tab-next (onglets méta)',
+);
+assert(
   DEFAULT_KEY_BINDINGS.import[`button:${GamepadButtons.X}`] === 'import-one',
   'défaut X = import-one',
 );
@@ -91,14 +114,24 @@ assert(
   DEFAULT_KEY_BINDINGS.import[`button:${GamepadButtons.Y}`] === 'import-all',
   'défaut Y = import-all',
 );
+assert(
+  DEFAULT_KEY_BINDINGS.import[`button:${GamepadButtons.LB}`] === 'tab-prev',
+  'défaut LB = tab-prev',
+);
+assert(
+  DEFAULT_KEY_BINDINGS.import[`button:${GamepadButtons.RB}`] === 'tab-next',
+  'défaut RB = tab-next',
+);
 
 assert(IMPORT_DETAIL_TABS.INFOS === 'infos', 'tab infos');
 assert(IMPORT_DETAIL_TABS.SEARCH === 'search', 'tab search');
 assert(IMPORT_INFOS_FIELDS.SYNOPSIS === 5, 'SYNOPSIS index');
-assert(IMPORT_SEARCH_FIELDS.RUN === 2, 'RUN search index');
+assert(IMPORT_SEARCH_FIELDS.QUERY === 0, 'QUERY index');
+assert(IMPORT_SEARCH_FIELDS.PROVIDER === 1, 'PROVIDER index');
+assert(IMPORT_SEARCH_FIELDS.MAX === 1, 'search fields sans bouton Lancer');
 assert(IMPORT_DETAIL_FIELDS.SEARCH === 8, 'alias SEARCH index');
-assert(IMPORT_DETAIL_ACTIONS.COMMIT === 0, 'COMMIT index');
-assert(IMPORT_LIST_ACTIONS.BACK === 1, 'BACK liste');
+assert(IMPORT_DETAIL_ACTIONS.COMMIT === 0, 'COMMIT index (legacy)');
+assert(IMPORT_LIST_ACTIONS.BACK === 1, 'BACK liste (legacy)');
 assert(clampInfosFieldFocus(99) === IMPORT_INFOS_FIELDS.MAX, 'clamp infos');
 assert(clampSearchFieldFocus(99) === IMPORT_SEARCH_FIELDS.MAX, 'clamp search');
 assert(
@@ -110,6 +143,7 @@ assert(
   'dom id title',
 );
 assert(normalizeImportFocusZone('results') === 'results', 'zone results');
+assert(normalizeImportFocusZone('actions') === 'list', 'zone actions → list');
 assert(normalizeImportFocusZone('nope') === 'list', 'zone fallback');
 assert(normalizeImportDetailTab('search') === 'search', 'tab normalize');
 assert(normalizeImportDetailTab(null) === 'infos', 'tab fallback infos');
@@ -128,24 +162,6 @@ assert(
     focusIndex: 0,
   }) === 'edit-field',
   'Infos A champ → edit-field (pas close)',
-);
-assert(
-  resolveImportConfirmAction({
-    isDetail: true,
-    detailTab: 'infos',
-    zone: 'actions',
-    focusIndex: IMPORT_DETAIL_ACTIONS.COMMIT,
-  }) === 'commit-one',
-  'Infos A CTA Importer → commit-one',
-);
-assert(
-  resolveImportConfirmAction({
-    isDetail: true,
-    detailTab: 'infos',
-    zone: 'actions',
-    focusIndex: IMPORT_DETAIL_ACTIONS.BACK,
-  }) === 'close-detail',
-  'Infos A CTA Retour → close-detail',
 );
 assert(
   resolveImportConfirmAction({
@@ -172,9 +188,9 @@ assert(
     isDetail: true,
     detailTab: 'search',
     zone: 'fields',
-    focusIndex: IMPORT_SEARCH_FIELDS.RUN,
-  }) === 'run-search',
-  'Recherche A Lancer → run-search',
+    focusIndex: IMPORT_SEARCH_FIELDS.QUERY,
+  }) === 'edit-query',
+  'Recherche A query → edit-query',
 );
 assert(
   resolveImportConfirmAction({
@@ -214,14 +230,6 @@ assert(
     zone: 'fields',
   }) === 'to-list',
   'Infos B → liste',
-);
-assert(
-  resolveImportBackAction({
-    isDetail: true,
-    detailTab: 'search',
-    zone: 'actions',
-  }) === 'to-list',
-  'Recherche B sur footer → liste',
 );
 
 // metaSource helpers
@@ -294,26 +302,37 @@ assert(store.includes('metaSource'), 'store metaSource');
 assert(store.includes('selectedMeta'), 'store selectedMeta');
 assert(store.includes('resolveItemMetadata'), 'store resolveItemMetadata');
 assert(store.includes('META_SOURCE.SELECTED'), 'store flag selected');
+assert(store.includes('previewCoverFromUrl'), 'store proxy jacket CSP');
+assert(store.includes('resolveCoverPreview'), 'store resolveCoverPreview');
 
 assert(view.includes('ouvrir fiche'), 'hint A ouvrir fiche');
 assert(view.includes('Importer ce tome'), 'hint X importer ce tome');
 assert(view.includes('Tout importer'), 'hint Y tout importer');
 assert(view.includes("key: 'X'"), 'hint key X');
+assert(view.includes("key: 'LB/RB'"), 'hint LB/RB onglets');
 assert(view.includes('import__dot'), 'pastille CSS');
 assert(view.includes('import__dot--detected'), 'pastille bleu/détecté');
 assert(view.includes('import__dot--empty'), 'pastille rouge/vide');
 assert(view.includes('import__dot--selected'), 'pastille vert/sélection');
-assert(view.includes('Retour liste'), 'retour liste');
 assert(view.includes('Mots-clés'), 'champ query');
 assert(view.includes('data-import-field="query"'), 'data-field query');
 assert(view.includes('Source API'), 'select source API');
-assert(view.includes('Lancer recherche'), 'bouton lancer recherche');
+assert(view.includes('@submit.prevent="doSearch"'), 'form submit recherche');
+assert(view.includes('onSearchQueryKeydown'), 'keydown Enter recherche');
+assert(view.includes('enterkeyhint="search"'), 'enterkeyhint search OSK');
 assert(view.includes('import__tabs'), 'onglets fiche');
 assert(view.includes('Infos'), 'onglet Infos');
 assert(view.includes('Recherche'), 'onglet Recherche');
 assert(view.includes('shell-scroll'), 'shell-scroll');
+assert(view.includes('import__done'), 'marqueur ✓ importé');
+assert(view.includes('alreadyInLibrary'), 'flag alreadyInLibrary');
 assert(!view.includes('import__pick'), 'plus de multi-select checkbox');
 assert(!view.includes('Importer sélection'), 'plus Importer sélection');
+assert(!view.includes('import__actions'), 'plus footer boutons actions');
+assert(!view.includes('Rescanner'), 'plus bouton Rescanner');
+assert(!view.includes('Lancer recherche'), 'plus bouton Lancer recherche');
+assert(!view.includes('Retour biblio</span>'), 'plus bouton Retour biblio');
+assert(view.includes('ControlHint'), 'footer = ControlHint');
 
 assert(gamepad.includes('imp.openDetail'), 'gamepad A → openDetail');
 assert(gamepad.includes("action === 'import-one'"), 'gamepad import-one');
@@ -326,11 +345,25 @@ assert(gamepad.includes('applyEnrichCursor'), 'appliquer résultat');
 assert(gamepad.includes('resolveImportConfirmAction'), 'guards confirm A');
 assert(gamepad.includes('resolveImportBackAction'), 'guards back B');
 assert(gamepad.includes('IMPORT_DETAIL_TABS'), 'onglets manette');
+assert(gamepad.includes("action === 'tab-prev'"), 'LB/RB tab-prev handler');
 assert(gamepad.includes('focusTextInputForEdit'), 'clavier virtuel champs');
 assert(!gamepad.includes('footerMax = 4'), 'plus footer 5 boutons');
+assert(!gamepad.includes('IMPORT_LIST_ACTIONS'), 'plus nav footer liste');
+assert(!gamepad.includes('IMPORT_DETAIL_ACTIONS'), 'plus nav footer détail');
 
 assert(focusSrc.includes('resolveImportConfirmAction'), 'focus resolve A');
-assert(focusSrc.includes('n’importe/ne ferme PAS'), 'doc bindings Infos');
+assert(focusSrc.includes('jamais import'), 'doc bindings Infos');
+assert(keys.includes("GamepadButtons.LB}`]: 'tab-prev'"), 'keys LB import');
+
+assert(
+  importMain.includes('findBookForImportSource'),
+  'scan utilise findBookForImportSource',
+);
+assert(
+  booksDb.includes('export function findBookForImportSource'),
+  'DB findBookForImportSource',
+);
+assert(booksDb.includes('sourcePath'), 'match metadata.sourcePath');
 
 if (failed) {
   console.error(`\n${failed} échec(s)`);

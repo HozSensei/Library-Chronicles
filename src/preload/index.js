@@ -47,6 +47,8 @@ contextBridge.exposeInMainWorld('vdr', {
     commit: (payload) => ipcRenderer.invoke(IpcChannels.IMPORT_COMMIT, payload),
     previewCover: (filePath) =>
       ipcRenderer.invoke(IpcChannels.IMPORT_PREVIEW_COVER, filePath),
+    previewCoverFromUrl: (coverUrl) =>
+      ipcRenderer.invoke(IpcChannels.IMPORT_PREVIEW_COVER_URL, coverUrl),
   },
 
   metadata: {

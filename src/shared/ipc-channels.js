@@ -17,6 +17,8 @@ export const IpcChannels = Object.freeze({
   IMPORT_SCAN: 'import:scan',
   IMPORT_COMMIT: 'import:commit',
   IMPORT_PREVIEW_COVER: 'import:preview-cover',
+  /** Jacket distante → data-URL (CSP img-src sans https). */
+  IMPORT_PREVIEW_COVER_URL: 'import:preview-cover-url',
 
   METADATA_DETECT: 'metadata:detect',
   METADATA_SEARCH: 'metadata:search',

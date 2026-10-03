@@ -5,6 +5,7 @@ import {
   scanImportFolder,
   commitImport,
   previewCover,
+  previewCoverFromUrl,
 } from '../library/import.js';
 
 export function registerImportIpc() {
@@ -20,4 +21,13 @@ export function registerImportIpc() {
   ipcMain.handle(IpcChannels.IMPORT_PREVIEW_COVER, async (_e, filePath) =>
     previewCover(filePath),
   );
+
+  ipcMain.handle(IpcChannels.IMPORT_PREVIEW_COVER_URL, async (_e, coverUrl) => {
+    try {
+      return await previewCoverFromUrl(coverUrl);
+    } catch (err) {
+      console.warn('[VDR] previewCoverFromUrl:', err.message);
+      return null;
+    }
+  });
 }

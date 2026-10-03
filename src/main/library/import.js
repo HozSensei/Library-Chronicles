@@ -3,10 +3,13 @@ import path from 'path';
 import { scanLibraryRoot } from './scanner.js';
 import { openBook, detectFormat } from '../extractors/index.js';
 import { ensureCover, ensureCoverFromUrl } from './thumbnails.js';
-import { upsertBook, getBookByPath } from '../database/books.js';
+import { upsertBook, findBookForImportSource } from '../database/books.js';
 import { detectMetadata } from '../metadata/provider.js';
 import { getConfig } from '../config.js';
 import { getActiveProfileId } from '../database/profiles.js';
+import { fetchBuffer } from '../metadata/fetch.js';
+import { USER_AGENT } from '../metadata/types.js';
+import { bufferToDataUrl } from '../../shared/cover-url.js';
 
 /**
  * Scan le dossier import + métadonnées détectées pour chaque fichier.
@@ -15,11 +18,14 @@ export async function scanImportFolder(importRoot) {
   const root = importRoot || getConfig().importRoot;
   if (!root) return { found: [], error: 'Aucun dossier import configuré' };
 
+  const cfg = getConfig();
   const scan = await scanLibraryRoot(root);
   const items = [];
 
   for (const file of scan.found) {
-    const already = getBookByPath(file.filePath);
+    const already = findBookForImportSource(file.filePath, {
+      libraryRoot: cfg.libraryRoot,
+    });
     const detected = detectMetadata(file.filePath);
     items.push({
       ...file,
@@ -128,4 +134,37 @@ export async function previewCover(filePath) {
   } finally {
     await book.close();
   }
+}
+
+/**
+ * Télécharge une jacket distante et renvoie un data-URL (CSP renderer : pas de https img).
+ * @param {string} coverUrl
+ * @returns {Promise<{ dataUrl: string, mime: string }|null>}
+ */
+export async function previewCoverFromUrl(coverUrl) {
+  const raw = String(coverUrl || '').trim();
+  if (!raw) return null;
+  // data: déjà affichable
+  if (/^data:/i.test(raw)) {
+    return { dataUrl: raw, mime: raw.slice(5).split(';')[0] || 'image/jpeg' };
+  }
+  let url = raw;
+  if (/^http:\/\//i.test(url)) {
+    url = `https://${url.slice(7)}`;
+  }
+  if (!/^https:\/\//i.test(url)) {
+    throw new Error('URL couverture invalide');
+  }
+  const buffer = await fetchBuffer(url, {
+    timeoutMs: 12_000,
+    headers: {
+      'User-Agent': USER_AGENT,
+      Accept: 'image/*,*/*;q=0.8',
+    },
+  });
+  if (!buffer?.length) throw new Error('Couverture distante vide');
+  const dataUrl = bufferToDataUrl(buffer);
+  if (!dataUrl) return null;
+  const mime = dataUrl.slice(5).split(';')[0] || 'image/jpeg';
+  return { dataUrl, mime };
 }

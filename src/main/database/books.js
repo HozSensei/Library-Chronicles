@@ -1,5 +1,6 @@
 /** Accès données livres — SQLite ou fallback JSON. */
 
+import path from 'path';
 import {
   getDb,
   getDbMode,
@@ -242,6 +243,48 @@ export function getBookByPath(filePath, profileId = null) {
   );
   if (!row) return null;
   return mapBookRow(row, getProgressFor(row.id, profileId));
+}
+
+/**
+ * Retrouve un livre déjà importé depuis un chemin source (dossier import).
+ * Après copyToLibrary, file_path pointe vers libraryRoot — on matche aussi
+ * metadata.sourcePath et le basename sous libraryRoot.
+ *
+ * @param {string} sourcePath chemin dans le dossier import
+ * @param {{ libraryRoot?: string|null }} [opts]
+ * @param {string|number|null} [profileId]
+ */
+export function findBookForImportSource(sourcePath, opts = {}, profileId = null) {
+  if (!sourcePath) return null;
+  const direct = getBookByPath(sourcePath, profileId);
+  if (direct) return direct;
+
+  const libraryRoot = opts.libraryRoot || null;
+  if (libraryRoot) {
+    const dest = path.join(libraryRoot, path.basename(sourcePath));
+    if (path.resolve(dest) !== path.resolve(sourcePath)) {
+      const byDest = getBookByPath(dest, profileId);
+      if (byDest) return byDest;
+    }
+  }
+
+  const books = listBooks(profileId);
+  let resolved;
+  try {
+    resolved = path.resolve(String(sourcePath));
+  } catch {
+    resolved = String(sourcePath);
+  }
+  for (const book of books) {
+    const metaSrc = book.metadata?.sourcePath;
+    if (!metaSrc) continue;
+    try {
+      if (path.resolve(String(metaSrc)) === resolved) return book;
+    } catch {
+      if (String(metaSrc) === resolved) return book;
+    }
+  }
+  return null;
 }
 
 export function listBooks(profileId = null) {
