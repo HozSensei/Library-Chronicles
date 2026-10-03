@@ -15,10 +15,17 @@ Build / tests :
 
 ```bash
 npm run build
-npm run test:remap
-npm run test:cbz
+npm test
 npm start
 ```
+
+Packaging Windows (sur machine Win x64) :
+
+```bash
+npm run dist:win
+```
+
+Voir [`docs/PACKAGING.md`](./docs/PACKAGING.md).
 
 Fenêtre cible : **1080 × 1920** (portrait).
 
@@ -27,9 +34,9 @@ Au **premier lancement**, un wizard configure dossiers (library / import), langu
 ## Parcours
 
 1. **Setup** — dossiers, thème sombre/clair, orientation Ally
-2. **Import** — déposer des CBZ/CBR/PDF dans le dossier import → review métadonnées → bibliothèque
+2. **Import** — déposer des CBZ/CBR/PDF dans le dossier import → review métadonnées → bibliothèque (rafraîchi aussi via watcher FS)
 3. **Bibliothèque** — grille couvertures, filtres, Continuer
-4. **Lecteur** — pan / zoom / pages manette, HUD (Y), Fit Width (X), Manga (A)
+4. **Lecteur** — pan / zoom / pages manette, HUD (Y), Fit Width (X), Manga (A) ; PDF fidèle via Chromium
 5. **Paramètres** — thème, remapping touches, clé API ComicVine
 
 ## Stack
@@ -42,6 +49,8 @@ Au **premier lancement**, un wizard configure dossiers (library / import), langu
 | Routes | Vue Router |
 | Manette | `useGamepad` + `portrait-remap` + `key-bindings` |
 | DB | better-sqlite3 (+ fallback JSON) |
+| PDF | pdfjs-dist + canvas Chromium |
+| Packaging | electron-builder (NSIS + portable) |
 
 ## Documentation
 
@@ -51,7 +60,8 @@ Au **premier lancement**, un wizard configure dossiers (library / import), langu
 | [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) | Main / preload / renderer |
 | [`docs/CONTROLS.md`](./docs/CONTROLS.md) | Mapping manette + remap |
 | [`docs/UX.md`](./docs/UX.md) | Principes UX |
-| [`docs/NATIVE.md`](./docs/NATIVE.md) | better-sqlite3 / Electron rebuild |
+| [`docs/NATIVE.md`](./docs/NATIVE.md) | better-sqlite3 / PDF / rebuild |
+| [`docs/PACKAGING.md`](./docs/PACKAGING.md) | Build Windows |
 
 ## better-sqlite3 sous Electron
 

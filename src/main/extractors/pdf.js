@@ -26,49 +26,72 @@ async function loadPdfjs() {
   return pdfjsLib;
 }
 
+function tryLoadNodeCanvas() {
+  try {
+    return require('canvas');
+  } catch {
+    return null;
+  }
+}
+
+async function tryLoadElectronCanvas() {
+  if (!process.versions?.electron) return null;
+  try {
+    return await import('./pdf-electron-canvas.js');
+  } catch {
+    return null;
+  }
+}
+
 /**
- * Rendu PDF page → PNG via canvas node-less (pdfjs getOperatorList + fallback).
- * Sans canvas natif, on utilise un rendu bitmap minimal via OffscreenCanvas
- * si dispo, sinon on renvoie une erreur claire.
- *
- * Stratégie : utiliser pdfjs page.render vers un canvas créé via 'canvas' package
- * si présent ; sinon encoder via un polyfill simple basé sur raw RGBA → PNG.
+ * Rendu PDF page → PNG via :
+ * 1. package optionnel `canvas` (node-canvas)
+ * 2. OffscreenCanvas si dispo (rare en main)
+ * 3. BrowserWindow Chromium (Electron) — fidèle, sans natif
+ * 4. placeholder PNG (build/tests hors Electron)
  */
 async function renderPageToPng(page, scale = 1.5) {
   const viewport = page.getViewport({ scale });
   const width = Math.floor(viewport.width);
   const height = Math.floor(viewport.height);
 
-  // Essayer le package `canvas` (optionnel)
-  try {
-    const { createCanvas } = require('canvas');
-    const canvas = createCanvas(width, height);
-    const ctx = canvas.getContext('2d');
-    await page.render({ canvasContext: ctx, viewport }).promise;
-    return { buffer: canvas.toBuffer('image/png'), mime: 'image/png' };
-  } catch {
-    // Pas de node-canvas — polyfill Uint8ClampedArray + PNG encoder maison
+  const nodeCanvas = tryLoadNodeCanvas();
+  if (nodeCanvas?.createCanvas) {
+    try {
+      const canvas = nodeCanvas.createCanvas(width, height);
+      const ctx = canvas.getContext('2d');
+      await page.render({ canvasContext: ctx, viewport }).promise;
+      return { buffer: canvas.toBuffer('image/png'), mime: 'image/png', engine: 'node-canvas' };
+    } catch (err) {
+      console.warn('[VDR] node-canvas render failed:', err.message);
+    }
   }
 
   const CanvasCtor = globalThis.OffscreenCanvas;
   if (CanvasCtor) {
-    const canvas = new CanvasCtor(width, height);
-    const ctx = canvas.getContext('2d');
-    await page.render({ canvasContext: ctx, viewport }).promise;
-    const blob = await canvas.convertToBlob({ type: 'image/png' });
-    const ab = await blob.arrayBuffer();
-    return { buffer: Buffer.from(ab), mime: 'image/png' };
+    try {
+      const canvas = new CanvasCtor(width, height);
+      const ctx = canvas.getContext('2d');
+      await page.render({ canvasContext: ctx, viewport }).promise;
+      const blob = await canvas.convertToBlob({ type: 'image/png' });
+      const ab = await blob.arrayBuffer();
+      return { buffer: Buffer.from(ab), mime: 'image/png', engine: 'offscreencanvas' };
+    } catch (err) {
+      console.warn('[VDR] OffscreenCanvas render failed:', err.message);
+    }
   }
 
-  // Dernier recours : image placeholder PNG indiquant le n° de page
-  // (l’app build/démarre ; le rendu PDF complet nécessite `canvas` ou Electron DOM)
-  const placeholder = createPlaceholderPng(width > 0 ? Math.min(width, 800) : 600, 900, page._pageIndex + 1);
-  return { buffer: placeholder, mime: 'image/png', placeholder: true };
+  // Placeholder — le chemin Electron (fichier complet) est géré dans openPdf
+  const placeholder = createPlaceholderPng(
+    width > 0 ? Math.min(width, 800) : 600,
+    900,
+    (page._pageIndex ?? 0) + 1,
+  );
+  return { buffer: placeholder, mime: 'image/png', placeholder: true, engine: 'placeholder' };
 }
 
 /** PNG minimal avec bandeau de couleur (sans dépendance). */
 function createPlaceholderPng(w, h, pageNum) {
-  // Génère un PNG RGB non compressé (filtre None)
   const zlib = require('zlib');
   const signature = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
   const ihdr = Buffer.alloc(13);
@@ -90,7 +113,6 @@ function createPlaceholderPng(w, h, pageNum) {
     raw[off] = 0;
     for (let x = 0; x < w; x += 1) {
       const i = off + 1 + x * 3;
-      // bandeau haut
       if (y < 40) {
         raw[i] = 212;
         raw[i + 1] = 163;
@@ -138,6 +160,54 @@ export async function openPdf(filePath) {
     throw new Error(`Fichier introuvable: ${filePath}`);
   }
 
+  // Chemin privilégié sous Electron : rendu Chromium fidèle (sans natif)
+  const electronCanvas = await tryLoadElectronCanvas();
+  if (electronCanvas?.electronPdfAvailable?.()) {
+    try {
+      const opened = await electronCanvas.electronOpenPdf(filePath);
+      const pageCache = new Map();
+      const basename = path.basename(filePath, path.extname(filePath));
+
+      return {
+        format: 'pdf',
+        title: opened.title || basename,
+        pageCount: opened.pageCount,
+        chapters: [],
+        renderEngine: 'electron-canvas',
+        async getPage(index) {
+          if (index < 0 || index >= opened.pageCount) {
+            throw new Error(`Page hors limites: ${index}`);
+          }
+          if (pageCache.has(index)) return pageCache.get(index);
+          const buffer = await electronCanvas.electronRenderPage(opened.docId, index, 1.6);
+          const result = {
+            buffer,
+            mime: 'image/png',
+            name: `page-${index + 1}.png`,
+            engine: 'electron-canvas',
+          };
+          if (pageCache.size > 6) {
+            const oldest = pageCache.keys().next().value;
+            pageCache.delete(oldest);
+          }
+          pageCache.set(index, result);
+          return result;
+        },
+        async getCoverBuffer() {
+          const page = await this.getPage(0);
+          return page.buffer;
+        },
+        async close() {
+          pageCache.clear();
+          await electronCanvas.electronClosePdf(opened.docId).catch(() => {});
+        },
+      };
+    } catch (err) {
+      console.warn('[VDR] PDF electron-canvas indisponible, fallback pdfjs main:', err.message);
+    }
+  }
+
+  // Fallback : pdfjs en main + node-canvas / OffscreenCanvas / placeholder
   const pdfjs = await loadPdfjs();
   const data = new Uint8Array(fs.readFileSync(filePath));
   const doc = await pdfjs.getDocument({ data, useSystemFonts: true }).promise;
@@ -152,6 +222,7 @@ export async function openPdf(filePath) {
     title: String(title || path.basename(filePath, '.pdf')),
     pageCount: doc.numPages,
     chapters: [],
+    renderEngine: 'pdfjs-main',
     async getPage(index) {
       if (index < 0 || index >= doc.numPages) {
         throw new Error(`Page hors limites: ${index}`);
@@ -159,7 +230,13 @@ export async function openPdf(filePath) {
       if (pageCache.has(index)) return pageCache.get(index);
       const page = await doc.getPage(index + 1);
       const rendered = await renderPageToPng(page, 1.6);
-      const result = { buffer: rendered.buffer, mime: rendered.mime, name: `page-${index + 1}.png` };
+      const result = {
+        buffer: rendered.buffer,
+        mime: rendered.mime,
+        name: `page-${index + 1}.png`,
+        placeholder: Boolean(rendered.placeholder),
+        engine: rendered.engine,
+      };
       if (pageCache.size > 6) {
         const oldest = pageCache.keys().next().value;
         pageCache.delete(oldest);

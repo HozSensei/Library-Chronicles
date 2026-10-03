@@ -1,16 +1,29 @@
 <script setup>
 import { useReaderStore } from '../stores/reader';
+import { useUiStore } from '../stores/ui';
 
 const reader = useReaderStore();
+const ui = useUiStore();
 </script>
 
 <template>
-  <aside v-show="reader.hudVisible" class="hud" aria-label="Options de lecture">
+  <aside
+    v-show="reader.hudVisible"
+    class="hud"
+    :class="{ 'hud--static': ui.reducedMotion }"
+    aria-label="Options de lecture"
+  >
     <div class="hud__bar">
       <span class="hud__title">{{ reader.title || '—' }}</span>
       <span class="hud__page">{{ reader.pageLabel }}</span>
     </div>
-    <div class="hud__track" aria-hidden="true">
+    <div
+      class="hud__track"
+      role="progressbar"
+      :aria-valuenow="Math.round(reader.progress)"
+      aria-valuemin="0"
+      aria-valuemax="100"
+    >
       <div class="hud__fill" :style="{ width: `${reader.progress}%` }" />
     </div>
     <div class="hud__meta">
@@ -37,6 +50,10 @@ const reader = useReaderStore();
   background: linear-gradient(transparent, var(--hud-fade) 40%);
   color: #f2ebe0;
   animation: hud-up 220ms var(--ease-out);
+}
+
+.hud--static {
+  animation: none;
 }
 
 .hud__bar {
@@ -68,6 +85,10 @@ const reader = useReaderStore();
   transition: width 160ms var(--ease-soft);
 }
 
+.hud--static .hud__fill {
+  transition: none;
+}
+
 .hud__meta {
   display: flex;
   justify-content: space-between;
@@ -85,6 +106,15 @@ const reader = useReaderStore();
   to {
     opacity: 1;
     transform: translate3d(0, 0, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hud {
+    animation: none;
+  }
+  .hud__fill {
+    transition: none;
   }
 }
 </style>

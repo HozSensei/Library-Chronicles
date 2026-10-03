@@ -28,6 +28,7 @@ export function registerReaderIpc() {
       bookId: dbBook?.id ?? null,
       resumePage: dbBook?.pageCurrent ?? 0,
       direction: undefined,
+      renderEngine: book.renderEngine || null,
     };
   });
 
@@ -47,6 +48,8 @@ export function registerReaderIpc() {
       mime: page.mime || 'image/jpeg',
       data: page.buffer ? page.buffer.toString('base64') : null,
       name: page.name || null,
+      engine: page.engine || null,
+      placeholder: Boolean(page.placeholder),
     };
   });
 

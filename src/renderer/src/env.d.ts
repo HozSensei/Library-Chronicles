@@ -43,6 +43,14 @@ interface VdrApi {
     save: (payload: unknown) => Promise<unknown>;
     load: (filePath: string) => Promise<unknown>;
   };
+  watch: {
+    status: () => Promise<{
+      library: { root: string | null; active: boolean };
+      import: { root: string | null; active: boolean };
+    }>;
+    onLibraryChanged: (handler: (payload: unknown) => void) => () => void;
+    onImportChanged: (handler: (payload: unknown) => void) => () => void;
+  };
 }
 
 interface Window {

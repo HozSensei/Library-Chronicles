@@ -52,6 +52,8 @@ export const BINDABLE_ACTIONS = Object.freeze({
   import: [
     { id: 'cursor-up', label: 'Curseur ↑' },
     { id: 'cursor-down', label: 'Curseur ↓' },
+    { id: 'cursor-left', label: 'Focus actions ←' },
+    { id: 'cursor-right', label: 'Focus actions →' },
     { id: 'confirm', label: 'Valider / importer' },
     { id: 'back', label: 'Retour' },
     { id: 'enrich', label: 'Enrichir métadonnées' },
@@ -59,6 +61,8 @@ export const BINDABLE_ACTIONS = Object.freeze({
   settings: [
     { id: 'cursor-up', label: 'Curseur ↑' },
     { id: 'cursor-down', label: 'Curseur ↓' },
+    { id: 'cursor-left', label: 'Section précédente' },
+    { id: 'cursor-right', label: 'Section suivante' },
     { id: 'confirm', label: 'Modifier / écouter' },
     { id: 'back', label: 'Retour' },
   ],
@@ -122,12 +126,18 @@ export const DEFAULT_KEY_BINDINGS = Object.freeze({
     [`button:${GamepadButtons.Y}`]: 'enrich',
     'dpad:up': 'cursor-up',
     'dpad:down': 'cursor-down',
+    'dpad:left': 'cursor-left',
+    'dpad:right': 'cursor-right',
   },
   settings: {
     [`button:${GamepadButtons.A}`]: 'confirm',
     [`button:${GamepadButtons.B}`]: 'back',
+    [`button:${GamepadButtons.LT}`]: 'cursor-left',
+    [`button:${GamepadButtons.RT}`]: 'cursor-right',
     'dpad:up': 'cursor-up',
     'dpad:down': 'cursor-down',
+    'dpad:left': 'cursor-left',
+    'dpad:right': 'cursor-right',
   },
 });
 

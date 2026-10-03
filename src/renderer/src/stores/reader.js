@@ -18,6 +18,9 @@ export const useReaderStore = defineStore('reader', {
     chapterIndex: 0,
     loading: false,
     error: null,
+    renderEngine: null,
+    /** Timer HUD auto (flash page). */
+    _hudTimer: null,
   }),
   getters: {
     pageLabel: (s) => `${s.pageCount ? s.pageIndex + 1 : 0} / ${s.pageCount}`,
@@ -41,6 +44,17 @@ export const useReaderStore = defineStore('reader', {
     },
   },
   actions: {
+    flashHud(ms = 1400) {
+      if (this._hudTimer) {
+        clearTimeout(this._hudTimer);
+        this._hudTimer = null;
+      }
+      this.hudVisible = true;
+      this._hudTimer = setTimeout(() => {
+        this.hudVisible = false;
+        this._hudTimer = null;
+      }, ms);
+    },
     async open(filePath, { resume = true } = {}) {
       this.loading = true;
       this.error = null;
@@ -53,6 +67,7 @@ export const useReaderStore = defineStore('reader', {
         this.pageCount = meta.pageCount;
         this.chapters = meta.chapters || [];
         this.chapterIndex = 0;
+        this.renderEngine = meta.renderEngine || meta.format || null;
         this.direction = config.readingDirection || 'ltr';
         this.fitMode = config.defaultFitMode || 'fit-height';
         this.resetTransform();
@@ -63,6 +78,7 @@ export const useReaderStore = defineStore('reader', {
         }
         this.pageIndex = start;
         await this.loadCurrentPage();
+        this.flashHud(1800);
         return meta;
       } catch (err) {
         this.error = err.message || String(err);
@@ -84,6 +100,7 @@ export const useReaderStore = defineStore('reader', {
       for (let i = 0; i < bin.length; i += 1) bytes[i] = bin.charCodeAt(i);
       const blob = new Blob([bytes], { type: page.mime || 'image/jpeg' });
       this.pageUrl = URL.createObjectURL(blob);
+      if (page.engine) this.renderEngine = page.engine;
       this.syncChapterIndex();
       this.persistProgress();
     },
@@ -112,6 +129,10 @@ export const useReaderStore = defineStore('reader', {
     },
     async close() {
       await this.persistProgress();
+      if (this._hudTimer) {
+        clearTimeout(this._hudTimer);
+        this._hudTimer = null;
+      }
       if (this.pageUrl) {
         URL.revokeObjectURL(this.pageUrl);
         this.pageUrl = null;
@@ -125,6 +146,7 @@ export const useReaderStore = defineStore('reader', {
       this.hudVisible = false;
       this.chapters = [];
       this.error = null;
+      this.renderEngine = null;
     },
     resetTransform() {
       this.panX = 0;
@@ -133,7 +155,6 @@ export const useReaderStore = defineStore('reader', {
     },
     pan(dx, dy, speed = 14) {
       if (this.fitMode === 'fit-width') {
-        // En fit-width, stick Y scroll verticalement la planche
         this.panY += dy * speed * 1.4;
         this.panX += dx * speed * 0.4;
         return;
@@ -167,6 +188,10 @@ export const useReaderStore = defineStore('reader', {
       window.vdr.setConfig({ readingDirection: this.direction });
     },
     toggleHud() {
+      if (this._hudTimer) {
+        clearTimeout(this._hudTimer);
+        this._hudTimer = null;
+      }
       this.hudVisible = !this.hudVisible;
     },
     async stepPage(which) {
@@ -177,11 +202,11 @@ export const useReaderStore = defineStore('reader', {
       this.pageIndex = next;
       this.resetTransform();
       await this.loadCurrentPage();
+      this.flashHud(900);
       return true;
     },
     async stepChapter(dir) {
       if (!this.chapters.length) {
-        // Pas de structure : saut ±10 pages
         const next = Math.min(
           this.pageCount - 1,
           Math.max(0, this.pageIndex + dir * 10),
@@ -190,6 +215,7 @@ export const useReaderStore = defineStore('reader', {
         this.pageIndex = next;
         this.resetTransform();
         await this.loadCurrentPage();
+        this.flashHud(900);
         return true;
       }
       const nextIdx = this.chapterIndex + dir;
@@ -198,6 +224,7 @@ export const useReaderStore = defineStore('reader', {
       this.pageIndex = this.chapters[nextIdx].startIndex;
       this.resetTransform();
       await this.loadCurrentPage();
+      this.flashHud(900);
       return true;
     },
   },

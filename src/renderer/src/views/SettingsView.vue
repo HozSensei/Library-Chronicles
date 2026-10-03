@@ -182,6 +182,7 @@ const listeningLabel = computed(() => {
       <ControlHint
         :items="[
           { key: '↑↓', label: 'naviguer' },
+          { key: '←→', label: 'section' },
           { key: 'A', label: 'modifier' },
           { key: 'B', label: 'retour' },
         ]"

@@ -335,3 +335,35 @@ export function getContinueBook() {
   if (!books.length) return null;
   return books[0];
 }
+
+/** Supprime un livre (et sa progression) par id. */
+export function deleteBook(id) {
+  const mode = getDbMode();
+  if (mode === 'sqlite') {
+    const db = getDb();
+    db.prepare('DELETE FROM reading_progress WHERE book_id = ?').run(id);
+    db.prepare('DELETE FROM books WHERE id = ?').run(id);
+    return { ok: true };
+  }
+  const store = getJsonStore();
+  store.books = store.books.filter((b) => b.id !== id);
+  delete store.progress[id];
+  persistJsonStore();
+  return { ok: true };
+}
+
+/**
+ * Retire de la base les livres dont le fichier n’existe plus.
+ * @param {Set<string>|string[]} existingPaths
+ */
+export function pruneMissingBooks(existingPaths) {
+  const keep = existingPaths instanceof Set ? existingPaths : new Set(existingPaths);
+  const removed = [];
+  for (const book of listBooks()) {
+    if (!keep.has(book.filePath)) {
+      deleteBook(book.id);
+      removed.push(book.filePath);
+    }
+  }
+  return removed;
+}

@@ -9,9 +9,9 @@ La base bibliothèque utilise `better-sqlite3`. Le binaire natif doit correspond
 ```bash
 npm install
 npx @electron/rebuild -f -w better-sqlite3
+# ou
+npm run rebuild:native
 ```
-
-Ou via `electron-rebuild` équivalent selon la toolchain.
 
 ### Fallback
 
@@ -20,13 +20,24 @@ L’app **démarre** et conserve titres / progression / couvertures ; seules cer
 
 ### Packaging
 
-Lors du packaging Windows, inclure le rebuild dans le pipeline CI (postinstall / electron-builder `afterPack`).
+`electron-builder` est configuré avec `asarUnpack` pour les `.node` et `npmRebuild: true`.  
+Sur la machine Windows de build : `npm run dist:win` (voir [`PACKAGING.md`](./PACKAGING.md)).
 
 ## PDF (pdfjs-dist)
 
-Le rendu page → image privilégie le package optionnel `canvas`.  
-Sans `canvas` ni `OffscreenCanvas`, un **placeholder PNG** est servi pour que le flux lecteur reste testable.  
-Pour un rendu PDF fidèle en production : `npm i canvas` (dépendances système Cairo) ou rendu via une BrowserWindow utilitaire.
+Ordre de rendu page → PNG :
+
+1. **Electron canvas Chromium** (`pdf-electron-canvas.js`) — BrowserWindow offscreen, **sans natif** (chemin nominal sous Electron)
+2. Package optionnel **`canvas`** (node-canvas / Cairo) si installé manuellement
+3. `OffscreenCanvas` si exposé dans le process
+4. **Placeholder PNG** — l’app build / démarre / tests Node restent verts
+
+Installer `canvas` reste **optionnel** (dépendances système Cairo). Ne pas l’ajouter au `dependencies` du projet pour éviter de casser `npm install` sur les agents sans libs natives.
+
+```bash
+# optionnel, machine de dev avec Cairo
+npm i canvas --save-optional
+```
 
 ## Secrets API
 

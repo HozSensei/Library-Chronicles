@@ -12,9 +12,14 @@
     "preview": "electron-vite preview",
     "test:remap": "node scripts/verify-portrait-remap.mjs",
     "test:cbz": "node scripts/verify-cbz.mjs",
-    "test": "npm run test:remap && npm run test:cbz",
+    "test:pdf": "node scripts/verify-pdf.mjs",
+    "test": "npm run test:remap && npm run test:cbz && npm run test:pdf",
     "rebuild:native": "npx --yes @electron/rebuild -f -w better-sqlite3",
-    "postinstall": "npx --yes @electron/rebuild -f -w better-sqlite3 || true"
+    "postinstall": "npx --yes @electron/rebuild -f -w better-sqlite3 || true",
+    "dist": "npm run build && electron-builder --win",
+    "dist:win": "npm run build && electron-builder --win",
+    "dist:dir": "npm run build && electron-builder --win --dir",
+    "pack": "npm run dist:dir"
   },
   "dependencies": {
     "@fontsource/figtree": "^5.2.5",
@@ -30,10 +35,63 @@
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.2.1",
     "electron": "^33.2.1",
+    "electron-builder": "^25.1.8",
     "electron-vite": "^2.3.0",
     "vite": "^5.4.11"
   },
   "engines": {
     "node": ">=20"
+  },
+  "build": {
+    "appId": "com.librarychronicles.verticaldeckreader",
+    "productName": "Vertical Deck Reader",
+    "copyright": "Copyright © Library Chronicles",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "out/**/*",
+      "package.json",
+      "node_modules/**/*"
+    ],
+    "asar": true,
+    "asarUnpack": [
+      "**/*.{node,dll}",
+      "**/better-sqlite3/**"
+    ],
+    "extraResources": [],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "${productName}-${version}-${os}-${arch}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Vertical Deck Reader"
+    },
+    "portable": {
+      "artifactName": "${productName}-${version}-portable.${ext}"
+    },
+    "npmRebuild": true,
+    "electronLanguages": [
+      "fr",
+      "en-US"
+    ]
   }
 }

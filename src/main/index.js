@@ -9,6 +9,12 @@ import { registerImportIpc } from './ipc/import.js';
 import { registerMetadataIpc } from './ipc/metadata.js';
 import { getConfig, setConfig, getDefaultPaths } from './config.js';
 import { initDatabase, closeDatabase } from './database/db.js';
+import {
+  syncWatchersFromConfig,
+  stopAllWatchers,
+  getWatcherStatus,
+} from './library/watcher.js';
+import { destroyPdfElectronHost } from './extractors/pdf-electron-canvas.js';
 
 /** Résolution portrait cible ROG Ally X (mode vertical). */
 const PORTRAIT = { width: 1080, height: 1920 };
@@ -57,7 +63,13 @@ function createWindow() {
 
 function registerAppIpc() {
   ipcMain.handle(IpcChannels.APP_GET_CONFIG, () => getConfig());
-  ipcMain.handle(IpcChannels.APP_SET_CONFIG, (_event, patch) => setConfig(patch));
+  ipcMain.handle(IpcChannels.APP_SET_CONFIG, (_event, patch) => {
+    const next = setConfig(patch);
+    if (patch.libraryRoot !== undefined || patch.importRoot !== undefined) {
+      syncWatchersFromConfig();
+    }
+    return next;
+  });
   ipcMain.handle(IpcChannels.APP_GET_DEFAULT_PATHS, () => getDefaultPaths());
   ipcMain.handle(IpcChannels.APP_PICK_DIRECTORY, async (_e, { title } = {}) => {
     const result = await dialog.showOpenDialog({
@@ -69,6 +81,7 @@ function registerAppIpc() {
     fs.mkdirSync(dir, { recursive: true });
     return dir;
   });
+  ipcMain.handle(IpcChannels.WATCH_STATUS, () => getWatcherStatus());
 }
 
 app.whenReady().then(() => {
@@ -81,6 +94,7 @@ app.whenReady().then(() => {
   registerImportIpc();
   registerMetadataIpc();
 
+  syncWatchersFromConfig();
   createWindow();
 
   app.on('activate', () => {
@@ -89,6 +103,12 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
+  stopAllWatchers();
+  destroyPdfElectronHost().catch(() => {});
   closeDatabase();
   if (process.platform !== 'darwin') app.quit();
+});
+
+app.on('before-quit', () => {
+  stopAllWatchers();
 });

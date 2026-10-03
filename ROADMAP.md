@@ -19,17 +19,17 @@ Renderer                          Main (Electron)
 Setup / Import / Settings ──IPC──► Config + secrets (userData)
 Gamepad (remap→bindings)  ──IPC──► Extractors (ZIP / RAR / PDF)
 Moteur de rendu (CSS GPU) ──IPC──► SQLite (+ fallback JSON)
-Bibliothèque / HUD        ──IPC──► Import + metadata providers
+Bibliothèque / HUD        ──IPC──► Import + metadata + FS watch
 ```
 
 | Couche | Rôle |
 |--------|------|
-| `src/main` | Fenêtre, IPC, extraction, SQLite, import, metadata |
+| `src/main` | Fenêtre, IPC, extraction, SQLite, import, metadata, watcher |
 | `src/preload` | Bridge sécurisé `contextBridge` |
 | `src/renderer` | Vue 3 + Pinia + Router — UI console-first |
 | `src/shared` | IPC, portrait-remap, key-bindings |
 
-Voir [`docs/UX.md`](./docs/UX.md), [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md), [`docs/CONTROLS.md`](./docs/CONTROLS.md).
+Voir [`docs/UX.md`](./docs/UX.md), [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md), [`docs/CONTROLS.md`](./docs/CONTROLS.md), [`docs/PACKAGING.md`](./docs/PACKAGING.md).
 
 ---
 
@@ -62,7 +62,7 @@ Voir [`docs/UX.md`](./docs/UX.md), [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.
 - [x] Remap manette portrait 90° CCW
 - [x] UI boot console-first
 
-### Phase Setup & préférences *(nouveau — fait)*
+### Phase Setup & préférences *(fait)*
 
 - [x] Wizard premier lancement (`setupCompleted`)
 - [x] Dossiers library / import, langue, thème, orientation
@@ -76,12 +76,12 @@ Voir [`docs/UX.md`](./docs/UX.md), [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.
 - [x] Fit Height, pan stick (`translate3d`), zoom D-Pad ±15 %, toggle L3
 - [x] Pages D-Pad (avec remap portrait)
 
-### Phase 2 — Lecteur complet *(fait / partiel)*
+### Phase 2 — Lecteur complet *(fait)*
 
 - [x] CBR (`node-unrar-js`)
-- [x] PDF (`pdfjs-dist`) — rendu canvas si dispo, placeholder sinon
+- [x] PDF fidèle — pdfjs + canvas Chromium (BrowserWindow) ; fallback `canvas` / placeholder
 - [x] Mode Manga LTR/RTL (A)
-- [x] Overlay HUD (Y)
+- [x] Overlay HUD (Y) + flash progression au changement de page
 - [x] Fit Width (X)
 - [x] LT/RT chapitres si structure dossiers détectée
 
@@ -91,11 +91,13 @@ Voir [`docs/UX.md`](./docs/UX.md), [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.
 - [x] Grille couvertures, progression, Continuer, statuts
 - [x] Flux import (scan → review métadonnées → commit)
 - [x] Provider métadonnées pluggable (stub + ComicVine câblé)
+- [x] Watcher FS library/import (debounce → refresh liste / file d’import)
 
-### Phase 4 — Polish *(reporté / partiel)*
+### Phase 4 — Polish & packaging *(partiel)*
 
-- [ ] Watcher FS
-- [ ] Packaging Windows
+- [x] Watcher FS
+- [x] Packaging Windows (electron-builder : NSIS + portable)
+- [x] Focus manette setup / import / settings + HUD reduced-motion
 - [ ] Haptics Ally
 - [x] Notes rebuild native / fallback documentées
 
@@ -121,16 +123,17 @@ Setup (1ʳᵉ fois)
 | Shell | Electron |
 | Archives ZIP/CBZ | JSZip |
 | Archives RAR/CBR | node-unrar-js |
-| PDF | pdfjs-dist |
+| PDF | pdfjs-dist (+ canvas Chromium / optionnel node-canvas) |
 | DB | better-sqlite3 (fallback JSON) |
 | Rendu zoom/pan | CSS transform GPU |
 | Métadonnées | stub + ComicVine (clé en userData) |
+| Packaging | electron-builder (win nsis + portable) |
 
 ---
 
 ## Conventions
 
-- **Main** : Node, FS, extracteurs, DB, secrets
+- **Main** : Node, FS, extracteurs, DB, secrets, watchers
 - **Renderer** : UI / Gamepad ; pas d’accès FS direct
 - **IPC** : `src/shared/ipc-channels.js`
 - Secrets API : `userData/vdr-secrets.json` (chmod 600 si possible), jamais dans le repo

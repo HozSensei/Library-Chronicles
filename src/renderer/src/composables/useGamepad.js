@@ -154,13 +154,19 @@ function createLoop(ctx) {
     }
 
     if (route === 'setup') {
+      const maxSetup = Math.max(0, document.querySelectorAll('.setup .focus-btn').length - 1);
       if (action === 'cursor-up') ui.setSetupFocus(Math.max(0, ui.setupFocusIndex - 1));
-      if (action === 'cursor-down') ui.setSetupFocus(ui.setupFocusIndex + 1);
+      if (action === 'cursor-down') {
+        ui.setSetupFocus(Math.min(maxSetup, ui.setupFocusIndex + 1));
+      }
       if (action === 'cursor-left' || action === 'back') {
         document.querySelector('.setup .ghost')?.click();
       }
       if (action === 'cursor-right') {
-        // next via focused
+        // Avancer d’étape si bouton Continuer/Terminer focusé, sinon focus next
+        const focused = document.querySelector('.setup .focus-btn.is-focused');
+        if (focused) focused.click();
+        else document.querySelector('.setup .focus-btn:last-of-type')?.click();
       }
       if (action === 'confirm') {
         const focused = document.querySelector('.setup .focus-btn.is-focused');
@@ -201,8 +207,15 @@ function createLoop(ctx) {
       if (action === 'back') router.push({ name: 'library' });
       if (action === 'cursor-up') imp.moveCursor(-1);
       if (action === 'cursor-down') imp.moveCursor(1);
+      if (action === 'cursor-left') {
+        ui.setImportFocus(Math.max(0, ui.importFocusIndex - 1));
+      }
+      if (action === 'cursor-right') {
+        ui.setImportFocus(Math.min(1, ui.importFocusIndex + 1));
+      }
       if (action === 'confirm') {
-        imp.commitSelected({ copyToLibrary: true });
+        if (ui.importFocusIndex === 1) imp.enrich();
+        else imp.commitSelected({ copyToLibrary: true });
       }
       if (action === 'enrich') imp.enrich();
       return;
@@ -216,15 +229,37 @@ function createLoop(ctx) {
         }
         router.push({ name: 'boot' });
       }
+      const maxSettings = Math.max(
+        0,
+        document.querySelectorAll(
+          '.settings .bind-row, .settings .focus-btn, .settings .tab',
+        ).length - 1,
+      );
       if (action === 'cursor-up') ui.setSettingsFocus(Math.max(0, ui.settingsFocusIndex - 1));
-      if (action === 'cursor-down') ui.setSettingsFocus(ui.settingsFocusIndex + 1);
+      if (action === 'cursor-down') {
+        ui.setSettingsFocus(Math.min(maxSettings, ui.settingsFocusIndex + 1));
+      }
+      if (action === 'tab-prev' || action === 'cursor-left') {
+        document.querySelector('.settings .tab:not(.is-active)')?.previousElementSibling?.click?.();
+        const tabs = [...document.querySelectorAll('.settings .tab')];
+        const active = tabs.findIndex((t) => t.classList.contains('is-active'));
+        if (active > 0) tabs[active - 1].click();
+        ui.setSettingsFocus(0);
+      }
+      if (action === 'tab-next' || action === 'cursor-right') {
+        const tabs = [...document.querySelectorAll('.settings .tab')];
+        const active = tabs.findIndex((t) => t.classList.contains('is-active'));
+        if (active >= 0 && active < tabs.length - 1) tabs[active + 1].click();
+        ui.setSettingsFocus(0);
+      }
       if (action === 'confirm') {
-        const row = document.querySelector('.settings .bind-row.is-focused, .settings .focus-btn.is-focused');
+        const row = document.querySelector(
+          '.settings .bind-row.is-focused, .settings .focus-btn.is-focused',
+        );
         row?.click();
       }
       return;
     }
-
     if (route === 'reader') {
       if (action === 'close-book' || action === 'back') {
         reader.close().then(() => router.push({ name: 'library' }));

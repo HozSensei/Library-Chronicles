@@ -1,6 +1,12 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import { IpcChannels } from '../shared/ipc-channels.js';
 
+function subscribe(channel, handler) {
+  const listener = (_event, payload) => handler(payload);
+  ipcRenderer.on(channel, listener);
+  return () => ipcRenderer.removeListener(channel, listener);
+}
+
 contextBridge.exposeInMainWorld('vdr', {
   getConfig: () => ipcRenderer.invoke(IpcChannels.APP_GET_CONFIG),
   setConfig: (patch) => ipcRenderer.invoke(IpcChannels.APP_SET_CONFIG, patch),
@@ -45,5 +51,11 @@ contextBridge.exposeInMainWorld('vdr', {
   progress: {
     save: (payload) => ipcRenderer.invoke(IpcChannels.PROGRESS_SAVE, payload),
     load: (filePath) => ipcRenderer.invoke(IpcChannels.PROGRESS_LOAD, filePath),
+  },
+
+  watch: {
+    status: () => ipcRenderer.invoke(IpcChannels.WATCH_STATUS),
+    onLibraryChanged: (handler) => subscribe(IpcChannels.WATCH_LIBRARY_CHANGED, handler),
+    onImportChanged: (handler) => subscribe(IpcChannels.WATCH_IMPORT_CHANGED, handler),
   },
 });

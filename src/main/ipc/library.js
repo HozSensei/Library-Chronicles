@@ -8,11 +8,13 @@ import {
   updateBook,
   getContinueBook,
   getBookById,
+  upsertBook,
+  pruneMissingBooks,
 } from '../database/books.js';
 import { coverToDataUrl } from '../library/thumbnails.js';
 import { openBook } from '../extractors/index.js';
 import { ensureCover } from '../library/thumbnails.js';
-import { upsertBook } from '../database/books.js';
+import { syncWatchersFromConfig } from '../library/watcher.js';
 
 export function registerLibraryIpc() {
   ipcMain.handle(IpcChannels.LIBRARY_SELECT_ROOT, async () => {
@@ -24,6 +26,7 @@ export function registerLibraryIpc() {
     const root = result.filePaths[0];
     fs.mkdirSync(root, { recursive: true });
     setConfig({ libraryRoot: root });
+    syncWatchersFromConfig();
     return root;
   });
 
@@ -36,6 +39,7 @@ export function registerLibraryIpc() {
     const root = result.filePaths[0];
     fs.mkdirSync(root, { recursive: true });
     setConfig({ importRoot: root });
+    syncWatchersFromConfig();
     return root;
   });
 
@@ -67,7 +71,9 @@ export function registerLibraryIpc() {
       }
     }
 
-    return { ...scan, books: listBooks() };
+    const removed = pruneMissingBooks(scan.found.map((f) => f.filePath));
+
+    return { ...scan, removed, books: listBooks() };
   });
 
   ipcMain.handle(IpcChannels.LIBRARY_LIST, async () => listBooks());

@@ -46,9 +46,11 @@ Persistance via config `theme`.
 
 ## Checklist
 
-- [ ] Focus manette lisible à 60 cm
-- [ ] Aucun dead-end sans B
-- [ ] Setup bloquant tant que non complété
-- [ ] Thème clair/sombre cohérent sur tous les écrans
-- [ ] Lecteur : 0 chrome sauf overlay Y
-- [ ] Boot : marque dominante dans le 1er viewport
+- [x] Focus manette lisible à 60 cm
+- [x] Aucun dead-end sans B
+- [x] Setup bloquant tant que non complété
+- [x] Thème clair/sombre cohérent sur tous les écrans
+- [x] Lecteur : 0 chrome sauf overlay Y (+ flash progression page)
+- [x] Boot : marque dominante dans le 1er viewport
+- [x] Reduced motion respecté (transitions / HUD)
+- [x] Watcher FS → refresh bibliothèque / import
