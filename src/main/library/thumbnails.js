@@ -5,6 +5,12 @@ import { app } from 'electron';
 import { createLruMap } from '../../shared/perf-cache.js';
 import { fetchBuffer } from '../metadata/fetch.js';
 import { USER_AGENT } from '../metadata/types.js';
+import {
+  bufferToDataUrl,
+  normalizeRemoteCoverUrl,
+} from '../../shared/cover-url.js';
+
+export { bufferToDataUrl, normalizeRemoteCoverUrl };
 
 /** Cache mémoire data-URL (évite relecture disque + re-encode base64). */
 const dataUrlCache = createLruMap(96);
@@ -60,8 +66,8 @@ export async function ensureCover(
  * @param {string|number|null} [profileId]
  */
 export async function ensureCoverFromUrl(bookFilePath, coverUrl, profileId = null) {
-  const url = String(coverUrl || '').trim();
-  if (!/^https?:\/\//i.test(url)) {
+  const url = normalizeRemoteCoverUrl(coverUrl);
+  if (!url) {
     throw new Error('URL couverture invalide');
   }
   const buffer = await fetchBuffer(url, {

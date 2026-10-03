@@ -1,22 +1,18 @@
 <script setup>
 import { computed, nextTick, onMounted, watch } from 'vue';
-import { useRouter } from 'vue-router';
 import ControlHint from '../components/ControlHint.vue';
 import { useImportStore } from '../stores/import';
 import { useUiStore } from '../stores/ui';
 import { scheduleScrollFocusedIntoView } from '../../../shared/focus-scroll.js';
 import {
-  IMPORT_DETAIL_ACTIONS,
   IMPORT_DETAIL_TABS,
   IMPORT_INFOS_FIELDS,
-  IMPORT_LIST_ACTIONS,
   IMPORT_SEARCH_FIELDS,
   importFieldDomId,
 } from '../../../shared/import-focus.js';
 import { metaSourceLabel } from '../../../shared/import-meta.js';
 import { focusTextInputForEdit } from '../../../shared/virtual-keyboard.js';
 
-const router = useRouter();
 const imp = useImportStore();
 const ui = useUiStore();
 
@@ -30,15 +26,15 @@ const listHints = [
 
 const infosHints = [
   { key: '↑↓', label: 'champ' },
-  { key: 'LT/RT', label: 'onglet' },
-  { key: 'A', label: 'éditer / CTA' },
+  { key: 'LB/RB', label: 'onglet' },
+  { key: 'A', label: 'éditer' },
   { key: 'X', label: 'Importer ce tome' },
   { key: 'B', label: 'retour liste' },
 ];
 
 const searchHints = [
   { key: '↑↓', label: 'champ / résultat' },
-  { key: 'LT/RT', label: 'onglet' },
+  { key: 'LB/RB', label: 'onglet' },
   { key: 'A', label: 'appliquer / éditer' },
   { key: 'Y', label: 'lancer recherche' },
   { key: 'B', label: 'retour Infos' },
@@ -59,12 +55,6 @@ const statusLabel = computed(() => {
   }
   if (!imp.items.length) return 'Aucun fichier dans le dossier import';
   return `${imp.items.length} fichier(s)`;
-});
-
-const searchSubtitle = computed(() => {
-  if (imp.enrichLoading) return 'Recherche…';
-  const p = imp.selectedProviderMeta;
-  return p ? p.label : 'Métadonnées';
 });
 
 onMounted(async () => {
@@ -117,11 +107,6 @@ function switchTab(tab) {
   nextTick(() => scheduleScrollFocusedIntoView('.import'));
 }
 
-async function doImportAll() {
-  if (!imp.items.length || imp.committing) return;
-  await imp.commitAll({ copyToLibrary: true });
-}
-
 async function doImportOne() {
   if (!imp.selected || imp.committing) return;
   await imp.commitSelected({ copyToLibrary: true });
@@ -129,6 +114,13 @@ async function doImportOne() {
 }
 
 async function doSearch() {
+  // Sync depuis le champ DOM (clavier virtuel / Enter) avant l’IPC.
+  const input = document.querySelector(
+    '.import [data-import-field="query"] input',
+  );
+  if (input && typeof input.value === 'string') {
+    imp.setSearchQuery(input.value);
+  }
   await imp.enrich();
   if (imp.enrichResults.length) {
     ui.setImportFocusZone('results');
@@ -136,19 +128,15 @@ async function doSearch() {
     imp.enrichResultCursor = 0;
   } else {
     ui.setImportFocusZone('fields');
-    ui.setImportFocus(IMPORT_SEARCH_FIELDS.RUN);
+    ui.setImportFocus(IMPORT_SEARCH_FIELDS.QUERY);
   }
   nextTick(() => scheduleScrollFocusedIntoView('.import'));
 }
 
-function activateListFooter(id) {
-  if (id === 'rescan') return imp.scan();
-  if (id === 'back') return router.push({ name: 'library' });
-}
-
-function activateDetailFooter(id) {
-  if (id === 'commit') return doImportOne();
-  if (id === 'back') return backToList();
+function onSearchQueryKeydown(ev) {
+  if (ev.key !== 'Enter') return;
+  ev.preventDefault();
+  void doSearch();
 }
 
 function onRowClick(index) {
@@ -158,22 +146,6 @@ function onRowClick(index) {
 
 function onRowActivate(index) {
   return openDetailAt(index);
-}
-
-function listFooterFocused(index) {
-  return (
-    !imp.isDetail &&
-    ui.importFocusZone === 'actions' &&
-    ui.importFocusIndex === index
-  );
-}
-
-function detailFooterFocused(index) {
-  return (
-    imp.isDetail &&
-    ui.importFocusZone === 'actions' &&
-    ui.importFocusIndex === index
-  );
 }
 
 function fieldFocused(index) {
@@ -219,9 +191,6 @@ function onInfosFieldActivate(fieldIndex) {
 function onSearchFieldActivate(fieldIndex) {
   ui.setImportFocusZone('fields');
   ui.setImportFocus(fieldIndex);
-  if (fieldIndex === IMPORT_SEARCH_FIELDS.RUN) {
-    return doSearch();
-  }
   if (fieldIndex === IMPORT_SEARCH_FIELDS.PROVIDER) {
     return;
   }
@@ -252,6 +221,9 @@ function rowVolume(item) {
 function dotLabel(item) {
   return metaSourceLabel(item.metaSource);
 }
+
+// Exposé pour tests / manette (commit depuis fiche)
+defineExpose({ doSearch, doImportOne, switchTab, backToList });
 </script>
 
 <template>
@@ -267,7 +239,6 @@ function dotLabel(item) {
         <p class="import__status">{{ statusLabel }}</p>
         <p v-if="imp.root && !imp.isDetail" class="import__root">{{ imp.root }}</p>
       </div>
-      <ControlHint class="import__hints" :items="hints" />
     </header>
 
     <!-- LISTE -->
@@ -323,7 +294,7 @@ function dotLabel(item) {
           >
             <p class="import__empty-title">Dossier import vide</p>
             <p class="import__empty-lead">
-              Dépose des CBZ, CBR ou PDF, puis Rescanner.
+              Dépose des CBZ, CBR ou PDF — le dossier est rescanné automatiquement.
             </p>
           </div>
         </div>
@@ -466,7 +437,10 @@ function dotLabel(item) {
             class="import__detail"
             aria-label="Recherche métadonnées"
           >
-            <div class="import__search-block">
+            <form
+              class="import__search-block"
+              @submit.prevent="doSearch"
+            >
               <div
                 class="field"
                 data-import-field="query"
@@ -476,11 +450,14 @@ function dotLabel(item) {
                 <label>Mots-clés</label>
                 <input
                   :value="imp.searchQuery"
-                  type="text"
+                  type="search"
+                  name="import-search-query"
                   inputmode="search"
+                  enterkeyhint="search"
                   autocomplete="off"
-                  placeholder="Titre, série…"
+                  placeholder="Titre, série… · Entrée pour rechercher"
                   @input="imp.setSearchQuery($event.target.value)"
+                  @keydown="onSearchQueryKeydown"
                 />
               </div>
 
@@ -519,20 +496,14 @@ function dotLabel(item) {
                 </p>
               </div>
 
-              <button
-                type="button"
-                class="import__search-btn"
-                data-import-field="search"
-                :class="{ 'is-focused': fieldFocused(IMPORT_SEARCH_FIELDS.RUN) }"
-                :disabled="imp.enrichLoading || !imp.selected"
-                @click="onSearchFieldActivate(IMPORT_SEARCH_FIELDS.RUN)"
-              >
-                <span class="import__search-btn-label">
-                  {{ imp.enrichLoading ? 'Recherche…' : 'Lancer recherche' }}
-                </span>
-                <span class="import__search-btn-sub">{{ searchSubtitle }}</span>
-              </button>
-            </div>
+              <p class="import__search-hint">
+                {{
+                  imp.enrichLoading
+                    ? 'Recherche…'
+                    : 'Y ou Entrée pour lancer · A pour appliquer un résultat'
+                }}
+              </p>
+            </form>
 
             <p
               v-if="imp.enrichWarning || imp.enrichError"
@@ -572,59 +543,7 @@ function dotLabel(item) {
     </template>
 
     <footer class="import__foot">
-      <!-- Liste : footer compact (hints Y/A/B dans le header) -->
-      <div
-        v-if="!imp.isDetail"
-        class="import__actions"
-        role="toolbar"
-        aria-label="Actions import"
-      >
-        <button
-          type="button"
-          class="import__action import__action--ghost"
-          :class="{ 'is-focused': listFooterFocused(IMPORT_LIST_ACTIONS.RESCAN) }"
-          @click="activateListFooter('rescan')"
-        >
-          <span class="import__action-label">Rescanner</span>
-        </button>
-        <button
-          type="button"
-          class="import__action import__action--ghost"
-          :class="{ 'is-focused': listFooterFocused(IMPORT_LIST_ACTIONS.BACK) }"
-          @click="activateListFooter('back')"
-        >
-          <span class="import__action-label">Retour biblio</span>
-        </button>
-      </div>
-
-      <!-- Détail : Importer ce tome / Retour liste -->
-      <div
-        v-else
-        class="import__actions"
-        role="toolbar"
-        aria-label="Actions fiche import"
-      >
-        <button
-          type="button"
-          class="import__action is-primary"
-          :class="{ 'is-focused': detailFooterFocused(IMPORT_DETAIL_ACTIONS.COMMIT) }"
-          :disabled="imp.committing || !imp.selected"
-          @click="activateDetailFooter('commit')"
-        >
-          <span class="import__action-label">
-            {{ imp.committing ? 'Import…' : 'Importer ce tome' }}
-          </span>
-          <span class="import__action-sub">X · sélectionnées ou défaut</span>
-        </button>
-        <button
-          type="button"
-          class="import__action import__action--ghost"
-          :class="{ 'is-focused': detailFooterFocused(IMPORT_DETAIL_ACTIONS.BACK) }"
-          @click="activateDetailFooter('back')"
-        >
-          <span class="import__action-label">Retour liste</span>
-        </button>
-      </div>
+      <ControlHint class="import__hints" :items="hints" />
     </footer>
   </section>
 </template>
@@ -932,6 +851,13 @@ function dotLabel(item) {
   display: flex;
   flex-direction: column;
   gap: 0.65rem;
+  margin: 0;
+}
+
+.import__search-hint {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--paper-dim);
 }
 
 .field {
@@ -990,52 +916,6 @@ function dotLabel(item) {
   margin-left: 0.35rem;
   font: inherit;
   cursor: pointer;
-}
-
-.import__search-btn {
-  appearance: none;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.1rem;
-  width: fit-content;
-  max-width: 100%;
-  padding: 0.55rem 0.95rem;
-  border: 1px solid color-mix(in srgb, var(--brass) 55%, var(--border));
-  border-radius: var(--radius-md);
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--brass) 18%, transparent),
-    color-mix(in srgb, var(--brass-deep) 8%, transparent)
-  );
-  color: var(--paper);
-  font: inherit;
-  cursor: pointer;
-  transition:
-    border-color 160ms var(--ease-soft),
-    box-shadow 160ms var(--ease-soft);
-}
-
-.import__search-btn.is-focused,
-.import__search-btn:focus-visible {
-  outline: none;
-  border-color: var(--brass-bright);
-  box-shadow: 0 0 0 3px var(--focus-glow);
-}
-
-.import__search-btn:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
-.import__search-btn-label {
-  font-family: var(--font-display);
-  font-weight: 700;
-}
-
-.import__search-btn-sub {
-  font-size: 0.7rem;
-  color: var(--paper-dim);
 }
 
 .import__alert {
@@ -1104,86 +984,15 @@ function dotLabel(item) {
 
 .import__foot {
   flex-shrink: 0;
-  padding: 0.75rem clamp(1rem, 2.5vw, 2.5rem) 1.1rem;
+  display: flex;
+  justify-content: center;
+  padding: 0.5rem clamp(1rem, 2.5vw, 2.5rem) 1.1rem;
   border-top: 1px solid var(--border);
   background: color-mix(in srgb, var(--ink-950) 88%, transparent);
   backdrop-filter: blur(10px);
   min-width: 0;
   max-width: 100%;
   box-sizing: border-box;
-}
-
-.import__actions {
-  display: flex;
-  flex-wrap: nowrap;
-  gap: 0.5rem;
-  min-width: 0;
-  max-width: 100%;
-  overflow: hidden;
-}
-
-.import__action {
-  appearance: none;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.1rem;
-  min-width: 0;
-  flex: 0 1 auto;
-  padding: 0.55rem 0.9rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--surface);
-  color: var(--paper);
-  font: inherit;
-  cursor: pointer;
-  transition:
-    border-color 160ms var(--ease-soft),
-    box-shadow 160ms var(--ease-soft),
-    background 160ms var(--ease-soft);
-}
-
-.import__action.is-primary {
-  border-color: color-mix(in srgb, var(--brass) 55%, var(--border));
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--brass) 20%, transparent),
-    color-mix(in srgb, var(--brass-deep) 10%, transparent)
-  );
-}
-
-.import__action--ghost {
-  color: var(--paper-dim);
-  background: transparent;
-}
-
-.import__action:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
-.import__action.is-focused,
-.import__action:focus-visible {
-  outline: none;
-  border-color: var(--brass-bright);
-  box-shadow: 0 0 0 3px var(--focus-glow);
-  color: var(--paper);
-}
-
-.import__action-label {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 0.95rem;
-  white-space: nowrap;
-}
-
-.import__action-sub {
-  font-size: 0.7rem;
-  color: var(--paper-dim);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 12rem;
 }
 
 @media (max-width: 900px) {
@@ -1198,7 +1007,6 @@ function dotLabel(item) {
 
 @media (prefers-reduced-motion: reduce) {
   .import__row,
-  .import__action,
   .import__enrich-item,
   .import__tab,
   .field {

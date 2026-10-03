@@ -81,11 +81,7 @@ export const useUiStore = defineStore('ui', {
       this.importFocusIndex = index;
     },
     setImportFocusZone(zone) {
-      if (
-        zone === 'actions' ||
-        zone === 'fields' ||
-        zone === 'results'
-      ) {
+      if (zone === 'fields' || zone === 'results') {
         this.importFocusZone = zone;
       } else {
         this.importFocusZone = 'list';

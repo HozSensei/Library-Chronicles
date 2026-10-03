@@ -38,6 +38,9 @@ interface VdrApi {
     scan: (importRoot?: string) => Promise<unknown>;
     commit: (payload: unknown) => Promise<unknown>;
     previewCover: (filePath: string) => Promise<{ mime: string; data: string } | null>;
+    previewCoverFromUrl: (
+      coverUrl: string,
+    ) => Promise<{ dataUrl: string; mime: string } | null>;
   };
   metadata: {
     detect: (filePath: string) => Promise<unknown>;

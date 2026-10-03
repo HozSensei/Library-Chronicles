@@ -3,14 +3,15 @@
  *
  * Bindings stables :
  * - Liste : A=ouvrir fiche · X=importer ce tome · Y=tout importer · B=retour biblio
- * - Fiche Infos : A=éditer champ ou CTA footer focusé (n’importe/ne ferme PAS hors CTA) ·
- *   B=retour liste · ↑↓ navigation champs
- * - Fiche Recherche : A=appliquer résultat focusé / éditer / lancer search ·
- *   B=retour Infos (champs/résultats) ou liste (CTA Retour) · Y=relancer search
+ * - Fiche Infos : A=éditer champ · B=retour liste · ↑↓ navigation champs ·
+ *   LB/RB=onglets · X=importer ce tome
+ * - Fiche Recherche : A=appliquer résultat focusé / éditer ·
+ *   B=retour Infos · Y=lancer search · Enter/clavier=lancer search · LB/RB=onglets
  *
- * Zones : `list` | `fields` | `results` | `actions`
+ * Zones : `list` | `fields` | `results`
  * Onglets fiche : `infos` | `search`
  *
+ * Pas de rangée de boutons footer (hints manette seulement, comme Bibliothèque).
  * Voir `import-meta.js` pour metaSource / pastilles.
  */
 
@@ -31,12 +32,14 @@ export const IMPORT_INFOS_FIELDS = Object.freeze({
   MAX: 5,
 });
 
-/** Champs / contrôles onglet Recherche. */
+/**
+ * Champs / contrôles onglet Recherche.
+ * Plus de bouton « Lancer » focusable — Y / Enter suffisent.
+ */
 export const IMPORT_SEARCH_FIELDS = Object.freeze({
   QUERY: 0,
   PROVIDER: 1,
-  RUN: 2,
-  MAX: 2,
+  MAX: 1,
 });
 
 /**
@@ -56,14 +59,20 @@ export const IMPORT_DETAIL_FIELDS = Object.freeze({
   MAX: 8,
 });
 
-/** Actions footer fiche détail. */
+/**
+ * @deprecated Plus de footer actions — X/B manette uniquement.
+ * Conservé pour compat scripts.
+ */
 export const IMPORT_DETAIL_ACTIONS = Object.freeze({
   COMMIT: 0,
   BACK: 1,
   MAX: 1,
 });
 
-/** Actions footer liste (rescanner / retour — hints X/Y/A/B dans ControlHint). */
+/**
+ * @deprecated Plus de footer liste — B manette / watcher rescan.
+ * Conservé pour compat scripts.
+ */
 export const IMPORT_LIST_ACTIONS = Object.freeze({
   RESCAN: 0,
   BACK: 1,
@@ -79,11 +88,7 @@ export const IMPORT_INFOS_FIELD_IDS = Object.freeze([
   'synopsis',
 ]);
 
-export const IMPORT_SEARCH_FIELD_IDS = Object.freeze([
-  'query',
-  'provider',
-  'search',
-]);
+export const IMPORT_SEARCH_FIELD_IDS = Object.freeze(['query', 'provider']);
 
 /** @deprecated utiliser IMPORT_INFOS_FIELD_IDS / IMPORT_SEARCH_FIELD_IDS */
 export const IMPORT_FIELD_IDS = Object.freeze([
@@ -95,10 +100,11 @@ export const IMPORT_FIELD_IDS = Object.freeze([
 
 /**
  * @param {string|null|undefined} zone
- * @returns {'list'|'fields'|'results'|'actions'}
+ * @returns {'list'|'fields'|'results'}
  */
 export function normalizeImportFocusZone(zone) {
-  if (zone === 'fields' || zone === 'results' || zone === 'actions') return zone;
+  if (zone === 'fields' || zone === 'results') return zone;
+  // `actions` legacy → list (plus de footer boutons)
   return 'list';
 }
 
@@ -160,7 +166,7 @@ export function importFieldDomId(fieldIndex, tab = IMPORT_DETAIL_TABS.INFOS) {
 
 /**
  * Résout l’action de A / confirm selon zone + onglet + focus.
- * Empêche A de fermer / importer hors CTA explicite.
+ * Empêche A de fermer / importer hors CTA explicite (X = import).
  *
  * @param {{
  *   isDetail?: boolean,
@@ -171,15 +177,11 @@ export function importFieldDomId(fieldIndex, tab = IMPORT_DETAIL_TABS.INFOS) {
  * }} opts
  * @returns {
  *   | 'open-detail'
- *   | 'list-rescan'
- *   | 'list-back'
  *   | 'edit-field'
  *   | 'edit-query'
  *   | 'focus-provider'
  *   | 'run-search'
  *   | 'apply-result'
- *   | 'commit-one'
- *   | 'close-detail'
  *   | 'noop'
  * }
  */
@@ -197,19 +199,7 @@ export function resolveImportConfirmAction({
     : 0;
 
   if (!isDetail) {
-    if (z === 'actions') {
-      if (idx === IMPORT_LIST_ACTIONS.BACK) return 'list-back';
-      if (idx === IMPORT_LIST_ACTIONS.RESCAN) return 'list-rescan';
-      return 'noop';
-    }
     return 'open-detail';
-  }
-
-  // CTA footer explicites uniquement
-  if (z === 'actions') {
-    if (idx === IMPORT_DETAIL_ACTIONS.COMMIT) return 'commit-one';
-    if (idx === IMPORT_DETAIL_ACTIONS.BACK) return 'close-detail';
-    return 'noop';
   }
 
   if (tab === IMPORT_DETAIL_TABS.SEARCH) {
@@ -220,20 +210,19 @@ export function resolveImportConfirmAction({
     }
     if (z !== 'fields') return 'noop';
     const field = clampSearchFieldFocus(idx);
-    if (field === IMPORT_SEARCH_FIELDS.RUN) return 'run-search';
     if (field === IMPORT_SEARCH_FIELDS.PROVIDER) return 'focus-provider';
     if (field === IMPORT_SEARCH_FIELDS.QUERY) return 'edit-query';
     return 'noop';
   }
 
-  // Infos : A édite le champ — jamais import / fermeture
+  // Infos : A édite le champ — jamais import / fermeture (X / B)
   if (z === 'fields') return 'edit-field';
   return 'noop';
 }
 
 /**
  * Résout B / back selon contexte.
- * Recherche (champs/résultats) → Infos ; sinon → liste ; liste → biblio.
+ * Recherche → Infos ; Infos → liste ; liste → biblio.
  *
  * @param {{
  *   isDetail?: boolean,
@@ -248,9 +237,9 @@ export function resolveImportBackAction({
   zone = 'list',
 } = {}) {
   if (!isDetail) return 'library';
-  const z = normalizeImportFocusZone(zone);
+  void zone;
   const tab = normalizeImportDetailTab(detailTab);
-  if (tab === IMPORT_DETAIL_TABS.SEARCH && z !== 'actions') {
+  if (tab === IMPORT_DETAIL_TABS.SEARCH) {
     return 'to-infos';
   }
   return 'to-list';

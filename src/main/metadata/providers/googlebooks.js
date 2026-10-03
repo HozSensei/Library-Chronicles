@@ -54,10 +54,11 @@ export const googleBooksProvider = {
           description: info.description
             ? String(info.description).replace(/\s+/g, ' ').trim().slice(0, 600)
             : null,
-          coverUrl:
+          coverUrl: upgradeGoogleCover(
             info.imageLinks?.thumbnail ||
-            info.imageLinks?.smallThumbnail ||
-            null,
+              info.imageLinks?.smallThumbnail ||
+              null,
+          ),
           source: 'googlebooks',
           confidence: 0.75,
         };
@@ -73,6 +74,15 @@ export const googleBooksProvider = {
     }
   },
 };
+
+function upgradeGoogleCover(url) {
+  if (!url) return null;
+  let u = String(url).trim();
+  if (/^http:\/\//i.test(u)) u = `https://${u.slice(7)}`;
+  // Prefer a larger edge when Google Books returns zoom=1 thumbnails
+  u = u.replace(/zoom=\d/i, 'zoom=2');
+  return u;
+}
 
 function withNote(results, note) {
   return results.map((r) => ({

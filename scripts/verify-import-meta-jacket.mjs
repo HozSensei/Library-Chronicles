@@ -1,5 +1,5 @@
 /**
- * Garde-fous : coverUrl persisté à l’import + fiche livre éditable post-import.
+ * Garde-fous : coverUrl persisté à l’import + fiche livre éditable + proxy CSP.
  */
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -16,6 +16,10 @@ import {
   bookFieldDomId,
 } from '../src/shared/book-focus.js';
 import { isTextInputElement } from '../src/shared/text-input-focus.js';
+import {
+  bufferToDataUrl,
+  normalizeRemoteCoverUrl,
+} from '../src/shared/cover-url.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 let failed = 0;
@@ -66,6 +70,24 @@ assert(
 
 assert(META_SOURCE.SELECTED === 'selected', 'META_SOURCE.selected');
 
+// --- normalisation URL jacket ---
+assert(
+  normalizeRemoteCoverUrl('http://covers.example/a.jpg') ===
+    'https://covers.example/a.jpg',
+  'http → https',
+);
+assert(
+  normalizeRemoteCoverUrl('https://cdn.example/b.jpg') ===
+    'https://cdn.example/b.jpg',
+  'https inchangé',
+);
+assert(normalizeRemoteCoverUrl('ftp://x') === '', 'ftp rejeté');
+assert(normalizeRemoteCoverUrl('') === '', 'vide → vide');
+
+const jpeg = Buffer.from([0xff, 0xd8, 0xff, 0x00, 0x01, 0x02]);
+const dataUrl = bufferToDataUrl(jpeg);
+assert(dataUrl?.startsWith('data:image/jpeg;base64,'), 'bufferToDataUrl jpeg');
+
 // --- édition fiche ---
 assert(isBookEditableFocus(BOOK_FOCUS.TITLE), 'titre éditable');
 assert(isBookEditableFocus(BOOK_FOCUS.SYNOPSIS), 'synopsis éditable');
@@ -109,7 +131,7 @@ assert(
   'textarea readonly ≠ texte éditable',
 );
 
-// --- sources : commit jacket + store + fiche ---
+// --- sources : commit jacket + store + fiche + CSP proxy ---
 const importMain = readFileSync(
   join(root, 'src/main/library/import.js'),
   'utf8',
@@ -138,18 +160,25 @@ const gamepad = readFileSync(
   join(root, 'src/renderer/src/composables/useGamepad.js'),
   'utf8',
 );
+const ipcImport = readFileSync(
+  join(root, 'src/main/ipc/import.js'),
+  'utf8',
+);
+const preload = readFileSync(join(root, 'src/preload/index.js'), 'utf8');
+const csp = readFileSync(join(root, 'src/renderer/index.html'), 'utf8');
 
 assert(importMain.includes('ensureCoverFromUrl'), 'commitImport appelle ensureCoverFromUrl');
 assert(importMain.includes('remoteCoverUrl'), 'commitImport lit coverUrl méta');
+assert(importMain.includes('previewCoverFromUrl'), 'previewCoverFromUrl exporté');
+assert(importMain.includes('findBookForImportSource'), 'scan déjà-importé persistant');
 assert(thumbs.includes('export async function ensureCoverFromUrl'), 'ensureCoverFromUrl exporté');
 assert(thumbs.includes('force: true'), 'jacket force overwrite cache');
+assert(thumbs.includes('normalizeRemoteCoverUrl'), 'normalizeRemoteCoverUrl');
+assert(thumbs.includes('bufferToDataUrl'), 'bufferToDataUrl');
 assert(fetchSrc.includes('export async function fetchBuffer'), 'fetchBuffer dispo');
 assert(importStore.includes('coverUrl'), 'store import draft coverUrl');
-assert(
-  importStore.includes('coverPreview = result.coverUrl') ||
-    importStore.includes('this.coverPreview = result.coverUrl'),
-  'applyEnrichResult met à jour coverPreview',
-);
+assert(importStore.includes('resolveCoverPreview'), 'store resolveCoverPreview');
+assert(importStore.includes('previewCoverFromUrl'), 'store appelle previewCoverFromUrl');
 assert(libraryStore.includes('async updateBook'), 'library.updateBook action');
 assert(bookView.includes('v-model="draft.title"'), 'fiche titre éditable');
 assert(bookView.includes('v-model="draft.series"'), 'fiche série éditable');
@@ -166,6 +195,19 @@ assert(
 assert(gamepad.includes('resolveBookConfirmAction'), 'gamepad resolve book confirm');
 assert(gamepad.includes('focusTextInputForEdit'), 'gamepad ouvre clavier fiche');
 assert(gamepad.includes('edit-field'), 'gamepad intent edit-field');
+assert(
+  ipcImport.includes('IMPORT_PREVIEW_COVER_URL'),
+  'IPC preview cover URL',
+);
+assert(preload.includes('previewCoverFromUrl'), 'preload previewCoverFromUrl');
+assert(
+  /img-src[^;]*data:/.test(csp),
+  'CSP autorise data: images (proxy jackets)',
+);
+assert(
+  !/img-src[^;]*https:/.test(csp),
+  'CSP n’autorise pas https img (proxy obligatoire)',
+);
 
 if (failed) {
   console.error(`\n${failed} échec(s)`);

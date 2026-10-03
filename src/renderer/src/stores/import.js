@@ -222,7 +222,7 @@ export const useImportStore = defineStore('import', {
       }
       this.coverPreview = null;
       if (d.coverUrl) {
-        this.coverPreview = d.coverUrl;
+        await this.resolveCoverPreview(d.coverUrl);
       } else {
         try {
           const cover = await window.vdr.import.previewCover(item.filePath);
@@ -233,6 +233,33 @@ export const useImportStore = defineStore('import', {
           this.coverPreview = null;
         }
       }
+    },
+    /**
+     * Affiche une jacket : data-URL directe, sinon téléchargement main
+     * (CSP renderer bloque img https://).
+     * @param {string|null|undefined} coverUrl
+     */
+    async resolveCoverPreview(coverUrl) {
+      const url = String(coverUrl || '').trim();
+      if (!url) {
+        this.coverPreview = null;
+        return;
+      }
+      if (/^data:/i.test(url)) {
+        this.coverPreview = url;
+        return;
+      }
+      try {
+        const remote = await window.vdr.import.previewCoverFromUrl(url);
+        if (remote?.dataUrl) {
+          this.coverPreview = remote.dataUrl;
+          return;
+        }
+      } catch {
+        /* fallback ci-dessous */
+      }
+      // Dernier recours : URL brute (bloquée par CSP en pratique)
+      this.coverPreview = url;
     },
     /** Met à jour selectedMeta si l’item a un choix API (pastille verte). */
     syncSelectedMetaFromDraft() {
@@ -312,7 +339,7 @@ export const useImportStore = defineStore('import', {
         source: result.source || this.draft.source || null,
       });
       if (result.coverUrl) {
-        this.coverPreview = result.coverUrl;
+        void this.resolveCoverPreview(result.coverUrl);
       }
       const item = this.selected;
       if (!item) return;

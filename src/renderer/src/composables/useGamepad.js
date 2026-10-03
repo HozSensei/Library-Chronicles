@@ -34,14 +34,10 @@ import {
   seriesFocusKind,
 } from '../../../shared/series-focus.js';
 import {
-  IMPORT_DETAIL_ACTIONS,
   IMPORT_DETAIL_TABS,
   IMPORT_INFOS_FIELDS,
-  IMPORT_LIST_ACTIONS,
   IMPORT_SEARCH_FIELDS,
-  clampDetailActionFocus,
   clampInfosFieldFocus,
-  clampListActionFocus,
   clampSearchFieldFocus,
   importFieldDomId,
   resolveImportBackAction,
@@ -638,10 +634,6 @@ function createLoop(ctx) {
           tab === IMPORT_DETAIL_TABS.SEARCH
             ? clampSearchFieldFocus
             : clampInfosFieldFocus;
-        const lastFieldBeforeResults =
-          tab === IMPORT_DETAIL_TABS.SEARCH
-            ? IMPORT_SEARCH_FIELDS.RUN
-            : IMPORT_INFOS_FIELDS.SYNOPSIS;
 
         const goToInfos = () => {
           imp.setDetailTab(IMPORT_DETAIL_TABS.INFOS);
@@ -664,7 +656,7 @@ function createLoop(ctx) {
           afterFocusMove();
         };
 
-        // B : Recherche (champs/résultats) → Infos ; sinon → liste
+        // B : Recherche → Infos ; Infos → liste
         if (action === 'back') {
           vibe('light');
           const back = resolveImportBackAction({
@@ -677,7 +669,7 @@ function createLoop(ctx) {
           return;
         }
 
-        // LT / RT : bascule Infos ↔ Recherche
+        // LB / RB : bascule Infos ↔ Recherche (comme catalogue)
         if (action === 'tab-prev' || action === 'tab-next') {
           if (tab === IMPORT_DETAIL_TABS.SEARCH) goToInfos();
           else goToSearch();
@@ -701,25 +693,14 @@ function createLoop(ctx) {
         const goNext = action === 'cursor-down' || action === 'cursor-right';
 
         if (goPrev) {
-          if (zone === 'actions') {
-            if (ui.importFocusIndex > 0) {
-              ui.setImportFocus(clampDetailActionFocus(ui.importFocusIndex - 1));
-            } else if (tab === IMPORT_DETAIL_TABS.SEARCH && resultCount > 0) {
-              ui.setImportFocusZone('results');
-              ui.setImportFocus(resultCount - 1);
-              imp.enrichResultCursor = resultCount - 1;
-            } else {
-              ui.setImportFocusZone('fields');
-              ui.setImportFocus(lastFieldBeforeResults);
-            }
-          } else if (zone === 'results') {
+          if (zone === 'results') {
             if (ui.importFocusIndex > 0) {
               const next = ui.importFocusIndex - 1;
               ui.setImportFocus(next);
               imp.enrichResultCursor = next;
             } else {
               ui.setImportFocusZone('fields');
-              ui.setImportFocus(IMPORT_SEARCH_FIELDS.RUN);
+              ui.setImportFocus(IMPORT_SEARCH_FIELDS.PROVIDER);
             }
           } else {
             ui.setImportFocusZone('fields');
@@ -736,29 +717,19 @@ function createLoop(ctx) {
               ui.setImportFocusZone('results');
               ui.setImportFocus(0);
               imp.enrichResultCursor = 0;
-            } else {
-              ui.setImportFocusZone('actions');
-              ui.setImportFocus(IMPORT_DETAIL_ACTIONS.COMMIT);
             }
+            // Sinon reste sur dernier champ (plus de footer actions)
           } else if (zone === 'results') {
             if (ui.importFocusIndex < resultCount - 1) {
               const next = ui.importFocusIndex + 1;
               ui.setImportFocus(next);
               imp.enrichResultCursor = next;
-            } else {
-              ui.setImportFocusZone('actions');
-              ui.setImportFocus(IMPORT_DETAIL_ACTIONS.COMMIT);
             }
-          } else {
-            ui.setImportFocusZone('actions');
-            ui.setImportFocus(
-              clampDetailActionFocus(ui.importFocusIndex + 1),
-            );
           }
           afterFocusMove();
         }
 
-        // A : guards CTA vs champ vs résultat (pas de fermeture / import hors CTA)
+        // A : guards champ / résultat (import = X uniquement)
         if (action === 'confirm') {
           const intent = resolveImportConfirmAction({
             isDetail: true,
@@ -768,18 +739,7 @@ function createLoop(ctx) {
             resultCount,
           });
 
-          if (intent === 'commit-one') {
-            if (imp.selected && !imp.committing) {
-              vibe('confirm');
-              void (async () => {
-                await imp.commitSelected({ copyToLibrary: true });
-                closeToList();
-              })();
-            }
-          } else if (intent === 'close-detail') {
-            vibe('light');
-            closeToList();
-          } else if (intent === 'apply-result') {
+          if (intent === 'apply-result') {
             vibe('confirm');
             imp.enrichResultCursor = ui.importFocusIndex;
             imp.applyEnrichCursor();
@@ -807,7 +767,6 @@ function createLoop(ctx) {
             void focusTextInputForEdit(el);
             vibe('light');
           }
-          // noop : A ne ferme / n’importe pas
         }
 
         // X sur fiche = importer ce tome
@@ -826,6 +785,15 @@ function createLoop(ctx) {
           void (async () => {
             if (tab !== IMPORT_DETAIL_TABS.SEARCH) {
               imp.setDetailTab(IMPORT_DETAIL_TABS.SEARCH);
+              ui.setImportFocusZone('fields');
+              ui.setImportFocus(IMPORT_SEARCH_FIELDS.QUERY);
+            }
+            // Sync query depuis le DOM (clavier virtuel)
+            const input = document.querySelector(
+              '.import [data-import-field="query"] input',
+            );
+            if (input && typeof input.value === 'string') {
+              imp.setSearchQuery(input.value);
             }
             await imp.enrich();
             if (imp.enrichResults.length) {
@@ -834,7 +802,7 @@ function createLoop(ctx) {
               imp.enrichResultCursor = 0;
             } else {
               ui.setImportFocusZone('fields');
-              ui.setImportFocus(IMPORT_SEARCH_FIELDS.RUN);
+              ui.setImportFocus(IMPORT_SEARCH_FIELDS.QUERY);
             }
             afterFocusMove();
           })();
@@ -848,70 +816,28 @@ function createLoop(ctx) {
         vibe('light');
         router.push({ name: 'library' });
       }
-      // Navigation liste : pas de haptic (évite spam stick).
+      // Navigation liste : pas de haptic (évite spam stick). Plus de footer actions.
       if (action === 'cursor-up') {
-        if (ui.importFocusZone === 'actions') {
-          ui.setImportFocusZone('list');
-        } else {
-          imp.moveCursor(-1);
-          ui.setImportFocusZone('list');
-        }
+        ui.setImportFocusZone('list');
+        imp.moveCursor(-1);
         afterFocusMove();
       }
       if (action === 'cursor-down') {
-        if (ui.importFocusZone === 'list') {
-          if (!imp.items.length || imp.cursor >= imp.items.length - 1) {
-            ui.setImportFocusZone('actions');
-            ui.setImportFocus(IMPORT_LIST_ACTIONS.RESCAN);
-          } else {
-            imp.moveCursor(1);
-          }
-        } else {
-          ui.setImportFocus(clampListActionFocus(ui.importFocusIndex + 1));
-        }
-        afterFocusMove();
-      }
-      if (action === 'cursor-left') {
-        if (ui.importFocusZone !== 'actions') {
-          ui.setImportFocusZone('actions');
-          ui.setImportFocus(IMPORT_LIST_ACTIONS.RESCAN);
-        } else {
-          ui.setImportFocus(clampListActionFocus(ui.importFocusIndex - 1));
-        }
-        afterFocusMove();
-      }
-      if (action === 'cursor-right') {
-        if (ui.importFocusZone !== 'actions') {
-          ui.setImportFocusZone('actions');
-          ui.setImportFocus(IMPORT_LIST_ACTIONS.RESCAN);
-        } else {
-          ui.setImportFocus(clampListActionFocus(ui.importFocusIndex + 1));
-        }
+        ui.setImportFocusZone('list');
+        imp.moveCursor(1);
         afterFocusMove();
       }
       if (action === 'confirm') {
-        const intent = resolveImportConfirmAction({
-          isDetail: false,
-          zone: ui.importFocusZone,
-          focusIndex: ui.importFocusIndex,
-        });
-        if (intent === 'list-rescan') {
-          void imp.scan();
-        } else if (intent === 'list-back') {
-          vibe('light');
-          router.push({ name: 'library' });
-        } else if (intent === 'open-detail') {
-          // Liste : A = ouvrir fiche (onglet Infos) — pas d’import immédiat
-          vibe('confirm');
-          void (async () => {
-            const ok = await imp.openDetail();
-            if (ok) {
-              ui.setImportFocusZone('fields');
-              ui.setImportFocus(IMPORT_INFOS_FIELDS.TITLE);
-              afterFocusMove();
-            }
-          })();
-        }
+        // Liste : A = ouvrir fiche (onglet Infos) — pas d’import immédiat
+        vibe('confirm');
+        void (async () => {
+          const ok = await imp.openDetail();
+          if (ok) {
+            ui.setImportFocusZone('fields');
+            ui.setImportFocus(IMPORT_INFOS_FIELDS.TITLE);
+            afterFocusMove();
+          }
+        })();
       }
       // X = importer le tome focus (méta sélectionnées ou défaut)
       if (action === 'import-one') {
