@@ -36,7 +36,8 @@ Node requis : **≥ 22.12.0** (exigence du paquet Electron ≥ 41).
 
 ### `better-sqlite3`
 
-- Dépendance **optionnelle** : échec de compile → fallback JSON (`docs/NATIVE.md`). Rebuild sur la machine Windows de packaging.
+- Dépendance **optionnelle**, bumpée en **12.x** pour l’ABI V8 d’Electron 41.
+- Échec de compile → fallback JSON (`docs/NATIVE.md`). Rebuild sur la machine Windows de packaging.
 
 ## Vérification
 
