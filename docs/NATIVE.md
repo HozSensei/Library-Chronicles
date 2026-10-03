@@ -18,7 +18,17 @@ Le script :
 - lance `@electron/rebuild -f -w better-sqlite3` ;
 - affiche un diagnostic clair si VS Build Tools manquent.
 
-`postinstall` tente déjà ce rebuild (`|| true` pour ne pas casser `npm install` sur CI Linux).  
+`better-sqlite3` est en **`optionalDependencies`** : un échec de compile/prebuild
+ne fait **pas** échouer `npm install` (l’app a un fallback JSON).
+
+`postinstall` (`scripts/postinstall.mjs`) tente le rebuild Electron en mode **soft**
+et **termine toujours en succès** — y compris sous Windows (`cmd.exe`), où
+`|| true` est invalide. Pour forcer un rebuild strict avant packaging :
+
+```bash
+npm run rebuild:native
+```
+
 `predist` / `predist:win` le **réexécutent** avant packaging.
 
 ### Fallback JSON (anti-crash)

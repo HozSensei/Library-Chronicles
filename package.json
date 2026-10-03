@@ -20,7 +20,7 @@
     "test:bounds": "node scripts/verify-window-bounds.mjs",
     "test": "npm run test:remap && npm run test:cbz && npm run test:pdf && npm run test:watcher && npm run test:haptics && npm run test:series && npm run test:metadata && npm run test:bounds",
     "rebuild:native": "node scripts/rebuild-native.mjs",
-    "postinstall": "node scripts/rebuild-native.mjs || true",
+    "postinstall": "node scripts/postinstall.mjs",
     "predist": "npm run rebuild:native",
     "predist:win": "npm run rebuild:native",
     "dist": "npm run build && electron-builder --win",
@@ -31,13 +31,15 @@
   "dependencies": {
     "@fontsource/figtree": "^5.2.5",
     "@fontsource/syne": "^5.2.5",
-    "better-sqlite3": "^11.7.0",
     "jszip": "^3.10.1",
     "node-unrar-js": "^2.0.2",
     "pdfjs-dist": "^4.10.38",
     "pinia": "^2.3.0",
     "vue": "^3.5.13",
     "vue-router": "^4.5.0"
+  },
+  "optionalDependencies": {
+    "better-sqlite3": "^11.7.0"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.2.1",

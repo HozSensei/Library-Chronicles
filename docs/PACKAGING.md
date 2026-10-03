@@ -12,7 +12,7 @@ Sur la machine de **build Windows** (recommandé) :
 
 ```bash
 npm install
-npm run rebuild:native   # obligatoire avant dist si postinstall a échoué
+npm run rebuild:native   # recommandé avant dist (postinstall est soft / non bloquant)
 npm run build
 npm run dist:win
 ```
