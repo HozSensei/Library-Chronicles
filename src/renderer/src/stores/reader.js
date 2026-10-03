@@ -423,27 +423,37 @@ export const useReaderStore = defineStore('reader', {
       this.fitMode = 'custom';
       this.animateScaleTo(this.targetScale + Number(steps) * ZOOM_STEP);
     },
+    /**
+     * L3 / R3 — toggle Fit Height ↔ Fit Width (bord à bord gauche-droite).
+     *
+     * Fit Width = la planche prend 100 % de la **largeur utilisateur** du
+     * viewport lecture. Sous plan CSS `rotate(90deg)` + Ally CCW :
+     *   largeur utilisateur = largeur locale du stage (`.reader__stage` /
+     *   `.reader__plane` `clientWidth` = 100vh fenêtre).
+     * CSS : `width: 100%; height: auto` + `scale` transform = 1
+     * (équivalent scale = stageLocalWidth / pageNaturalWidth si on partait
+     * du natural size).
+     *
+     * Déjà en fit-width → retour Fit Height ; sinon → Fit Width
+     * (depuis fit-height, zoom-100 ou custom). Animation : pulse CSS
+     * width/height + animateScaleTo(1).
+     */
     toggleZoom() {
       if (this.webtoonMode) return;
       this.pulseZoomTransition();
-      if (this.fitMode === 'fit-height') {
-        this.fitMode = 'zoom-100';
-      } else {
-        this.fitMode = 'fit-height';
-      }
+      this.fitMode = this.fitMode === 'fit-width' ? 'fit-height' : 'fit-width';
       this.panX = 0;
       this.panY = 0;
-      // L3 : retour échelle 1 avec le même ease-out si on venait d’un zoom custom.
       this.animateScaleTo(1);
     },
+    /** LB — Fit Width direct (même animation L3). */
     setFitWidth() {
       if (this.webtoonMode) return;
-      this.clearZoomAnim();
+      this.pulseZoomTransition();
       this.fitMode = 'fit-width';
-      this.scale = 1;
-      this.targetScale = 1;
       this.panX = 0;
       this.panY = 0;
+      this.animateScaleTo(1);
     },
     toggleDirection() {
       this.direction = this.direction === 'ltr' ? 'rtl' : 'ltr';

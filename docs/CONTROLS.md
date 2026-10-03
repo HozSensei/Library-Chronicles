@@ -45,8 +45,8 @@ Pan plan +90° CSS : mêmes axes **physiques**, puis `visualPanToLocal` = **mêm
 
 | Contrôle | Action |
 |----------|--------|
-| Stick L | Pan (remap portrait) |
-| L3 / R3 | Toggle Fit Height ↔ Zoom 100 % |
+| Stick L | Pan (axes physiques → `visualPanToLocal` +90°) |
+| L3 / R3 | Toggle **Fit Height ↔ Fit Width** |
 | D-Pad **→** | **Zoom +** |
 | D-Pad **←** | **Zoom −** |
 | D-Pad ↑ / ↓ | Page ±1 (inversé en Manga) |
@@ -55,9 +55,20 @@ Pan plan +90° CSS : mêmes axes **physiques**, puis `visualPanToLocal` = **mêm
 | X | Ajouter un signet |
 | Y | HUD onglets |
 | **Select** | **Menu pause** (modal centrée, plan +90°) |
-| LB | Fit Width |
+| LB | Fit Width (même mode que L3 → width) |
 | RB | Tome suivant non lu |
 | LT / RT | Chapitre ±1 |
+
+### Fit Width / Fit Height (plan +90°)
+
+- **Fit Width** : planche **bord à bord gauche-droite** = 100 % de la largeur
+  du viewport lecture. Sous `rotate(90deg)` Ally CCW, largeur utilisateur =
+  **largeur locale** du stage (`clientWidth` = `100vh`).
+  CSS : `width: 100%; height: auto` + `scale = 1`
+  (formule équivalente : `scale = stageLocalWidth / pageNaturalWidth`).
+- **Fit Height** : 100 % de la hauteur locale (`height: 100%; width: auto`).
+- **L3** : si déjà `fit-width` → `fit-height` ; sinon → `fit-width`
+  (toggle classique, animation smooth width/height + scale).
 
 ### Menu pause ouvert *(même plan tourné que le stage)*
 

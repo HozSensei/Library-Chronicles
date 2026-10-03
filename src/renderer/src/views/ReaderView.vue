@@ -233,6 +233,13 @@ function onStripScroll() {
     max-height 200ms ease-out;
 }
 
+/*
+ * Fit modes dans le plan local (avant / sous rotate(+90°) CSS).
+ * Ally CCW : largeur utilisateur = largeur locale du stage (clientWidth) ;
+ * hauteur utilisateur = hauteur locale (clientHeight = 100vw).
+ * Fit Width  → width: 100%  (bord à bord gauche-droite).
+ * Fit Height → height: 100%.
+ */
 .reader__stage[data-fit='fit-height'] .reader__page {
   height: 100%;
   width: auto;
