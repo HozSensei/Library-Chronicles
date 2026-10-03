@@ -64,6 +64,11 @@ export function getActiveProviderId() {
   return BY_ID[id] ? id : 'anilist';
 }
 
+/**
+ * Détection locale (pas d’appel API) : parsing nom de fichier,
+ * puis fallback dossier parent si aucune série.
+ * L’enrichissement API reste une étape séparée (searchMetadata) et prioritaire.
+ */
 export function detectMetadata(filePath) {
   return detectFromFilename(filePath);
 }

@@ -2,6 +2,122 @@
  * Identifiants de série + regroupement tomes (pur, main + renderer).
  */
 
+/**
+ * Dossiers trop génériques pour servir de nom de série (import / scan).
+ * Comparaison case-insensitive après trim.
+ */
+export const GENERIC_SERIES_FOLDER_NAMES = Object.freeze([
+  'downloads',
+  'download',
+  'telechargements',
+  'téléchargements',
+  'comics',
+  'comic',
+  'import',
+  'imports',
+  'incoming',
+  'inbox',
+  'library',
+  'libraries',
+  'bibliotheque',
+  'bibliothèque',
+  'books',
+  'book',
+  'livres',
+  'livre',
+  'manga',
+  'mangas',
+  'bd',
+  'bds',
+  'bande-dessinee',
+  'bande-dessinée',
+  'bandes-dessinees',
+  'series',
+  'séries',
+  'serie',
+  'série',
+  'tomes',
+  'tome',
+  'volumes',
+  'volume',
+  'vols',
+  'cbz',
+  'cbr',
+  'pdf',
+  'archives',
+  'archive',
+  'media',
+  'medias',
+  'médias',
+  'documents',
+  'document',
+  'desktop',
+  'bureau',
+  'home',
+  'users',
+  'tmp',
+  'temp',
+  'data',
+  'files',
+  'fichier',
+  'fichiers',
+]);
+
+function normalizeFolderKey(name) {
+  return String(name || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase();
+}
+
+const GENERIC_SERIES_FOLDER_SET = new Set(
+  GENERIC_SERIES_FOLDER_NAMES.map(normalizeFolderKey),
+);
+
+/**
+ * @param {string|null|undefined} name
+ * @returns {boolean}
+ */
+export function isGenericSeriesFolderName(name) {
+  const key = normalizeFolderKey(name);
+  if (!key) return true;
+  return GENERIC_SERIES_FOLDER_SET.has(key);
+}
+
+/**
+ * Nom du dossier parent d’un chemin fichier (pur, / et \\).
+ * @param {string|null|undefined} filePath
+ * @returns {string|null}
+ */
+export function parentFolderName(filePath) {
+  const normalized = String(filePath || '').replace(/\\/g, '/');
+  const parts = normalized.split('/').filter((p) => p && p !== '.' && p !== '..');
+  if (parts.length < 2) return null;
+  const folder = parts[parts.length - 2];
+  // Ignore racines style "C:"
+  if (/^[a-zA-Z]:$/.test(folder)) return null;
+  const cleaned = String(folder).replace(/\s+/g, ' ').trim();
+  return cleaned || null;
+}
+
+/**
+ * Fallback série = nom du dossier parent, sauf dossiers génériques.
+ * Ne remplace jamais une série déjà définie (API / parsing nom).
+ *
+ * @param {string|null|undefined} filePath
+ * @param {string|null|undefined} [existingSeries]
+ * @returns {string|null} nom de série ou null
+ */
+export function seriesFromParentFolder(filePath, existingSeries = null) {
+  if (existingSeries != null && String(existingSeries).trim()) {
+    return null;
+  }
+  const folder = parentFolderName(filePath);
+  if (!folder || isGenericSeriesFolderName(folder)) return null;
+  return folder;
+}
+
 /** Slug stable pour series_id (ASCII basique). */
 export function seriesIdFromName(series) {
   if (!series || !String(series).trim()) return null;
