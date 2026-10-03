@@ -70,6 +70,7 @@ const meta = detectFromFilename('/books/One Piece - Tome 03 (2019).cbz');
 assert(meta.series === 'One Piece', `series détectée (${meta.series})`);
 assert(meta.volume === 3, `volume détecté (${meta.volume})`);
 assert(meta.year === 2019, `année détectée (${meta.year})`);
+assert(meta.title.includes('One Piece'), `titre enrichi (${meta.title})`);
 
 const names = ['ch2/page10.jpg', 'ch1/page2.jpg', 'ch1/page10.jpg', 'ch2/page2.jpg'];
 const sorted = [...names].sort(naturalCompare);

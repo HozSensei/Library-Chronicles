@@ -41,7 +41,11 @@ export function detectFromFilename(filePath) {
       .replace(/[_\.]+/g, ' ')
       .trim(),
   );
-  if (!title) title = clean(base);
+  if (!title) {
+    title = series
+      ? `${series}${volume != null ? ` T${String(volume).padStart(2, '0')}` : ''}`
+      : clean(base);
+  }
 
   return {
     title: title || clean(base),

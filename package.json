@@ -13,7 +13,8 @@
     "test:remap": "node scripts/verify-portrait-remap.mjs",
     "test:cbz": "node scripts/verify-cbz.mjs",
     "test": "npm run test:remap && npm run test:cbz",
-    "rebuild:native": "npx --yes @electron/rebuild -f -w better-sqlite3"
+    "rebuild:native": "npx --yes @electron/rebuild -f -w better-sqlite3",
+    "postinstall": "npx --yes @electron/rebuild -f -w better-sqlite3 || true"
   },
   "dependencies": {
     "@fontsource/figtree": "^5.2.5",
