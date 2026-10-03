@@ -1,5 +1,5 @@
 <script setup>
-import { nextTick, onMounted, watch } from 'vue';
+import { computed, nextTick, onMounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import ControlHint from '../components/ControlHint.vue';
 import LazyCover from '../components/LazyCover.vue';
@@ -14,13 +14,28 @@ const library = useLibraryStore();
 const ui = useUiStore();
 const profiles = useProfilesStore();
 
-const hints = [
-  { key: 'A', label: 'ouvrir' },
-  { key: 'X', label: 'import' },
-  { key: 'LB/RB', label: 'onglets' },
-  { key: 'LT/RT', label: 'filtre' },
-  { key: 'Start', label: 'réglages' },
-];
+const hints = computed(() => {
+  if (library.isEmpty) {
+    return [
+      { key: 'A', label: 'importer' },
+      { key: 'X', label: 'import' },
+      { key: 'Start', label: 'réglages' },
+    ];
+  }
+  return [
+    { key: 'A', label: 'ouvrir' },
+    { key: 'X', label: 'import' },
+    { key: 'LB/RB', label: 'onglets' },
+    { key: 'LT/RT', label: 'filtre' },
+    { key: 'Start', label: 'réglages' },
+  ];
+});
+
+function goImport() {
+  const idx = library.headerNav.findIndex((n) => n.id === 'import');
+  if (idx >= 0) library.focusNav(idx);
+  router.push({ name: 'import' });
+}
 
 const navItems = [
   { id: 'board', label: 'Bibliothèque' },
@@ -155,10 +170,10 @@ function selectTab(tab) {
 
     <div class="relative z-10 flex h-full min-h-0 min-w-0 flex-col overflow-x-hidden">
       <!-- Header -->
-      <header class="catalog__header">
+      <header class="catalog__header" :class="{ 'catalog__header--empty': library.isEmpty }">
         <p class="catalog__logo">Vertical Deck Reader</p>
 
-        <nav class="catalog__nav" aria-label="Sections">
+        <nav v-if="!library.isEmpty" class="catalog__nav" aria-label="Sections">
           <button
             v-for="item in navItems"
             :key="item.id"
@@ -187,7 +202,7 @@ function selectTab(tab) {
             type="button"
             class="ghost catalog__tool"
             :class="{ 'is-focused': navFocused('import') }"
-            @click="library.focusNav(library.headerNav.findIndex((n) => n.id === 'import')); router.push({ name: 'import' })"
+            @click="goImport()"
           >
             Import
           </button>
@@ -225,6 +240,26 @@ function selectTab(tab) {
 
       <div class="catalog__scroll shell-scroll min-h-0 min-w-0 flex-1">
         <div class="catalog__scroll-inner">
+        <!-- Empty library: Import CTA only (no tabs / Continuer / Recents) -->
+        <div
+          v-if="library.isEmpty && !library.loading"
+          class="catalog__empty catalog__empty--solo"
+        >
+          <p class="catalog__empty-title">Bibliothèque vide</p>
+          <p class="catalog__empty-lead">
+            Importez vos premiers livres pour remplir le catalogue.
+          </p>
+          <button
+            type="button"
+            class="catalog__cta"
+            :class="{ 'is-focused': navFocused('import') }"
+            @click="goImport()"
+          >
+            Importer
+          </button>
+        </div>
+
+        <template v-else-if="!library.isEmpty">
         <!-- BOARD -->
         <template v-if="library.catalogTab === 'board'">
           <!-- Continuer : liste / grille des tomes en cours -->
@@ -289,16 +324,7 @@ function selectTab(tab) {
             </div>
           </section>
 
-          <!-- Empty -->
-          <div v-if="library.isEmpty && !library.loading" class="catalog__empty">
-            <p class="catalog__empty-title">Bibliothèque vide</p>
-            <button type="button" class="catalog__cta" @click="router.push({ name: 'import' })">
-              Importer
-            </button>
-          </div>
-
-          <template v-else>
-            <!-- Trending rail -->
+          <!-- Trending rail -->
             <section class="rail-section" aria-label="Tendances">
               <div class="rail-head">
                 <h2>Tendances</h2>
@@ -367,7 +393,6 @@ function selectTab(tab) {
                 </button>
               </div>
             </section>
-          </template>
         </template>
 
         <!-- ALL BOOKS tab — grille dense (pas de rail horizontal) -->
@@ -392,13 +417,7 @@ function selectTab(tab) {
             </div>
           </section>
 
-          <div v-if="library.isEmpty && !library.loading" class="catalog__empty">
-            <p class="catalog__empty-title">Bibliothèque vide</p>
-            <button type="button" class="catalog__cta" @click="router.push({ name: 'import' })">
-              Importer
-            </button>
-          </div>
-          <div v-else-if="!library.filtered.length" class="catalog__empty">
+          <div v-if="!library.filtered.length" class="catalog__empty">
             <p class="catalog__empty-title">Aucun livre pour ce filtre</p>
           </div>
           <section v-else class="grid-section" aria-label="Tous les livres">
@@ -508,6 +527,7 @@ function selectTab(tab) {
             </div>
           </section>
         </template>
+        </template>
         </div>
       </div>
 
@@ -535,6 +555,10 @@ function selectTab(tab) {
   min-width: 0;
   max-width: 100%;
   box-sizing: border-box;
+}
+
+.catalog__header--empty {
+  grid-template-columns: auto 1fr auto;
 }
 
 .catalog__logo {
@@ -871,11 +895,25 @@ function selectTab(tab) {
   padding: 2rem;
 }
 
+.catalog__empty--solo {
+  min-height: min(28rem, 70vh);
+  align-content: center;
+  padding: 3rem 1.5rem;
+}
+
 .catalog__empty-title {
   margin: 0;
   font-family: var(--font-display);
   font-size: 1.5rem;
   font-weight: 700;
+}
+
+.catalog__empty-lead {
+  margin: 0;
+  max-width: 28rem;
+  color: var(--paper-dim);
+  font-size: 0.95rem;
+  line-height: 1.45;
 }
 
 .catalog__cta {
@@ -888,6 +926,12 @@ function selectTab(tab) {
   font: inherit;
   font-weight: 700;
   cursor: pointer;
+}
+
+.catalog__cta.is-focused {
+  outline: 2px solid var(--brass);
+  outline-offset: 3px;
+  background: color-mix(in srgb, var(--brass) 32%, transparent);
 }
 
 .series-list {
