@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 
 const RECENT_LIMIT = 14;
+const CONTINUE_LIMIT = 18;
 
 function sortByCreatedDesc(a, b) {
   const ca = a.createdAt || '';
@@ -21,6 +22,16 @@ function sortByAccess(a, b) {
   return String(b.lastAccess || '').localeCompare(String(a.lastAccess || ''));
 }
 
+/** En cours : status reading, ou progression > 0 non terminé. */
+function isContinueBook(b) {
+  if (!b) return false;
+  if (b.status === 'reading') return true;
+  if (b.status === 'finished') return false;
+  const total = Number(b.pageTotal) || 0;
+  const current = Number(b.pageCurrent) || 0;
+  return total > 0 && current > 0;
+}
+
 export const useLibraryStore = defineStore('library', {
   state: () => ({
     books: [],
@@ -32,9 +43,9 @@ export const useLibraryStore = defineStore('library', {
     recentCursor: 0,
     seriesCursor: 0,
     readingCursor: 0,
-    heroIndex: 0,
-    /** @type {'nav' | 'hero' | 'watching' | 'filters' | 'trending' | 'recent' | 'grid' | 'series'} */
-    focusZone: 'hero',
+    navIndex: 0,
+    /** @type {'nav' | 'continue' | 'filters' | 'trending' | 'recent' | 'grid' | 'series'} */
+    focusZone: 'continue',
     /** @type {'board' | 'all' | 'recent' | 'series'} */
     catalogTab: 'board',
     expandedSeriesId: null,
@@ -61,15 +72,15 @@ export const useLibraryStore = defineStore('library', {
     },
     readingBooks(s) {
       return s.books
-        .filter((b) => b.status === 'reading')
+        .filter(isContinueBook)
         .sort(sortByAccess)
-        .slice(0, 8);
+        .slice(0, CONTINUE_LIMIT);
     },
     trendingBooks(s) {
       // « Tendances » = récents + en cours mélangés, sinon toute la biblio
-      const reading = s.books.filter((b) => b.status === 'reading');
+      const reading = s.books.filter(isContinueBook);
       const rest = s.books
-        .filter((b) => b.status !== 'reading')
+        .filter((b) => !isContinueBook(b))
         .slice()
         .sort(sortByCreatedDesc);
       const merged = [...reading, ...rest];
@@ -78,23 +89,21 @@ export const useLibraryStore = defineStore('library', {
         18,
       );
     },
-    heroBook(s) {
-      if (s.continueBook) return s.continueBook;
-      if (s.lastAccessedBook) return s.lastAccessedBook;
-      if (s.recentBooks[0]) return s.recentBooks[0];
-      return s.books[0] || null;
+    /** Onglets + actions header (focus manette). */
+    headerNav() {
+      return [
+        { id: 'tab-board', kind: 'tab', tab: 'board', label: 'Bibliothèque' },
+        { id: 'tab-all', kind: 'tab', tab: 'all', label: 'Tous les livres' },
+        { id: 'tab-recent', kind: 'tab', tab: 'recent', label: 'Récents' },
+        { id: 'tab-series', kind: 'tab', tab: 'series', label: 'Séries' },
+        { id: 'scan', kind: 'action', action: 'scan', label: 'Scanner' },
+        { id: 'import', kind: 'action', action: 'import', label: 'Import' },
+        { id: 'settings', kind: 'action', action: 'settings', label: 'Paramètres' },
+        { id: 'profile', kind: 'action', action: 'profile', label: 'Profil' },
+      ];
     },
-    heroSlides(s) {
-      const slides = [];
-      if (s.continueBook) slides.push(s.continueBook);
-      if (s.lastAccessedBook && s.lastAccessedBook.id !== s.continueBook?.id) {
-        slides.push(s.lastAccessedBook);
-      }
-      for (const b of s.recentBooks) {
-        if (slides.length >= 4) break;
-        if (!slides.some((x) => x.id === b.id)) slides.push(b);
-      }
-      return slides;
+    selectedHeaderNav() {
+      return this.headerNav[this.navIndex] || null;
     },
     isEmpty: (s) => !s.books.length,
     seriesList(s) {
@@ -103,8 +112,9 @@ export const useLibraryStore = defineStore('library', {
       return groups.filter((g) => g.status === s.filter);
     },
     selected() {
-      if (this.focusZone === 'hero') return this.heroSlides[this.heroIndex] || this.heroBook;
-      if (this.focusZone === 'watching') return this.readingBooks[this.readingCursor] || null;
+      if (this.focusZone === 'continue') {
+        return this.readingBooks[this.readingCursor] || null;
+      }
       if (this.focusZone === 'recent') return this.recentBooks[this.recentCursor] || null;
       if (this.focusZone === 'trending') return this.trendingBooks[this.cursor] || null;
       if (this.focusZone === 'grid') return this.filtered[this.cursor] || null;
@@ -185,19 +195,28 @@ export const useLibraryStore = defineStore('library', {
           this.seriesCursor,
           Math.max(0, this.seriesList.length - 1),
         );
-        this.heroIndex = Math.min(
-          this.heroIndex,
-          Math.max(0, this.heroSlides.length - 1),
+        this.readingCursor = Math.min(
+          this.readingCursor,
+          Math.max(0, this.readingBooks.length - 1),
+        );
+        this.navIndex = Math.min(
+          this.navIndex,
+          Math.max(0, this.headerNav.length - 1),
         );
         if (this.focusZone === 'nav' || this.focusZone === 'filters') {
           /* keep */
         } else if (!this.books.length) {
-          this.focusZone = this.catalogTab === 'all' ? 'filters' : 'hero';
+          this.focusZone = this.catalogTab === 'board' ? 'continue' : 'filters';
+        } else if (
+          this.focusZone === 'continue' &&
+          !this.readingBooks.length &&
+          this.catalogTab === 'board'
+        ) {
+          this.focusZone = 'filters';
         }
         const warm = [
-          ...this.heroSlides.map((b) => b.id),
+          ...this.readingBooks.slice(0, 12).map((b) => b.id),
           ...this.trendingBooks.slice(0, 10).map((b) => b.id),
-          ...this.readingBooks.slice(0, 6).map((b) => b.id),
           ...(this.catalogTab === 'all'
             ? this.filtered.slice(0, 24).map((b) => b.id)
             : []),
@@ -233,8 +252,25 @@ export const useLibraryStore = defineStore('library', {
       })();
       return this.coverPending[id];
     },
-    setCatalogTab(tab) {
+    /**
+     * @param {'board'|'all'|'recent'|'series'} tab
+     * @param {{ keepNav?: boolean }} [opts]
+     */
+    setCatalogTab(tab, opts = {}) {
       this.catalogTab = tab;
+      // keepNav explicite (false) prime sur focusZone==='nav' — utile au clic souris.
+      const keepNav =
+        opts.keepNav === true ||
+        (opts.keepNav !== false && this.focusZone === 'nav');
+      // Aligner l’index nav sur l’onglet actif
+      const tabIdx = this.headerNav.findIndex((n) => n.kind === 'tab' && n.tab === tab);
+      if (tabIdx >= 0 && (keepNav || this.focusZone === 'nav')) {
+        this.navIndex = tabIdx;
+      }
+      if (keepNav) {
+        this.focusZone = 'nav';
+        return;
+      }
       if (tab === 'series') {
         this.focusZone = 'series';
         this.seriesCursor = 0;
@@ -246,26 +282,29 @@ export const useLibraryStore = defineStore('library', {
         if (this.filtered.length) this.focusGrid(0);
         else this.focusZone = 'filters';
       } else {
-        this.focusZone = 'hero';
+        this.enterBoardContent();
       }
     },
     cycleCatalogTab(dir = 1) {
       const tabs = ['board', 'all', 'recent', 'series'];
       const i = tabs.indexOf(this.catalogTab);
       const safe = i >= 0 ? i : 0;
-      this.setCatalogTab(tabs[(safe + dir + tabs.length) % tabs.length]);
+      const keepNav = this.focusZone === 'nav';
+      this.setCatalogTab(tabs[(safe + dir + tabs.length) % tabs.length], { keepNav });
     },
-    focusHero(index = 0) {
-      this.focusZone = 'hero';
-      this.heroIndex = Math.max(0, Math.min(index, Math.max(0, this.heroSlides.length - 1)));
+    focusNav(index = 0) {
+      this.focusZone = 'nav';
+      this.navIndex = Math.max(0, Math.min(index, this.headerNav.length - 1));
+      return true;
     },
-    focusWatching(index = 0) {
+    focusContinue(index = 0) {
       if (!this.readingBooks.length) return false;
-      this.focusZone = 'watching';
+      this.focusZone = 'continue';
       this.readingCursor = Math.max(
         0,
         Math.min(index, this.readingBooks.length - 1),
       );
+      this.ensureCover(this.readingBooks[this.readingCursor]?.id);
       return true;
     },
     focusTrending(index = 0) {
@@ -293,6 +332,28 @@ export const useLibraryStore = defineStore('library', {
       this.focusZone = 'series';
       this.seriesCursor = Math.max(0, Math.min(index, this.seriesList.length - 1));
       return true;
+    },
+    /** Première zone contenu selon l’onglet courant. */
+    enterCatalogContent() {
+      if (this.catalogTab === 'series') {
+        if (this.seriesList.length) this.focusSeries(this.seriesCursor);
+        else this.focusZone = 'series';
+        return;
+      }
+      if (this.catalogTab === 'recent') {
+        if (this.recentBooks.length) this.focusRecent(0);
+        else this.focusZone = 'recent';
+        return;
+      }
+      if (this.catalogTab === 'all') {
+        this.focusZone = 'filters';
+        return;
+      }
+      this.enterBoardContent();
+    },
+    enterBoardContent() {
+      if (this.focusContinue(this.readingCursor)) return;
+      this.focusZone = 'filters';
     },
     setFilter(filter) {
       this.filter = filter;
@@ -326,13 +387,36 @@ export const useLibraryStore = defineStore('library', {
       }
     },
     /**
-     * Navigation manette catalogue Movie Gather.
-     * Zones verticales : hero/watching → filters → trending → recent
-     * Onglet « Tous » : filters → grille dense (columns)
+     * Navigation manette catalogue.
+     * Zones verticales board : nav → continue → filters → trending → recent
+     * Onglet « Tous » : nav → filters → grille dense (columns)
      */
     moveCatalog(dx, dy) {
+      // Zone header (tabs + actions)
+      if (this.focusZone === 'nav') {
+        if (dx !== 0) {
+          const next = Math.max(
+            0,
+            Math.min(this.headerNav.length - 1, this.navIndex + dx),
+          );
+          this.navIndex = next;
+          const item = this.headerNav[next];
+          if (item?.kind === 'tab' && item.tab !== this.catalogTab) {
+            this.setCatalogTab(item.tab, { keepNav: true });
+          }
+        }
+        if (dy > 0) this.enterCatalogContent();
+        return;
+      }
+
       if (this.catalogTab === 'series') {
         const list = this.seriesList;
+        if (dy < 0 && (!list.length || this.seriesCursor <= 0)) {
+          this.focusNav(
+            this.headerNav.findIndex((n) => n.kind === 'tab' && n.tab === 'series'),
+          );
+          return;
+        }
         if (!list.length) return;
         this.focusZone = 'series';
         if (dy !== 0) {
@@ -356,6 +440,12 @@ export const useLibraryStore = defineStore('library', {
 
         if (this.focusZone === 'filters') {
           if (dx !== 0) this.cycleFilter(dx);
+          if (dy < 0) {
+            this.focusNav(
+              this.headerNav.findIndex((n) => n.kind === 'tab' && n.tab === 'all'),
+            );
+            return;
+          }
           if (dy > 0 && list.length) this.focusGrid(0);
           return;
         }
@@ -363,6 +453,11 @@ export const useLibraryStore = defineStore('library', {
         if (!list.length) {
           this.focusZone = 'filters';
           if (dx !== 0) this.cycleFilter(dx);
+          if (dy < 0) {
+            this.focusNav(
+              this.headerNav.findIndex((n) => n.kind === 'tab' && n.tab === 'all'),
+            );
+          }
           return;
         }
 
@@ -379,9 +474,22 @@ export const useLibraryStore = defineStore('library', {
 
       if (this.catalogTab === 'recent') {
         const list = this.recentBooks;
-        if (!list.length) return;
-        this.focusZone = 'recent';
         const cols = Math.max(1, this.columns || 6);
+        if (!list.length) {
+          if (dy < 0) {
+            this.focusNav(
+              this.headerNav.findIndex((n) => n.kind === 'tab' && n.tab === 'recent'),
+            );
+          }
+          return;
+        }
+        this.focusZone = 'recent';
+        if (dy < 0 && this.recentCursor < cols) {
+          this.focusNav(
+            this.headerNav.findIndex((n) => n.kind === 'tab' && n.tab === 'recent'),
+          );
+          return;
+        }
         this.recentCursor = Math.max(
           0,
           Math.min(list.length - 1, this.recentCursor + dx + dy * cols),
@@ -390,26 +498,44 @@ export const useLibraryStore = defineStore('library', {
         return;
       }
 
-      // Board
+      // Board — continue (grille) → filters → trending → recent
+      const cols = Math.max(1, this.columns || 6);
+
+      if (this.focusZone === 'continue') {
+        const list = this.readingBooks;
+        if (!list.length) {
+          if (dy < 0) this.focusNav(0);
+          else if (dy > 0) this.focusZone = 'filters';
+          return;
+        }
+        if (dy < 0 && this.readingCursor < cols) {
+          this.focusNav(0);
+          return;
+        }
+        if (dy > 0) {
+          const next = this.readingCursor + dy * cols;
+          if (next > list.length - 1) {
+            this.focusZone = 'filters';
+            return;
+          }
+        }
+        const next = this.readingCursor + dx + dy * cols;
+        this.readingCursor = Math.max(0, Math.min(list.length - 1, next));
+        this.ensureCover(list[this.readingCursor]?.id);
+        return;
+      }
+
       if (dy < 0) {
         if (this.focusZone === 'trending' || this.focusZone === 'recent') {
           this.focusZone = 'filters';
           return;
         }
         if (this.focusZone === 'filters') {
-          this.focusZone = 'hero';
-          return;
-        }
-        if (this.focusZone === 'watching') {
-          this.focusZone = 'hero';
+          if (!this.focusContinue(0)) this.focusNav(0);
           return;
         }
       }
       if (dy > 0) {
-        if (this.focusZone === 'hero' || this.focusZone === 'watching') {
-          this.focusZone = 'filters';
-          return;
-        }
         if (this.focusZone === 'filters') {
           if (this.trendingBooks.length) this.focusTrending(0);
           else if (this.recentBooks.length) this.focusRecent(0);
@@ -419,36 +545,6 @@ export const useLibraryStore = defineStore('library', {
           this.focusRecent(0);
           return;
         }
-      }
-
-      if (this.focusZone === 'hero') {
-        if (dx > 0 && this.readingBooks.length) {
-          this.focusWatching(0);
-          return;
-        }
-        if (dx !== 0 && this.heroSlides.length > 1) {
-          this.heroIndex = Math.max(
-            0,
-            Math.min(this.heroSlides.length - 1, this.heroIndex + dx),
-          );
-          const b = this.heroSlides[this.heroIndex];
-          if (b) this.ensureCover(b.id);
-        }
-        return;
-      }
-
-      if (this.focusZone === 'watching') {
-        if (dx < 0) {
-          this.focusHero(this.heroIndex);
-          return;
-        }
-        const delta = dy !== 0 ? dy : dx;
-        this.readingCursor = Math.max(
-          0,
-          Math.min(this.readingBooks.length - 1, this.readingCursor + delta),
-        );
-        this.ensureCover(this.readingBooks[this.readingCursor]?.id);
-        return;
       }
 
       if (this.focusZone === 'filters') {
