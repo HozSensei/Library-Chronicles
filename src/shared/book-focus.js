@@ -1,16 +1,22 @@
 /**
  * Indices focus manette — fiche livre (BookDetailView).
- * 0–2 : blocs scrollables (identité, méta, synopsis)
- * 3–5 : CTA footer fixe (Lire, Retour, Options)
+ * 0–8 : champs méta readonly focusables (+ synopsis)
+ * 9–11 : CTA footer fixe (Lire, Retour, Options)
  */
 export const BOOK_FOCUS = {
-  IDENTITY: 0,
-  META: 1,
-  SYNOPSIS: 2,
-  READ: 3,
-  BACK: 4,
-  OPTIONS: 5,
-  MAX: 5,
+  TITLE: 0,
+  SERIES: 1,
+  VOLUME: 2,
+  YEAR: 3,
+  AUTHOR: 4,
+  STATUS: 5,
+  PAGES: 6,
+  PROVIDER: 7,
+  SYNOPSIS: 8,
+  READ: 9,
+  BACK: 10,
+  OPTIONS: 11,
+  MAX: 11,
 };
 
 /** Premier index des actions footer. */

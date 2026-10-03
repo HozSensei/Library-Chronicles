@@ -6,6 +6,7 @@ import {
   normalizeAccent,
   normalizeTheme,
 } from '../../../shared/theme-accents.js';
+import { clampBookFocus } from '../../../shared/book-focus.js';
 
 export const useUiStore = defineStore('ui', {
   state: () => ({
@@ -76,11 +77,8 @@ export const useUiStore = defineStore('ui', {
       this.importFocusZone = zone === 'actions' ? 'actions' : 'list';
     },
     setBookFocus(index) {
-      const n = Number(index);
-      // 0–2 contenu scrollable, 3–5 footer (voir shared/book-focus.js)
-      this.bookFocusIndex = Number.isFinite(n)
-        ? Math.max(0, Math.min(5, Math.trunc(n)))
-        : 0;
+      // Champs méta readonly + footer (voir shared/book-focus.js)
+      this.bookFocusIndex = clampBookFocus(index);
     },
     refreshGamepadHint() {
       this.reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;

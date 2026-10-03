@@ -473,10 +473,10 @@ function createLoop(ctx) {
         if (focused?.classList?.contains('book-detail__action')) {
           focused.click();
         } else if (
-          focused?.classList?.contains('book-detail__row') ||
+          focused?.classList?.contains('book-detail__field') ||
           !isBookActionFocus(ui.bookFocusIndex)
         ) {
-          // Sur un bloc texte : A = CTA principal Lire
+          // Sur un champ méta : A = CTA principal Lire
           document
             .querySelector(`.book-detail [data-book-action="${BOOK_FOCUS.READ}"]`)
             ?.click();
