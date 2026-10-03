@@ -41,4 +41,4 @@ npm i canvas --save-optional
 
 ## Secrets API
 
-Les clés (ex. ComicVine) sont stockées dans `userData/vdr-secrets.json`, séparées de `vdr-config.json`, avec `chmod 600` quand le FS le permet. **Jamais** commités dans le dépôt.
+Les clés (ComicVine, Google Books, …) sont stockées dans `userData/vdr-secrets.json`, séparées de `vdr-config.json`, avec `chmod 600` quand le FS le permet. **Jamais** commités dans le dépôt. Voir [`METADATA.md`](./METADATA.md).

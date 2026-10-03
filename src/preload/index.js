@@ -38,10 +38,15 @@ contextBridge.exposeInMainWorld('vdr', {
     detect: (filePath) => ipcRenderer.invoke(IpcChannels.METADATA_DETECT, filePath),
     search: (query, provider) =>
       ipcRenderer.invoke(IpcChannels.METADATA_SEARCH, { query, provider }),
+    listProviders: () => ipcRenderer.invoke(IpcChannels.METADATA_LIST_PROVIDERS),
+    setProvider: (provider) =>
+      ipcRenderer.invoke(IpcChannels.METADATA_SET_PROVIDER, provider),
     setApiKey: (provider, key) =>
       ipcRenderer.invoke(IpcChannels.METADATA_SET_API_KEY, { provider, key }),
     hasApiKey: (provider) =>
       ipcRenderer.invoke(IpcChannels.METADATA_HAS_API_KEY, provider),
+    openHelp: (payload) =>
+      ipcRenderer.invoke(IpcChannels.METADATA_OPEN_HELP, payload),
   },
 
   reader: {

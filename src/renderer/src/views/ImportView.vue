@@ -24,6 +24,7 @@ const statusLabel = computed(() => {
 });
 
 onMounted(async () => {
+  await imp.loadProviders();
   await imp.scan();
   ui.setImportFocus(0);
 });
@@ -43,6 +44,12 @@ async function doImport() {
 async function doEnrich() {
   await imp.enrich();
 }
+
+const enrichSubtitle = computed(() => {
+  const p = imp.selectedProviderMeta;
+  if (!p) return 'Provider métadonnées';
+  return `${p.label} · ${p.freeLabel}`;
+});
 </script>
 
 <template>
@@ -83,6 +90,29 @@ async function doEnrich() {
 
         <div class="fields">
           <div class="field">
+            <label>Provider métadonnées</label>
+            <select
+              class="provider-select"
+              :value="imp.activeProvider"
+              @change="imp.setProvider($event.target.value)"
+            >
+              <option v-for="p in imp.providers" :key="p.id" :value="p.id">
+                {{ p.label }} — {{ p.freeLabel }}
+              </option>
+            </select>
+            <p v-if="imp.selectedProviderMeta?.helpText" class="provider-help">
+              {{ imp.selectedProviderMeta.helpText }}
+              <button
+                v-if="imp.selectedProviderMeta.helpUrl"
+                type="button"
+                class="link-btn"
+                @click="imp.openProviderHelp(imp.selectedProviderMeta)"
+              >
+                {{ imp.selectedProviderMeta.helpLinkLabel || 'Documentation' }}
+              </button>
+            </p>
+          </div>
+          <div class="field">
             <label>Titre</label>
             <input v-model="imp.draft.title" type="text" />
           </div>
@@ -116,7 +146,7 @@ async function doEnrich() {
           </FocusButton>
           <FocusButton
             :focused="ui.importFocusIndex === 1"
-            subtitle="API stub / ComicVine"
+            :subtitle="enrichSubtitle"
             @select="doEnrich"
           >
             Enrichir métadonnées
@@ -266,6 +296,37 @@ h1 {
   display: flex;
   flex-direction: column;
   gap: 0.55rem;
+}
+
+.provider-select {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--paper);
+  padding: 0.55rem 0.65rem;
+  font: inherit;
+  border-radius: var(--radius-sm);
+}
+
+.provider-help {
+  margin: 0.35rem 0 0;
+  color: var(--paper-dim);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.link-btn {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--brass-bright);
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+  padding: 0;
+  margin-left: 0.35rem;
+  font: inherit;
+  font-size: inherit;
+  cursor: pointer;
 }
 
 .field-row {

@@ -20,6 +20,9 @@ export const IpcChannels = Object.freeze({
   METADATA_SEARCH: 'metadata:search',
   METADATA_SET_API_KEY: 'metadata:set-api-key',
   METADATA_HAS_API_KEY: 'metadata:has-api-key',
+  METADATA_LIST_PROVIDERS: 'metadata:list-providers',
+  METADATA_SET_PROVIDER: 'metadata:set-provider',
+  METADATA_OPEN_HELP: 'metadata:open-help',
 
   READER_OPEN: 'reader:open',
   READER_GET_PAGE: 'reader:get-page',

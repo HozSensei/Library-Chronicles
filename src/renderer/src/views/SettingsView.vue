@@ -16,6 +16,8 @@ const section = ref('general'); // general | bindings | api
 const context = ref('reader');
 const apiKeyInput = ref('');
 const apiStatus = ref('');
+const providers = ref([]);
+const activeProvider = ref('stub');
 
 const sections = [
   { id: 'general', label: 'Général' },
@@ -25,6 +27,10 @@ const sections = [
 
 const actions = computed(() => BINDABLE_ACTIONS[context.value] || []);
 
+const selectedProvider = computed(
+  () => providers.value.find((p) => p.id === activeProvider.value) || null,
+);
+
 function keysForAction(actionId) {
   const map = ui.keyBindings[context.value] || {};
   return Object.entries(map)
@@ -32,10 +38,31 @@ function keysForAction(actionId) {
     .map(([k]) => labelForBindingKey(k));
 }
 
+async function refreshProviders() {
+  const data = await window.vdr.metadata.listProviders();
+  providers.value = data.providers || [];
+  activeProvider.value = data.activeProvider || 'stub';
+  syncApiStatus();
+}
+
+function syncApiStatus() {
+  const p = selectedProvider.value;
+  if (!p) {
+    apiStatus.value = '';
+    return;
+  }
+  if (!p.requiresApiKey) {
+    apiStatus.value = `${p.label} — ${p.freeLabel}`;
+    return;
+  }
+  apiStatus.value = p.hasKey
+    ? `Clé ${p.label} enregistrée`
+    : `Aucune clé ${p.label}`;
+}
+
 onMounted(async () => {
   await ui.loadConfig();
-  const status = await window.vdr.metadata.hasApiKey('comicvine');
-  apiStatus.value = status.hasKey ? 'Clé ComicVine enregistrée' : 'Aucune clé';
+  await refreshProviders();
   ui.setSettingsFocus(0);
 });
 
@@ -48,16 +75,34 @@ async function setOrientation(orientation) {
   await window.vdr.setConfig({ orientation });
 }
 
-async function saveApiKey() {
-  await window.vdr.metadata.setApiKey('comicvine', apiKeyInput.value);
+async function selectProvider(id) {
+  await window.vdr.metadata.setProvider(id);
+  activeProvider.value = id;
   apiKeyInput.value = '';
-  const status = await window.vdr.metadata.hasApiKey('comicvine');
-  apiStatus.value = status.hasKey ? 'Clé ComicVine enregistrée' : 'Aucune clé';
+  await refreshProviders();
+}
+
+async function saveApiKey() {
+  const p = selectedProvider.value;
+  if (!p?.requiresApiKey) return;
+  await window.vdr.metadata.setApiKey(p.id, apiKeyInput.value);
+  apiKeyInput.value = '';
+  await refreshProviders();
 }
 
 async function clearApiKey() {
-  await window.vdr.metadata.setApiKey('comicvine', '');
-  apiStatus.value = 'Aucune clé';
+  const p = selectedProvider.value;
+  if (!p?.requiresApiKey) return;
+  await window.vdr.metadata.setApiKey(p.id, '');
+  await refreshProviders();
+}
+
+async function openProviderHelp(provider) {
+  if (!provider?.helpUrl) return;
+  await window.vdr.metadata.openHelp({
+    provider: provider.id,
+    url: provider.helpUrl,
+  });
 }
 
 function startRebind(actionId) {
@@ -75,7 +120,7 @@ const listeningLabel = computed(() => {
     <header>
       <p class="brand">Vertical Deck Reader</p>
       <h1>Paramètres</h1>
-      <p class="lead">Thème, orientation, remapping manette, clé API.</p>
+      <p class="lead">Thème, remapping manette, providers métadonnées.</p>
     </header>
 
     <nav class="tabs" aria-label="Sections">
@@ -156,23 +201,63 @@ const listeningLabel = computed(() => {
       </template>
 
       <template v-else>
-        <p class="api-status">{{ apiStatus }}</p>
-        <div class="field">
-          <label>Clé ComicVine</label>
-          <input
-            v-model="apiKeyInput"
-            type="password"
-            autocomplete="off"
-            placeholder="Stockée localement (userData)"
-          />
-        </div>
-        <div class="row">
-          <button type="button" class="btn-primary" @click="saveApiKey">Enregistrer</button>
-          <button type="button" class="ghost" @click="clearApiKey">Effacer</button>
-        </div>
         <p class="hint">
-          Sans clé, le provider <strong>stub</strong> reste actif. Les secrets ne sont jamais
-          commités dans le dépôt.
+          Choisis un provider pour l’enrichissement à l’import. Offline : stub + édition manuelle.
+        </p>
+
+        <div class="provider-list" role="listbox" aria-label="Providers métadonnées">
+          <button
+            v-for="p in providers"
+            :key="p.id"
+            type="button"
+            class="provider-card"
+            :class="{ 'is-active': p.id === activeProvider }"
+            role="option"
+            :aria-selected="p.id === activeProvider"
+            @click="selectProvider(p.id)"
+          >
+            <span class="provider-card__label">{{ p.label }}</span>
+            <span
+              class="provider-card__badge"
+              :class="p.requiresApiKey ? 'is-key' : 'is-free'"
+            >
+              {{ p.freeLabel }}
+            </span>
+          </button>
+        </div>
+
+        <p class="api-status">{{ apiStatus }}</p>
+
+        <template v-if="selectedProvider">
+          <p v-if="selectedProvider.helpText" class="hint">{{ selectedProvider.helpText }}</p>
+          <button
+            v-if="selectedProvider.helpUrl"
+            type="button"
+            class="link-btn"
+            @click="openProviderHelp(selectedProvider)"
+          >
+            {{ selectedProvider.helpLinkLabel || 'Documentation' }}
+          </button>
+        </template>
+
+        <template v-if="selectedProvider?.requiresApiKey">
+          <div class="field">
+            <label>Clé {{ selectedProvider.label }}</label>
+            <input
+              v-model="apiKeyInput"
+              type="password"
+              autocomplete="off"
+              placeholder="Stockée localement (userData)"
+            />
+          </div>
+          <div class="row">
+            <button type="button" class="btn-primary" @click="saveApiKey">Enregistrer</button>
+            <button type="button" class="ghost" @click="clearApiKey">Effacer</button>
+          </div>
+        </template>
+
+        <p class="hint">
+          Les secrets restent dans <code>userData/vdr-secrets.json</code> — jamais commités.
         </p>
       </template>
     </div>
@@ -328,6 +413,65 @@ h1 {
   color: var(--success);
 }
 
+.provider-list {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.provider-card {
+  appearance: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  text-align: left;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--paper);
+  cursor: pointer;
+}
+
+.provider-card.is-active {
+  border-color: var(--brass-bright);
+  box-shadow: 0 0 0 3px var(--focus-glow);
+}
+
+.provider-card__label {
+  font-family: var(--font-display);
+  font-weight: 700;
+}
+
+.provider-card__badge {
+  font-size: 0.72rem;
+  color: var(--paper-dim);
+  white-space: nowrap;
+}
+
+.provider-card__badge.is-free {
+  color: var(--success);
+}
+
+.provider-card__badge.is-key {
+  color: var(--brass-bright);
+}
+
+.link-btn {
+  appearance: none;
+  align-self: flex-start;
+  border: none;
+  background: transparent;
+  color: var(--brass-bright);
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+  padding: 0;
+  font: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
 .row {
   display: flex;
   gap: 0.65rem;
@@ -338,6 +482,40 @@ h1 {
   color: var(--paper-dim);
   font-size: 0.85rem;
   line-height: 1.4;
+}
+
+.hint code {
+  font-size: 0.8em;
+}
+
+.field {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.field label {
+  font-size: 0.85rem;
+  color: var(--paper-dim);
+}
+
+.field input {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--paper);
+  padding: 0.65rem 0.75rem;
+  font: inherit;
+  border-radius: var(--radius-sm);
+}
+
+.btn-primary {
+  appearance: none;
+  border: 1px solid var(--brass);
+  background: color-mix(in srgb, var(--brass) 22%, transparent);
+  color: var(--paper);
+  padding: 0.55rem 0.9rem;
+  font: inherit;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
 }
 
 footer {

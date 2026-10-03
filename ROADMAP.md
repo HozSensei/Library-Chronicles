@@ -90,7 +90,7 @@ Voir [`docs/UX.md`](./docs/UX.md), [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.
 - [x] SQLite `better-sqlite3` (+ fallback JSON si natif KO)
 - [x] Grille couvertures, progression, Continuer, statuts
 - [x] Flux import (scan → review métadonnées → commit)
-- [x] Provider métadonnées pluggable (stub + ComicVine câblé)
+- [x] Provider métadonnées pluggable (stub + Open Library + AniList + MangaDex + ComicVine + Google Books)
 - [x] Watcher FS library/import (debounce → refresh liste / file d’import)
 
 ### Phase 4 — Polish & packaging *(partiel)*
@@ -111,7 +111,7 @@ Setup (1ʳᵉ fois)
   → Import (dossier import → métadonnées → bibliothèque)
   → Bibliothèque (catalogue : héro / récents / grille)
   → Lecteur (CBZ/CBR/PDF + manette)
-  → Paramètres (thème / remap / clé API)
+  → Paramètres (thème / remap / providers méta)
 ```
 
 ---
@@ -126,7 +126,7 @@ Setup (1ʳᵉ fois)
 | PDF | pdfjs-dist (+ canvas Chromium / optionnel node-canvas) |
 | DB | better-sqlite3 (fallback JSON) |
 | Rendu zoom/pan | CSS transform GPU |
-| Métadonnées | stub + ComicVine (clé en userData) |
+| Métadonnées | stub, Open Library, AniList, MangaDex (sans clé) ; ComicVine, Google Books (clé userData) — voir [`docs/METADATA.md`](./docs/METADATA.md) |
 | Packaging | electron-builder (win nsis + portable) |
 
 ---

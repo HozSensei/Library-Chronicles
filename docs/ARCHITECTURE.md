@@ -8,7 +8,7 @@
 │ Settings / Reader                    │ ◄─────── │ database/ SQLite|JSON    │
 │ Pinia  ui · reader · library · import│          │ library/ scan+import     │
 │ useGamepad  remap → key-bindings     │          │ library/ watcher FS      │
-│ CSS GPU  translate3d / scale         │          │ metadata/ stub|comicvine │
+│ CSS GPU  translate3d / scale         │          │ metadata/ providers/*    │
 └──────────────────────────────────────┘          │ pdf-electron-canvas      │
          ▲                                        │ config + secrets userData│
          │ contextBridge                          └──────────────────────────┘
@@ -41,7 +41,7 @@ Build unifié via **electron-vite** :
 2. **Import** → scan dossier import → review meta → copie library + SQLite
 3. **Library** → grille + Continuer (+ refresh auto via watcher)
 4. **Reader** → `open` → `getPage` → blob URL + transforms GPU
-5. **Settings** → thème, remapping, clé API
+5. **Settings** → thème, remapping, providers métadonnées (+ clés si besoin)
 
 ## Watcher FS
 
@@ -60,3 +60,4 @@ Build unifié via **electron-vite** :
 - `npm run test:remap` — portrait-remap + bindings + parse filename
 - `npm run test:cbz` — extracteur CBZ minimal
 - `npm run test:pdf` — extracteur PDF (placeholder hors Electron)
+- `npm run test:metadata` — providers méta (stub + parse mock Open Library / AniList / MangaDex / ComicVine / Google Books)
