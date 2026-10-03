@@ -28,14 +28,15 @@ export const BINDABLE_ACTIONS = Object.freeze({
   ],
   library: [
     { id: 'open-book', label: 'Ouvrir fiche' },
-    { id: 'back', label: 'Retour' },
     { id: 'book-options', label: 'Options du livre' },
     { id: 'cursor-up', label: 'Curseur ↑' },
     { id: 'cursor-down', label: 'Curseur ↓' },
     { id: 'cursor-left', label: 'Curseur ←' },
     { id: 'cursor-right', label: 'Curseur →' },
-    { id: 'tab-prev', label: 'Onglet précédent' },
-    { id: 'tab-next', label: 'Onglet suivant' },
+    { id: 'tab-prev', label: 'Onglet catalogue ← (LB)' },
+    { id: 'tab-next', label: 'Onglet catalogue → (RB)' },
+    { id: 'filter-prev', label: 'Filtre précédent (LT)' },
+    { id: 'filter-next', label: 'Filtre suivant (RT)' },
     { id: 'confirm', label: 'Valider' },
     { id: 'import', label: 'Ouvrir import' },
     { id: 'settings', label: 'Paramètres' },
@@ -87,12 +88,17 @@ export const BINDABLE_ACTIONS = Object.freeze({
   settings: [
     { id: 'cursor-up', label: 'Curseur ↑' },
     { id: 'cursor-down', label: 'Curseur ↓' },
-    { id: 'cursor-left', label: 'Section précédente' },
-    { id: 'cursor-right', label: 'Section suivante' },
-    { id: 'confirm', label: 'Modifier / écouter' },
+    { id: 'cursor-left', label: 'Curseur ←' },
+    { id: 'cursor-right', label: 'Curseur →' },
+    { id: 'tab-prev', label: 'Section précédente' },
+    { id: 'tab-next', label: 'Section suivante' },
+    { id: 'confirm', label: 'modifier / écouter' },
     { id: 'back', label: 'Retour' },
   ],
 });
+
+/** Seul contexte exposé dans l’UI remap Paramètres. */
+export const REMAP_UI_CONTEXT = 'reader';
 
 /**
  * Clés de binding :
@@ -123,15 +129,19 @@ export const DEFAULT_KEY_BINDINGS = Object.freeze({
   },
   library: {
     [`button:${GamepadButtons.A}`]: 'open-book',
-    [`button:${GamepadButtons.B}`]: 'back',
+    /** B = no-op : bibliothèque = accueil (pas de retour boot). */
     [`button:${GamepadButtons.Y}`]: 'book-options',
     [`button:${GamepadButtons.X}`]: 'import',
     [`button:${GamepadButtons.SELECT}`]: 'toggle-series',
     [`button:${GamepadButtons.START}`]: 'settings',
     [`button:${GamepadButtons.L3}`]: 'confirm',
     [`button:${GamepadButtons.R3}`]: 'confirm',
-    [`button:${GamepadButtons.LT}`]: 'tab-prev',
-    [`button:${GamepadButtons.RT}`]: 'tab-next',
+    /** LB / RB = onglets Bibliothèque / Récents / Séries */
+    [`button:${GamepadButtons.LB}`]: 'tab-prev',
+    [`button:${GamepadButtons.RB}`]: 'tab-next',
+    /** LT / RT = filtre statut */
+    [`button:${GamepadButtons.LT}`]: 'filter-prev',
+    [`button:${GamepadButtons.RT}`]: 'filter-next',
     'dpad:up': 'cursor-up',
     'dpad:down': 'cursor-down',
     'dpad:left': 'cursor-left',
@@ -186,8 +196,10 @@ export const DEFAULT_KEY_BINDINGS = Object.freeze({
   settings: {
     [`button:${GamepadButtons.A}`]: 'confirm',
     [`button:${GamepadButtons.B}`]: 'back',
-    [`button:${GamepadButtons.LT}`]: 'cursor-left',
-    [`button:${GamepadButtons.RT}`]: 'cursor-right',
+    /** LT / RT = changer de section Paramètres */
+    [`button:${GamepadButtons.LT}`]: 'tab-prev',
+    [`button:${GamepadButtons.RT}`]: 'tab-next',
+    /** D-Pad / stick = focus dans la section (providers, champs, liens…) */
     'dpad:up': 'cursor-up',
     'dpad:down': 'cursor-down',
     'dpad:left': 'cursor-left',

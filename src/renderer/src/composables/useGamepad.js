@@ -358,9 +358,9 @@ function createLoop(ctx) {
     }
 
     if (route === 'library') {
+      // B / back = no-op : la bibliothèque est l’accueil (pas de retour boot).
       if (action === 'back') {
-        vibe('light');
-        router.push({ name: 'boot' });
+        return;
       }
       if (action === 'cursor-up') {
         library.moveCatalog(0, -1);
@@ -413,11 +413,23 @@ function createLoop(ctx) {
         vibe('light');
         router.push({ name: 'settings' });
       }
+      /** LB / RB → onglets Bibliothèque / Récents / Séries */
       if (action === 'tab-next') {
+        library.cycleCatalogTab(1);
+        vibe('light');
+        afterFocusMove();
+      }
+      if (action === 'tab-prev') {
+        library.cycleCatalogTab(-1);
+        vibe('light');
+        afterFocusMove();
+      }
+      /** LT / RT → filtre statut */
+      if (action === 'filter-next') {
         library.cycleFilter(1);
         vibe('light');
       }
-      if (action === 'tab-prev') {
+      if (action === 'filter-prev') {
         library.cycleFilter(-1);
         vibe('light');
       }
@@ -497,25 +509,24 @@ function createLoop(ctx) {
           return;
         }
         vibe('light');
-        router.push({ name: 'boot' });
+        router.push({ name: 'library' });
       }
-      const maxSettings = Math.max(
-        0,
-        document.querySelectorAll(
-          '.settings .bind-row, .settings .focus-btn, .settings .tab',
-        ).length - 1,
-      );
-      if (action === 'cursor-up') {
+      const focusItems = [
+        ...document.querySelectorAll('.settings [data-settings-item]'),
+      ];
+      const maxSettings = Math.max(0, focusItems.length - 1);
+      if (action === 'cursor-up' || action === 'cursor-left') {
         ui.setSettingsFocus(Math.max(0, ui.settingsFocusIndex - 1));
         vibe('nav');
         afterFocusMove();
       }
-      if (action === 'cursor-down') {
+      if (action === 'cursor-down' || action === 'cursor-right') {
         ui.setSettingsFocus(Math.min(maxSettings, ui.settingsFocusIndex + 1));
         vibe('nav');
         afterFocusMove();
       }
-      if (action === 'tab-prev' || action === 'cursor-left') {
+      /** LT / RT uniquement → sections Paramètres */
+      if (action === 'tab-prev') {
         const tabs = [...document.querySelectorAll('.settings .tab')];
         const active = tabs.findIndex((t) => t.classList.contains('is-active'));
         if (active > 0) {
@@ -525,7 +536,7 @@ function createLoop(ctx) {
         ui.setSettingsFocus(0);
         afterFocusMove();
       }
-      if (action === 'tab-next' || action === 'cursor-right') {
+      if (action === 'tab-next') {
         const tabs = [...document.querySelectorAll('.settings .tab')];
         const active = tabs.findIndex((t) => t.classList.contains('is-active'));
         if (active >= 0 && active < tabs.length - 1) {
@@ -536,11 +547,14 @@ function createLoop(ctx) {
         afterFocusMove();
       }
       if (action === 'confirm') {
-        const row = document.querySelector(
-          '.settings .bind-row.is-focused, .settings .focus-btn.is-focused',
-        );
+        const el = focusItems[ui.settingsFocusIndex];
         vibe('confirm');
-        row?.click();
+        if (!el) return;
+        if (el.matches('input, textarea')) {
+          el.focus();
+          return;
+        }
+        el.click();
       }
       return;
     }

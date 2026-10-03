@@ -74,15 +74,16 @@ En **lecteur**, le stick reste en **pan** analogique (remap portrait) — jamais
 
 | Contrôle | Action |
 |----------|--------|
-| D-Pad / stick | Curseur grille (6 colonnes) |
+| D-Pad / stick | Curseur grille / rails |
 | A | Ouvrir **fiche livre** |
-| B | Retour |
+| B | No-op (biblio = accueil) |
 | X | Import |
-| Select | Vue livres ↔ séries |
+| LB / RB | Onglets Bibliothèque / Récents / Séries |
+| Select | Onglet suivant (raccourci) |
 | Start | Paramètres |
 | LT / RT | Filtre statut |
 
-Bibliothèque vide : A → Import.
+Bibliothèque vide : A → Import. Icône engrenage dans le header = Paramètres.
 
 ## Mode Fiche livre (landscape)
 
@@ -96,6 +97,17 @@ Bibliothèque vide : A → Import.
 
 Navigation D-Pad **et stick** (identité landscape).  
 Import : Y = Enrichir métadonnées.
+
+### Paramètres
+
+| Contrôle | Action |
+|----------|--------|
+| ↑↓←→ / stick | Focus dans la section (providers, champs, liens, remap…) |
+| LT / RT | Section précédente / suivante |
+| A | Valider / écouter (remap) / focus champ |
+| B | Retour bibliothèque |
+
+Remap UI : **lecture uniquement** + bouton Reset (défauts lecture).
 
 ## Clavier / souris (dev)
 
