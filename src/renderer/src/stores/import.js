@@ -48,6 +48,8 @@ export const useImportStore = defineStore('import', {
       author: '',
       year: null,
       description: '',
+      coverUrl: null,
+      source: null,
     },
     /** Requête API éditable (clavier virtuel). */
     searchQuery: '',
@@ -207,6 +209,8 @@ export const useImportStore = defineStore('import', {
         author: d.author,
         year: d.year,
         description: d.description || '',
+        coverUrl: d.coverUrl || null,
+        source: d.source || null,
       };
       this.searchQuery = String(d.series || d.title || item.name || '').trim();
       if (!keepResults) {
@@ -217,13 +221,17 @@ export const useImportStore = defineStore('import', {
         this.enrichError = null;
       }
       this.coverPreview = null;
-      try {
-        const cover = await window.vdr.import.previewCover(item.filePath);
-        if (cover?.data) {
-          this.coverPreview = `data:${cover.mime};base64,${cover.data}`;
+      if (d.coverUrl) {
+        this.coverPreview = d.coverUrl;
+      } else {
+        try {
+          const cover = await window.vdr.import.previewCover(item.filePath);
+          if (cover?.data) {
+            this.coverPreview = `data:${cover.mime};base64,${cover.data}`;
+          }
+        } catch {
+          this.coverPreview = null;
         }
-      } catch {
-        this.coverPreview = null;
       }
     },
     /** Met à jour selectedMeta si l’item a un choix API (pastille verte). */
@@ -300,7 +308,12 @@ export const useImportStore = defineStore('import', {
         author: result.author || this.draft.author,
         year: result.year ?? this.draft.year,
         description: result.description || this.draft.description,
+        coverUrl: result.coverUrl || this.draft.coverUrl || null,
+        source: result.source || this.draft.source || null,
       });
+      if (result.coverUrl) {
+        this.coverPreview = result.coverUrl;
+      }
       const item = this.selected;
       if (!item) return;
       item.selectedMeta = normalizeImportMetadata(this.draft, item);
@@ -332,7 +345,9 @@ export const useImportStore = defineStore('import', {
         item.alreadyInLibrary = true;
         item.existingBookId = result.book?.id;
         try {
-          useLibraryStore().invalidate();
+          const lib = useLibraryStore();
+          if (result.book?.id != null) delete lib.covers[result.book.id];
+          lib.invalidate();
         } catch {
           /* ignore */
         }
@@ -377,7 +392,11 @@ export const useImportStore = defineStore('import', {
         );
         if (results.length) {
           try {
-              useLibraryStore().invalidate();
+            const lib = useLibraryStore();
+            for (const r of results) {
+              if (r.book?.id != null) delete lib.covers[r.book.id];
+            }
+            lib.invalidate();
           } catch {
             /* ignore */
           }
@@ -416,7 +435,11 @@ export const useImportStore = defineStore('import', {
         this.selectedPaths = [];
         if (results.length) {
           try {
-              useLibraryStore().invalidate();
+            const lib = useLibraryStore();
+            for (const r of results) {
+              if (r.book?.id != null) delete lib.covers[r.book.id];
+            }
+            lib.invalidate();
           } catch {
             /* ignore */
           }

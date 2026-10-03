@@ -360,6 +360,31 @@ export const useLibraryStore = defineStore('library', {
       return this.coverPending[id];
     },
     /**
+     * Met à jour les métadonnées d’un livre (fiche détail).
+     * @param {number|string} id
+     * @param {Record<string, unknown>} patch
+     */
+    async updateBook(id, patch) {
+      if (id == null || !patch || typeof patch !== 'object') return null;
+      const updated = await window.vdr.library.updateBook(Number(id), patch);
+      if (!updated) return null;
+      const idx = this.books.findIndex((b) => String(b.id) === String(id));
+      if (idx >= 0) {
+        this.books.splice(idx, 1, updated);
+      } else {
+        this.books.push(updated);
+      }
+      try {
+        const series = groupBooksBySeries(this.books);
+        this.seriesGroups = series?.groups || [];
+        this.seriesSingles = series?.singles || [];
+      } catch {
+        /* ignore — liste books déjà à jour */
+      }
+      this._refreshedAt = Date.now();
+      return updated;
+    },
+    /**
      * @param {'board'|'all'|'recent'|'series'} tab
      * @param {{ keepNav?: boolean }} [opts]
      */

@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { scanLibraryRoot } from './scanner.js';
 import { openBook, detectFormat } from '../extractors/index.js';
-import { ensureCover } from './thumbnails.js';
+import { ensureCover, ensureCoverFromUrl } from './thumbnails.js';
 import { upsertBook, getBookByPath } from '../database/books.js';
 import { detectMetadata } from '../metadata/provider.js';
 import { getConfig } from '../config.js';
@@ -58,18 +58,32 @@ export async function commitImport({ sourcePath, metadata, copyToLibrary = true 
   const format = detectFormat(destPath);
   let pageTotal = 0;
   let coverPath = null;
+  const profileId = getActiveProfileId();
+  const remoteCoverUrl =
+    typeof metadata?.coverUrl === 'string' ? metadata.coverUrl.trim() : '';
+
+  // Jacket API en priorité (providers renvoient coverUrl) — fallback page 0 archive.
+  if (remoteCoverUrl) {
+    try {
+      coverPath = await ensureCoverFromUrl(destPath, remoteCoverUrl, profileId);
+    } catch (err) {
+      console.warn('[VDR] jacket API:', err.message);
+    }
+  }
 
   try {
     const book = await openBook(destPath);
     pageTotal = book.pageCount || 0;
-    try {
-      coverPath = await ensureCover(
-        destPath,
-        () => book.getCoverBuffer(),
-        getActiveProfileId(),
-      );
-    } catch (err) {
-      console.warn('[VDR] couverture:', err.message);
+    if (!coverPath) {
+      try {
+        coverPath = await ensureCover(
+          destPath,
+          () => book.getCoverBuffer(),
+          profileId,
+        );
+      } catch (err) {
+        console.warn('[VDR] couverture:', err.message);
+      }
     }
     await book.close();
   } catch (err) {
@@ -89,6 +103,7 @@ export async function commitImport({ sourcePath, metadata, copyToLibrary = true 
     pageTotal,
     metadata: {
       ...(metadata || {}),
+      coverUrl: remoteCoverUrl || metadata?.coverUrl || null,
       importedAt: new Date().toISOString(),
       sourcePath,
     },

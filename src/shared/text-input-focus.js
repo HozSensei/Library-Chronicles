@@ -23,11 +23,15 @@ export function isTextInputElement(el) {
   if (typeof node.tagName !== 'string') return false;
 
   const tag = node.tagName.toUpperCase();
-  if (tag === 'TEXTAREA') return !/** @type {HTMLTextAreaElement} */ (node).disabled;
+  if (tag === 'TEXTAREA') {
+    const ta = /** @type {HTMLTextAreaElement} */ (node);
+    if (ta.disabled || ta.readOnly) return false;
+    return true;
+  }
 
   if (tag === 'INPUT') {
     const input = /** @type {HTMLInputElement} */ (node);
-    if (input.disabled) return false;
+    if (input.disabled || input.readOnly) return false;
     const type = String(input.getAttribute('type') || 'text').toLowerCase();
     return TEXT_INPUT_TYPES.has(type);
   }

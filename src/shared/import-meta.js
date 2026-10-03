@@ -56,16 +56,20 @@ export function metadataFromDetected(item) {
     author: d.author || '',
     year: d.year ?? null,
     description: d.description || null,
+    coverUrl: d.coverUrl || null,
+    source: d.source || null,
   };
 }
 
 /**
  * Normalise un objet méta (sélection API ou draft).
+ * Préserve coverUrl / source pour le commit (jacket distante).
  * @param {object|null|undefined} meta
  * @param {{ name?: string }|null} [fallbackItem]
  */
 export function normalizeImportMetadata(meta, fallbackItem = null) {
   const m = meta || {};
+  const source = m.source || m.provider || null;
   return {
     title: m.title || fallbackItem?.name || '',
     series: m.series || '',
@@ -73,6 +77,9 @@ export function normalizeImportMetadata(meta, fallbackItem = null) {
     author: m.author || '',
     year: m.year ?? null,
     description: m.description || null,
+    coverUrl: m.coverUrl || null,
+    source,
+    provider: m.provider || source || null,
   };
 }
 
