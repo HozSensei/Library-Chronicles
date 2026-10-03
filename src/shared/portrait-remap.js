@@ -99,18 +99,24 @@ export function remapStick(orientation, physicalX, physicalY) {
 }
 
 /**
- * Convertit un pan en repère utilisateur (visuel) vers le repère local
- * du plan lecteur tourné de +90° CSS (CW).
+ * Convertit un pan en repère utilisateur (visuel / logique) vers le repère
+ * local du plan lecteur tourné de +90° CSS (CW).
  *
- * Signes corrigés (anti-joystick-inversé) par rapport à l’inverse
- * mathématique brut de rotate(90deg) :
+ * Spec pan stick lecture (directions = écran logique) :
+ *   Haut    → la page glisse vers la droite
+ *   Bas     → la page glisse vers la gauche
+ *   Gauche  → la page glisse vers le haut
+ *   Droite  → la page glisse vers le bas
+ *
+ * Sous rotate(90deg) CW, local(+X) apparaît à droite écran utilisateur et
+ * local(+Y) vers le bas. La spec ci-dessus impose donc :
  *
  *   localX = −visualY
  *   localY =  visualX
  *
  * Chaîne Ally CCW (D-Pad en bas), stick vers le haut de l’écran :
  *   physique → (1,0) → remapStick → logique ↑ (0,−1)
- *   → visualPanToLocal → local (+1, 0)
+ *   → visualPanToLocal → local (+1, 0) → page glisse à droite
  *
  * Ne pas toucher remapStick ici : menus / modal pause / D-Pad en dépendent.
  *
@@ -120,6 +126,23 @@ export function remapStick(orientation, physicalX, physicalY) {
  */
 export function visualPanToLocal(visualX, visualY) {
   return { x: -visualY, y: visualX };
+}
+
+/**
+ * Direction de glissement de la page (repère écran utilisateur) pour un
+ * pan logique, une fois appliqué via visualPanToLocal sous +90° CSS.
+ * @param {number} visualX
+ * @param {number} visualY
+ * @returns {'up'|'down'|'left'|'right'|null}
+ */
+export function pageSlideFromVisualPan(visualX, visualY) {
+  const local = visualPanToLocal(visualX, visualY);
+  // local(+X) → droite écran ; local(+Y) → bas écran (plan +90° Ally CCW)
+  const ax = Math.abs(local.x);
+  const ay = Math.abs(local.y);
+  if (ax < 1e-9 && ay < 1e-9) return null;
+  if (ax >= ay) return local.x > 0 ? LogicalDir.RIGHT : LogicalDir.LEFT;
+  return local.y > 0 ? LogicalDir.DOWN : LogicalDir.UP;
 }
 
 /**

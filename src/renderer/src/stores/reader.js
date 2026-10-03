@@ -392,6 +392,10 @@ export const useReaderStore = defineStore('reader', {
       this.scale = 1;
       this.targetScale = 1;
     },
+    /**
+     * Pan en repère local du plan lecteur (après visualPanToLocal si +90° CSS).
+     * dx/dy > 0 → +X / +Y locaux (écran : droite / bas en hold Ally CCW).
+     */
     pan(dx, dy, speed = 14) {
       if (this.webtoonMode) {
         // Scroll vertical principal
