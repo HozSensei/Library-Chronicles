@@ -124,15 +124,24 @@ function onStripScroll() {
         </div>
 
         <div v-else class="reader__stage" :data-fit="reader.fitMode">
-          <img
+          <!--
+            Wrapper pan : le scale reste sur l’img (origin centre image).
+            place-items: unsafe center force le vrai centre même en overflow fit.
+          -->
+          <div
             v-if="reader.pageUrl"
-            class="reader__page"
-            :class="{ 'is-zoom-smooth': reader.zoomTransition }"
-            :src="reader.pageUrl"
-            alt="Page courante"
-            draggable="false"
-            :style="reader.imageStyle"
-          />
+            class="reader__pan"
+            :style="{ transform: `translate3d(${reader.panX}px, ${reader.panY}px, 0)` }"
+          >
+            <img
+              class="reader__page"
+              :class="{ 'is-zoom-smooth': reader.zoomTransition }"
+              :src="reader.pageUrl"
+              alt="Page courante"
+              draggable="false"
+              :style="reader.imageStyle"
+            />
+          </div>
           <div v-else class="reader__placeholder">
             <p class="reader__brand">Vertical Deck Reader</p>
             <p v-if="reader.loading">Chargement…</p>
@@ -215,11 +224,21 @@ function onStripScroll() {
   overscroll-behavior: none;
   touch-action: none;
   display: grid;
-  place-items: center;
+  /* unsafe : garder le vrai centre même si la page overflow (fit-width/height). */
+  place-items: unsafe center;
+}
+
+/* Pan en translate local — indépendant du scale (origin centre image). */
+.reader__pan {
+  line-height: 0;
+  will-change: transform;
+  max-width: none;
+  max-height: none;
 }
 
 .reader__page {
-  /* Zoom D-Pad : ancre au centre du viewport (pas coin haut-gauche). */
+  /* Zoom D-Pad : scale ancré au centre image (= centre écran si pan=0). */
+  display: block;
   transform-origin: center center;
   will-change: transform, filter;
   user-select: none;

@@ -1,6 +1,11 @@
 import { defineStore } from 'pinia';
 import { ZOOM_STEP } from '../../../shared/gamepad-codes.js';
-import { panForZoomToCenter } from '../../../shared/zoom-anchor.js';
+import {
+  measureReaderZoomGeometry,
+  panForZoomToCenter,
+  panForZoomToScreenCenter,
+  pinReaderOverflow,
+} from '../../../shared/zoom-anchor.js';
 
 const NIGHT_PRESET = { brightness: 0.78, contrast: 1.12, sepia: 0.35 };
 const RESET_FILTERS = { brightness: 1, contrast: 1, sepia: 0 };
@@ -60,14 +65,14 @@ export const useReaderStore = defineStore('reader', {
   getters: {
     pageLabel: (s) => `${s.pageCount ? s.pageIndex + 1 : 0} / ${s.pageCount}`,
     progress: (s) => (s.pageCount ? ((s.pageIndex + 1) / s.pageCount) * 100 : 0),
-    transform: (s) => `translate3d(${s.panX}px, ${s.panY}px, 0) scale(${s.scale})`,
+    transform: (s) => `scale(${s.scale})`,
     currentChapter: (s) => s.chapters[s.chapterIndex] || null,
     filterCss(s) {
       return `brightness(${s.brightness}) contrast(${s.contrast}) sepia(${s.sepia})`;
     },
     imageStyle(s) {
       // Fit height/width : CSS [data-fit] sur .reader__stage (repère plan local).
-      // Ici uniquement pan / scale / filtres — évite de combattre object-fit.
+      // Scale seul ici — le pan est sur .reader__pan (évite double translate).
       const base = {
         transform: s.transform,
         transformOrigin: 'center center',
@@ -346,23 +351,42 @@ export const useReaderStore = defineStore('reader', {
       this.zoomTransition = false;
     },
     /**
+     * Ancre pan au centre écran pour un changement d’échelle.
+     * Mesure stage/page (fit + rotate) ; fallback centre image si pas de DOM.
+     */
+    panAnchoredForScale(fromPanX, fromPanY, fromScale, toScale) {
+      pinReaderOverflow();
+      const geom = measureReaderZoomGeometry();
+      if (geom && geom.stageW > 0 && geom.stageH > 0) {
+        return panForZoomToScreenCenter(
+          fromPanX,
+          fromPanY,
+          fromScale,
+          toScale,
+          geom,
+        );
+      }
+      return panForZoomToCenter(fromPanX, fromPanY, fromScale, toScale);
+    },
+    /**
      * Applique une échelle en ancrant le point sous le centre du viewport
-     * (ajuste panX/panY — voir `panForZoomToCenter`).
+     * (écran → local image → nouveau pan ; voir `panForZoomToScreenCenter`).
      */
     applyScaleAtCenter(nextScale) {
       const to = clampScale(nextScale);
       const from = this.scale;
       if (from !== 0 && Math.abs(to - from) >= 1e-9) {
-        const anchored = panForZoomToCenter(this.panX, this.panY, from, to);
+        const anchored = this.panAnchoredForScale(this.panX, this.panY, from, to);
         this.panX = anchored.panX;
         this.panY = anchored.panY;
       }
       this.scale = to;
+      pinReaderOverflow();
     },
     /**
      * Interpole `scale` → `targetScale` en ~200 ms ease-out (rAF).
      * Le pas logique reste ±ZOOM_STEP ; seul le rendu est lissé.
-     * Chaque frame ancre le zoom au centre (pas de dérive / faux scroll).
+     * Chaque frame ancre le zoom au centre écran (pas de dérive / faux scroll).
      */
     animateScaleTo(target, { duration = ZOOM_ANIM_MS } = {}) {
       const to = clampScale(target);
@@ -375,6 +399,15 @@ export const useReaderStore = defineStore('reader', {
       const fromScale = this.scale;
       const fromPanX = this.panX;
       const fromPanY = this.panY;
+      // Géométrie figée au départ (fit CSS stable pendant le lerp scale).
+      const geom = measureReaderZoomGeometry();
+      const anchor = (panX, panY, from, s) => {
+        pinReaderOverflow();
+        if (geom && geom.stageW > 0 && geom.stageH > 0) {
+          return panForZoomToScreenCenter(panX, panY, from, s, geom);
+        }
+        return panForZoomToCenter(panX, panY, from, s);
+      };
       if (Math.abs(to - fromScale) < 0.0005) {
         this.applyScaleAtCenter(to);
         this._zoomRaf = null;
@@ -386,18 +419,19 @@ export const useReaderStore = defineStore('reader', {
         const ease = 1 - (1 - t) ** 3;
         const s = fromScale + (to - fromScale) * ease;
         // Ancre depuis l’état de départ (évite la dérive flottante frame à frame).
-        const anchored = panForZoomToCenter(fromPanX, fromPanY, fromScale, s);
+        const anchored = anchor(fromPanX, fromPanY, fromScale, s);
         this.panX = anchored.panX;
         this.panY = anchored.panY;
         this.scale = s;
         if (t < 1) {
           this._zoomRaf = requestAnimationFrame(step);
         } else {
-          const finalPan = panForZoomToCenter(fromPanX, fromPanY, fromScale, to);
+          const finalPan = anchor(fromPanX, fromPanY, fromScale, to);
           this.panX = finalPan.panX;
           this.panY = finalPan.panY;
           this.scale = to;
           this._zoomRaf = null;
+          pinReaderOverflow();
         }
       };
       this._zoomRaf = requestAnimationFrame(step);
