@@ -20,24 +20,26 @@
 
 Node requis : **≥ 22.12.0** (exigence du paquet Electron ≥ 41).
 
-## Risques restants / acceptés temporairement
+## Résultat audit
 
-### `http-cache-semantics` (HIGH, GHSA-ch52-4w7c-c8xp / CVE-2026-93748)
+Après correctement : **`npm audit` → 0 vulnérabilité** (critical/high/moderate/low).
 
-- **Statut** : aucune version npm patchée (≤ 4.2.0 = latest).
-- **Chemin** : éventuellement encore présent via d’anciennes chaînes `got` / caches de build si un outil transitif la réintroduit.
-- **Exposition VDR** : tooling de **build / download** (electron-builder, rebuild), pas le runtime lecteur pour l’utilisateur final. Le scénario d’attaque vise un **cache HTTP partagé multi-utilisateurs** avec `max-stale` — hors modèle de menace d’une app desktop locale.
-- **Action** : surveiller un fix upstream ; conserver l’override `@electron/get@^5` pour limiter la surface.
+## Surveillance / dettes volontaires
 
 ### Electron / Chromium
 
-- Rester sur une ligne **supportée** (41.x ou plus récent) et re-bump dès qu’un advisory npm recommande une version supérieure **testée** (`npm test` + `npm run build`).
-- Un saut direct vers Electron 44.x est possible plus tard mais plus cassant (ABI natifs `better-sqlite3`, APIs).
+- Ligne actuelle : **41.10.7+** (hors périmètre des GHSA npm listés pour ≤41.10.5).
+- Un saut vers **Electron 44.x** reste possible plus tard pour Chromium plus récent, mais plus cassant (ABI `better-sqlite3`, APIs) — non nécessaire tant que l’audit reste vert.
+
+### `http-cache-semantics` (CVE-2026-93748)
+
+- Toujours **sans patch npm upstream** (≤4.2.0). Mitigé chez VDR via override `@electron/get@^5.1.0` (plus de chaîne `got` → `cacheable-request` dans l’arbre actuel).
+- Si un futur outil réintroduit la dépendance, l’audit remontera HIGH : conserver l’override et surveiller un fix kornelski.
 
 ### `better-sqlite3`
 
-- Dépendance **optionnelle**, bumpée en **12.x** pour l’ABI V8 d’Electron 41.
-- Échec de compile → fallback JSON (`docs/NATIVE.md`). Rebuild sur la machine Windows de packaging.
+- Optionnelle, en **12.x** pour l’ABI V8 d’Electron 41.
+- Échec de compile → fallback JSON (`docs/NATIVE.md`).
 
 ## Vérification
 
