@@ -1,0 +1,17 @@
+node_modules/
+dist/
+out/
+*.log
+.DS_Store
+Thumbs.db
+
+# Cache local VDR (miniatures, DB utilisateur)
+.vdr-cache/
+*.sqlite
+*.sqlite-journal
+
+# Env / IDE
+.env
+.env.*
+.vscode/
+.idea/
