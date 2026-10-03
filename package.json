@@ -1,7 +1,7 @@
 {
   "name": "vertical-deck-reader",
   "version": "0.1.0",
-  "description": "Lecteur BD/Manga vertical optimis\u00e9 ROG Ally X (Electron + Vue 3)",
+  "description": "Lecteur BD/Manga vertical optimisé ROG Ally X (Electron + Vue 3)",
   "main": "./out/main/index.js",
   "author": "Library Chronicles",
   "license": "MIT",
@@ -34,7 +34,7 @@
     "test:series-tome": "node scripts/verify-series-tome-fiches.mjs",
     "test:adjacent-tome": "node scripts/verify-reader-adjacent-tome.mjs",
     "test:perf-cache": "node scripts/verify-perf-cache.mjs",
-    "test": "npm run test:remap && npm run test:cbz && npm run test:pdf && npm run test:watcher && npm run test:haptics && npm run test:series && npm run test:series-folder && npm run test:metadata && npm run test:bounds && npm run test:setup-focus && npm run test:theme-accents && npm run test:focus-scroll && npm run test:stick-nav && npm run test:text-input && npm run test:hud-modal && npm run test:gamepad-reader && npm run test:book-focus && npm run test:zoom-anchor && npm run test:library-all-tab && npm run test:library-nav-continue && npm run test:import-list-detail && npm run test:series-tome && npm run test:adjacent-tome && npm run test:perf-cache",
+    "test": "npm run test:remap && npm run test:cbz && npm run test:pdf && npm run test:watcher && npm run test:haptics && npm run test:series && npm run test:series-folder && npm run test:metadata && npm run test:bounds && npm run test:setup-focus && npm run test:theme-accents && npm run test:focus-scroll && npm run test:stick-nav && npm run test:text-input && npm run test:hud-modal && npm run test:gamepad-reader && npm run test:book-focus && npm run test:zoom-anchor && npm run test:library-all-tab && npm run test:library-nav-continue && npm run test:import-list-detail && npm run test:import-meta-jacket && npm run test:series-tome && npm run test:adjacent-tome && npm run test:perf-cache",
     "reset:library": "node scripts/reset-library.mjs",
     "reset:app": "node scripts/reset-library.mjs --setup",
     "rebuild:native": "node scripts/rebuild-native.mjs",
@@ -44,7 +44,8 @@
     "dist": "npm run build && electron-builder --win",
     "dist:win": "npm run build && electron-builder --win",
     "dist:dir": "npm run build && electron-builder --win --dir",
-    "pack": "npm run dist:dir"
+    "pack": "npm run dist:dir",
+    "test:import-meta-jacket": "node scripts/verify-import-meta-jacket.mjs"
   },
   "dependencies": {
     "@fontsource/figtree": "^5.2.5",
@@ -71,7 +72,7 @@
   "build": {
     "appId": "com.librarychronicles.verticaldeckreader",
     "productName": "Vertical Deck Reader",
-    "copyright": "Copyright \u00a9 Library Chronicles",
+    "copyright": "Copyright © Library Chronicles",
     "directories": {
       "output": "dist",
       "buildResources": "build"

@@ -5,8 +5,12 @@ import ControlHint from '../components/ControlHint.vue';
 import LazyCover from '../components/LazyCover.vue';
 import { useLibraryStore } from '../stores/library';
 import { useUiStore } from '../stores/ui';
-import { BOOK_FOCUS } from '../../../shared/book-focus.js';
+import {
+  BOOK_FOCUS,
+  isBookEditableFocus,
+} from '../../../shared/book-focus.js';
 import { scheduleScrollFocusedIntoView } from '../../../shared/focus-scroll.js';
+import { focusTextInputForEdit } from '../../../shared/virtual-keyboard.js';
 
 const route = useRoute();
 const router = useRouter();
@@ -15,18 +19,17 @@ const ui = useUiStore();
 
 const book = ref(null);
 const loading = ref(true);
+const saving = ref(false);
 
-const synopsis = computed(() => {
-  const b = book.value;
-  if (!b) return '';
-  return b.metadata?.description || b.metadata?.synopsis || '';
+/** Draft éditable — persisté via library.updateBook au blur / Enter. */
+const draft = ref({
+  title: '',
+  series: '',
+  volume: null,
+  year: null,
+  author: '',
+  description: '',
 });
-
-const synopsisDisplay = computed(
-  () =>
-    synopsis.value ||
-    'Aucune synopsis pour ce tome. Enrichis les métadonnées à l’import.',
-);
 
 const statusLabel = computed(() => {
   const s = book.value?.status;
@@ -59,7 +62,8 @@ const formatLabel = computed(() =>
 
 const statusHint = computed(() => {
   if (!book.value) return 'Fiche';
-  return `${formatLabel.value} · ${statusLabel.value} · p. ${pagesLabel.value}`;
+  const save = saving.value ? ' · Enregistrement…' : '';
+  return `${formatLabel.value} · ${statusLabel.value} · p. ${pagesLabel.value}${save}`;
 });
 
 /** Autres tomes de la même série — rail sous le contenu (jamais stacked sur la méta). */
@@ -85,16 +89,93 @@ const seriesRail = computed(() => {
 
 const hints = [
   { key: '↑↓', label: 'champ' },
-  { key: 'A', label: 'lire' },
+  { key: 'A', label: 'éditer / lire' },
   { key: 'B', label: 'retour' },
 ];
 
-onMounted(async () => {
-  // Soft refresh (TTL) — pas de re-list IPC si la grille vient d’être chargée
-  await library.refresh({ warmCovers: false });
-  const id = route.params.id;
+function syncDraftFromBook(b) {
+  if (!b) {
+    draft.value = {
+      title: '',
+      series: '',
+      volume: null,
+      year: null,
+      author: '',
+      description: '',
+    };
+    return;
+  }
+  draft.value = {
+    title: b.title || '',
+    series: b.series || '',
+    volume: b.volume ?? null,
+    year: b.year ?? null,
+    author: b.author || '',
+    description: b.metadata?.description || b.metadata?.synopsis || '',
+  };
+}
+
+async function loadBook(id) {
   book.value = library.getBookById(id);
+  syncDraftFromBook(book.value);
   if (book.value?.id) await library.ensureCover(book.value.id);
+}
+
+function parseOptionalNumber(value) {
+  if (value == null || value === '') return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function draftChanged() {
+  const b = book.value;
+  if (!b) return false;
+  const prevDesc = b.metadata?.description || b.metadata?.synopsis || '';
+  return (
+    String(draft.value.title || '') !== String(b.title || '') ||
+    String(draft.value.series || '') !== String(b.series || '') ||
+    parseOptionalNumber(draft.value.volume) !== (b.volume ?? null) ||
+    parseOptionalNumber(draft.value.year) !== (b.year ?? null) ||
+    String(draft.value.author || '') !== String(b.author || '') ||
+    String(draft.value.description || '') !== String(prevDesc || '')
+  );
+}
+
+async function saveDraft() {
+  const b = book.value;
+  if (!b?.id || saving.value || !draftChanged()) return;
+  saving.value = true;
+  try {
+    const title = String(draft.value.title || '').trim() || b.title;
+    const series = String(draft.value.series || '').trim() || null;
+    const author = String(draft.value.author || '').trim() || null;
+    const description = String(draft.value.description || '').trim() || null;
+    const updated = await library.updateBook(b.id, {
+      title,
+      series,
+      volume: parseOptionalNumber(draft.value.volume),
+      year: parseOptionalNumber(draft.value.year),
+      author,
+      metadata: {
+        ...(b.metadata || {}),
+        description,
+        synopsis: description,
+      },
+    });
+    if (updated) {
+      book.value = updated;
+      syncDraftFromBook(updated);
+    }
+  } catch (err) {
+    console.warn('[VDR] save meta fiche:', err?.message || err);
+  } finally {
+    saving.value = false;
+  }
+}
+
+onMounted(async () => {
+  await library.refresh({ warmCovers: false });
+  await loadBook(route.params.id);
   loading.value = false;
   ui.setBookFocus(BOOK_FOCUS.READ);
   nextTick(() => scheduleScrollFocusedIntoView('.book-detail'));
@@ -104,10 +185,10 @@ watch(
   () => route.params.id,
   async (id) => {
     if (!id) return;
+    await saveDraft();
     loading.value = true;
     await library.refresh({ warmCovers: false });
-    book.value = library.getBookById(id);
-    if (book.value?.id) await library.ensureCover(book.value.id);
+    await loadBook(id);
     loading.value = false;
     ui.setBookFocus(BOOK_FOCUS.READ);
     nextTick(() => scheduleScrollFocusedIntoView('.book-detail'));
@@ -119,23 +200,30 @@ watch(
   () => nextTick(() => scheduleScrollFocusedIntoView('.book-detail')),
 );
 
-/** Entrée lecteur uniquement — jamais de resize ici (route book ≠ reader). */
 function read() {
-  if (!book.value?.filePath) return;
-  router.push({ name: 'reader', query: { path: book.value.filePath } });
+  void saveDraft().then(() => {
+    if (!book.value?.filePath) return;
+    router.push({ name: 'reader', query: { path: book.value.filePath } });
+  });
 }
 
 function back() {
-  router.push({ name: 'library' });
+  void saveDraft().then(() => {
+    router.push({ name: 'library' });
+  });
 }
 
 function goImport() {
-  router.push({ name: 'import' });
+  void saveDraft().then(() => {
+    router.push({ name: 'import' });
+  });
 }
 
 function openSibling(id) {
   if (!id || String(id) === String(book.value?.id)) return;
-  router.push({ name: 'book', params: { id: String(id) } });
+  void saveDraft().then(() => {
+    router.push({ name: 'book', params: { id: String(id) } });
+  });
 }
 
 function openSeriesPage() {
@@ -150,11 +238,34 @@ function openSeriesPage() {
           .toLowerCase() === String(b.series || '').trim().toLowerCase(),
     )?.seriesId;
   if (!sid) return;
-  router.push({ name: 'series', params: { seriesId: String(sid) } });
+  void saveDraft().then(() => {
+    router.push({ name: 'series', params: { seriesId: String(sid) } });
+  });
 }
 
 function focusField(index) {
   ui.setBookFocus(index);
+}
+
+function activateEditableField(index) {
+  ui.setBookFocus(index);
+  if (!isBookEditableFocus(index)) return;
+  nextTick(() => {
+    const map = {
+      [BOOK_FOCUS.TITLE]: 'title',
+      [BOOK_FOCUS.SERIES]: 'series',
+      [BOOK_FOCUS.VOLUME]: 'volume',
+      [BOOK_FOCUS.YEAR]: 'year',
+      [BOOK_FOCUS.AUTHOR]: 'author',
+      [BOOK_FOCUS.SYNOPSIS]: 'synopsis',
+    };
+    const id = map[index];
+    if (!id) return;
+    const el = document.querySelector(
+      `.book-detail [data-book-field="${id}"] input, .book-detail [data-book-field="${id}"] textarea`,
+    );
+    void focusTextInputForEdit(el);
+  });
 }
 
 function fieldFocused(index) {
@@ -175,6 +286,13 @@ function activateFooter(index) {
 function display(value) {
   if (value == null || value === '') return '—';
   return String(value);
+}
+
+function onEditableKeydown(ev) {
+  if (ev.key === 'Enter' && ev.target?.tagName !== 'TEXTAREA') {
+    ev.preventDefault();
+    /** @type {HTMLElement} */ (ev.target)?.blur?.();
+  }
 }
 </script>
 
@@ -225,18 +343,20 @@ function display(value) {
                 class="field book-detail__field book-detail__field--title"
                 :class="{ 'is-focused': fieldFocused(BOOK_FOCUS.TITLE) }"
                 data-book-field="title"
-                @click="focusField(BOOK_FOCUS.TITLE)"
+                @click="activateEditableField(BOOK_FOCUS.TITLE)"
               >
                 <label class="visually-hidden" for="book-field-title">Titre</label>
                 <input
                   id="book-field-title"
                   class="book-detail__headline"
                   type="text"
-                  :value="display(book.title)"
-                  readonly
+                  v-model="draft.title"
+                  inputmode="text"
+                  autocomplete="off"
                   tabindex="0"
-                  aria-readonly="true"
                   @focus="focusField(BOOK_FOCUS.TITLE)"
+                  @blur="saveDraft"
+                  @keydown="onEditableKeydown"
                 />
               </div>
 
@@ -245,17 +365,19 @@ function display(value) {
                   class="field book-detail__field book-detail__meta"
                   :class="{ 'is-focused': fieldFocused(BOOK_FOCUS.SERIES) }"
                   data-book-field="series"
-                  @click="focusField(BOOK_FOCUS.SERIES)"
+                  @click="activateEditableField(BOOK_FOCUS.SERIES)"
                 >
                   <label for="book-field-series">Série</label>
                   <input
                     id="book-field-series"
                     type="text"
-                    :value="display(book.series)"
-                    readonly
+                    v-model="draft.series"
+                    inputmode="text"
+                    autocomplete="off"
                     tabindex="0"
-                    aria-readonly="true"
                     @focus="focusField(BOOK_FOCUS.SERIES)"
+                    @blur="saveDraft"
+                    @keydown="onEditableKeydown"
                   />
                 </div>
 
@@ -264,34 +386,38 @@ function display(value) {
                     class="field book-detail__field book-detail__meta"
                     :class="{ 'is-focused': fieldFocused(BOOK_FOCUS.VOLUME) }"
                     data-book-field="volume"
-                    @click="focusField(BOOK_FOCUS.VOLUME)"
+                    @click="activateEditableField(BOOK_FOCUS.VOLUME)"
                   >
                     <label for="book-field-volume">Tome</label>
                     <input
                       id="book-field-volume"
-                      type="text"
-                      :value="display(book.volume)"
-                      readonly
+                      type="number"
+                      v-model.number="draft.volume"
+                      min="0"
+                      inputmode="numeric"
                       tabindex="0"
-                      aria-readonly="true"
                       @focus="focusField(BOOK_FOCUS.VOLUME)"
+                      @blur="saveDraft"
+                      @keydown="onEditableKeydown"
                     />
                   </div>
                   <div
                     class="field book-detail__field book-detail__meta"
                     :class="{ 'is-focused': fieldFocused(BOOK_FOCUS.YEAR) }"
                     data-book-field="year"
-                    @click="focusField(BOOK_FOCUS.YEAR)"
+                    @click="activateEditableField(BOOK_FOCUS.YEAR)"
                   >
                     <label for="book-field-year">Année</label>
                     <input
                       id="book-field-year"
-                      type="text"
-                      :value="display(book.year)"
-                      readonly
+                      type="number"
+                      v-model.number="draft.year"
+                      min="1900"
+                      inputmode="numeric"
                       tabindex="0"
-                      aria-readonly="true"
                       @focus="focusField(BOOK_FOCUS.YEAR)"
+                      @blur="saveDraft"
+                      @keydown="onEditableKeydown"
                     />
                   </div>
                 </div>
@@ -300,24 +426,26 @@ function display(value) {
                   class="field book-detail__field book-detail__meta"
                   :class="{ 'is-focused': fieldFocused(BOOK_FOCUS.AUTHOR) }"
                   data-book-field="author"
-                  @click="focusField(BOOK_FOCUS.AUTHOR)"
+                  @click="activateEditableField(BOOK_FOCUS.AUTHOR)"
                 >
                   <label for="book-field-author">Auteur</label>
                   <input
                     id="book-field-author"
                     type="text"
-                    :value="display(book.author)"
-                    readonly
+                    v-model="draft.author"
+                    inputmode="text"
+                    autocomplete="off"
                     tabindex="0"
-                    aria-readonly="true"
                     @focus="focusField(BOOK_FOCUS.AUTHOR)"
+                    @blur="saveDraft"
+                    @keydown="onEditableKeydown"
                   />
                 </div>
 
                 <div class="book-detail__chips" aria-hidden="true">
                   <span class="book-detail__chip">{{ formatLabel }}</span>
                   <span class="book-detail__chip">{{ statusLabel }}</span>
-                  <span v-if="book.year" class="book-detail__chip">{{ book.year }}</span>
+                  <span v-if="draft.year" class="book-detail__chip">{{ draft.year }}</span>
                 </div>
 
                 <div class="book-detail__fields-row">
@@ -380,24 +508,26 @@ function display(value) {
                 class="field book-detail__field book-detail__field--synopsis"
                 :class="{ 'is-focused': fieldFocused(BOOK_FOCUS.SYNOPSIS) }"
                 data-book-field="synopsis"
-                @click="focusField(BOOK_FOCUS.SYNOPSIS)"
+                @click="activateEditableField(BOOK_FOCUS.SYNOPSIS)"
               >
                 <label for="book-field-synopsis">Synopsis</label>
                 <textarea
                   id="book-field-synopsis"
                   class="book-detail__textarea"
                   rows="5"
-                  :value="synopsisDisplay"
-                  readonly
+                  v-model="draft.description"
+                  inputmode="text"
+                  placeholder="Aucune synopsis pour ce tome. Enrichis les métadonnées à l’import."
                   tabindex="0"
-                  aria-readonly="true"
                   @focus="focusField(BOOK_FOCUS.SYNOPSIS)"
+                  @blur="saveDraft"
                 />
               </div>
             </div>
           </div>
 
-          <!-- Rail série : flux document normal, sous le hero — z-index / overflow contenus -->
+          <!-- Rail série
+ : flux document normal, sous le hero — z-index / overflow contenus -->
           <section
             v-if="seriesRail.length > 1"
             class="book-detail__rail"
@@ -682,7 +812,7 @@ function display(value) {
   font-weight: 800;
   letter-spacing: -0.02em;
   line-height: 1.1;
-  cursor: default;
+  cursor: text;
 }
 
 /* Labels + valeurs type streaming (pas de boîtes formulaire empilées) */
@@ -709,7 +839,7 @@ function display(value) {
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
-  cursor: default;
+  cursor: text;
   opacity: 1;
   color: var(--paper);
   background: transparent;
@@ -719,6 +849,22 @@ function display(value) {
   font: inherit;
   font-size: 0.98rem;
   font-weight: 600;
+}
+
+.book-detail__meta input[readonly],
+.book-detail__textarea[readonly] {
+  cursor: default;
+}
+
+.book-detail__meta input[type='number'] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.book-detail__meta input[type='number']::-webkit-outer-spin-button,
+.book-detail__meta input[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
 .book-detail__field--synopsis {

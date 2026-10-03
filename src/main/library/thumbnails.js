@@ -3,6 +3,8 @@ import fs from 'fs';
 import crypto from 'crypto';
 import { app } from 'electron';
 import { createLruMap } from '../../shared/perf-cache.js';
+import { fetchBuffer } from '../metadata/fetch.js';
+import { USER_AGENT } from '../metadata/types.js';
 
 /** Cache mémoire data-URL (évite relecture disque + re-encode base64). */
 const dataUrlCache = createLruMap(96);
@@ -17,14 +19,28 @@ export function cacheDir(profileId = null) {
 
 /**
  * Écrit la couverture sur disque (cache) et retourne le chemin.
+ * @param {string} bookFilePath
+ * @param {() => Promise<Buffer|Uint8Array|null|undefined>} getCoverBuffer
+ * @param {string|number|null} [profileId]
+ * @param {{ force?: boolean }} [opts] force=true écrase un cache existant (jacket API).
  */
-export async function ensureCover(bookFilePath, getCoverBuffer, profileId = null) {
+export async function ensureCover(
+  bookFilePath,
+  getCoverBuffer,
+  profileId = null,
+  opts = {},
+) {
+  const force = Boolean(opts?.force);
   const dir = cacheDir(profileId);
   fs.mkdirSync(dir, { recursive: true });
   const hash = crypto.createHash('sha1').update(bookFilePath).digest('hex').slice(0, 16);
   const coverPath = path.join(dir, `${hash}.jpg`);
 
-  if (fs.existsSync(coverPath) && fs.statSync(coverPath).size > 0) {
+  if (
+    !force &&
+    fs.existsSync(coverPath) &&
+    fs.statSync(coverPath).size > 0
+  ) {
     return coverPath;
   }
 
@@ -35,6 +51,28 @@ export async function ensureCover(bookFilePath, getCoverBuffer, profileId = null
   fs.writeFileSync(coverPath, buffer);
   invalidateCoverDataUrl(coverPath);
   return coverPath;
+}
+
+/**
+ * Télécharge une jacket distante (coverUrl provider) et l’écrit en cache.
+ * @param {string} bookFilePath
+ * @param {string} coverUrl
+ * @param {string|number|null} [profileId]
+ */
+export async function ensureCoverFromUrl(bookFilePath, coverUrl, profileId = null) {
+  const url = String(coverUrl || '').trim();
+  if (!/^https?:\/\//i.test(url)) {
+    throw new Error('URL couverture invalide');
+  }
+  const buffer = await fetchBuffer(url, {
+    timeoutMs: 12_000,
+    headers: {
+      'User-Agent': USER_AGENT,
+      Accept: 'image/*,*/*;q=0.8',
+    },
+  });
+  if (!buffer?.length) throw new Error('Couverture distante vide');
+  return ensureCover(bookFilePath, async () => buffer, profileId, { force: true });
 }
 
 export function invalidateCoverDataUrl(coverPath) {

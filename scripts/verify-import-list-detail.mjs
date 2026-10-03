@@ -266,6 +266,17 @@ assert(
   ).title === 'Draft',
   'resolve preferDraft',
 );
+assert(
+  resolveItemMetadata({
+    name: 'file.cbz',
+    selectedMeta: {
+      title: 'API',
+      coverUrl: 'https://cdn.example/j.jpg',
+      source: 'anilist',
+    },
+  }).coverUrl === 'https://cdn.example/j.jpg',
+  'resolve propage coverUrl API',
+);
 assert(metaSourceLabel('selected').includes('API'), 'label selected');
 assert(metaSourceLabel('empty').includes('Aucune'), 'label empty');
 

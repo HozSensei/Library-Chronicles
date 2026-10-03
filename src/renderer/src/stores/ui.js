@@ -92,7 +92,7 @@ export const useUiStore = defineStore('ui', {
       }
     },
     setBookFocus(index) {
-      // Champs méta readonly + footer (voir shared/book-focus.js)
+      // Champs méta (éditables) + footer (voir shared/book-focus.js)
       this.bookFocusIndex = clampBookFocus(index);
     },
     setSeriesFocus(index, volumeCount = 0) {

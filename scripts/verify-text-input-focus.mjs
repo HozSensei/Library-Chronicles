@@ -41,6 +41,7 @@ function fakeEl(tag, attrs = {}, props = {}) {
   const el = {
     tagName: upper,
     disabled: Boolean(props.disabled),
+    readOnly: Boolean(props.readOnly),
     isContentEditable: Boolean(props.isContentEditable),
     _focused: false,
     getAttribute(name) {
@@ -86,7 +87,16 @@ assert(
     false,
   'input disabled → non',
 );
+assert(
+  isTextInputElement(fakeEl('input', { type: 'text' }, { readOnly: true })) ===
+    false,
+  'input readonly → non',
+);
 assert(isTextInputElement(fakeEl('textarea')) === true, 'textarea');
+assert(
+  isTextInputElement(fakeEl('textarea', {}, { readOnly: true })) === false,
+  'textarea readonly → non',
+);
 assert(
   isTextInputElement(fakeEl('div', {}, { isContentEditable: true })) === true,
   'contenteditable',

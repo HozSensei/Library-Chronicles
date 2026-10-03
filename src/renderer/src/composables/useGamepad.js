@@ -25,8 +25,9 @@ import {
 } from '../../../shared/focus-scroll.js';
 import {
   BOOK_FOCUS,
+  bookFieldDomId,
   clampBookFocus,
-  isBookActionFocus,
+  resolveBookConfirmAction,
 } from '../../../shared/book-focus.js';
 import {
   clampSeriesFocus,
@@ -540,18 +541,23 @@ function createLoop(ctx) {
         afterFocusMove();
       }
       if (action === 'open-book' || action === 'confirm') {
-        vibe('confirm');
-        const focused = document.querySelector('.book-detail .is-focused');
-        if (focused?.classList?.contains('book-detail__action')) {
-          focused.click();
-        } else if (
-          focused?.classList?.contains('book-detail__field') ||
-          !isBookActionFocus(ui.bookFocusIndex)
-        ) {
-          // Sur un champ méta : A = CTA principal Lire
+        const intent = resolveBookConfirmAction(ui.bookFocusIndex);
+        if (intent === 'activate-action') {
+          vibe('confirm');
           document
-            .querySelector(`.book-detail [data-book-action="${BOOK_FOCUS.READ}"]`)
+            .querySelector(
+              `.book-detail [data-book-action="${ui.bookFocusIndex}"]`,
+            )
             ?.click();
+        } else if (intent === 'edit-field') {
+          const id = bookFieldDomId(ui.bookFocusIndex);
+          const el = id
+            ? document.querySelector(
+                `.book-detail [data-book-field="${id}"] input, .book-detail [data-book-field="${id}"] textarea`,
+              )
+            : null;
+          void focusTextInputForEdit(el);
+          vibe('light');
         }
       }
       if (action === 'settings') {

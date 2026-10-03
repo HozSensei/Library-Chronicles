@@ -1,5 +1,5 @@
 /**
- * Focus fiche livre — champs méta readonly + CTA footer (style Import detail).
+ * Focus fiche livre — champs méta éditables + CTA footer (style Import detail).
  */
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -8,6 +8,8 @@ import {
   BOOK_FOCUS,
   clampBookFocus,
   isBookActionFocus,
+  isBookEditableFocus,
+  resolveBookConfirmAction,
 } from '../src/shared/book-focus.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -44,6 +46,17 @@ assert(clampBookFocus(NaN) === BOOK_FOCUS.READ, 'clamp NaN → READ');
 assert(!isBookActionFocus(BOOK_FOCUS.SYNOPSIS), 'synopsis = contenu');
 assert(!isBookActionFocus(BOOK_FOCUS.TITLE), 'titre = contenu');
 assert(isBookActionFocus(BOOK_FOCUS.READ), 'lire = action');
+assert(isBookEditableFocus(BOOK_FOCUS.TITLE), 'titre éditable');
+assert(isBookEditableFocus(BOOK_FOCUS.SYNOPSIS), 'synopsis éditable');
+assert(!isBookEditableFocus(BOOK_FOCUS.STATUS), 'statut non éditable');
+assert(
+  resolveBookConfirmAction(BOOK_FOCUS.TITLE) === 'edit-field',
+  'A titre → edit-field',
+);
+assert(
+  resolveBookConfirmAction(BOOK_FOCUS.READ) === 'activate-action',
+  'A lire → activate-action',
+);
 
 const view = readFileSync(
   join(root, 'src/renderer/src/views/BookDetailView.vue'),
@@ -54,7 +67,9 @@ assert(view.includes('book-detail__foot'), 'footer fixe fiche');
 assert(view.includes('book-detail__fields'), 'panneau champs méta');
 assert(view.includes('book-detail__field'), 'champs focusables');
 assert(view.includes('book-detail__cover'), 'couverture');
-assert(view.includes('readonly'), 'champs readonly (focusables)');
+assert(view.includes('v-model="draft.title"'), 'titre éditable v-model');
+assert(view.includes('saveDraft'), 'persist méta saveDraft');
+assert(view.includes('readonly'), 'champs dérivés readonly (statut/pages)');
 assert(view.includes('book-detail__textarea'), 'synopsis textarea');
 assert(!view.includes('book-detail__row'), 'pas de rows style liste import');
 assert(view.includes('scheduleScrollFocusedIntoView'), 'scroll focus manette');
@@ -80,8 +95,9 @@ const pad = readFileSync(
 );
 assert(pad.includes('clampBookFocus'), 'useGamepad clamp book focus');
 assert(pad.includes("route === 'book'"), 'handler route book');
-assert(pad.includes('book-detail__action'), 'confirm cible actions fiche');
-assert(pad.includes('book-detail__field'), 'confirm sur champ méta');
+assert(pad.includes('resolveBookConfirmAction'), 'confirm resolve book');
+assert(pad.includes('focusTextInputForEdit'), 'confirm édite champ méta');
+assert(pad.includes('data-book-action'), 'confirm cible actions fiche');
 // Ne pas casser le chemin reader (scope tick)
 const tickBody = pad.slice(pad.indexOf('function tick()'));
 assert(
