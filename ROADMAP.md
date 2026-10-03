@@ -42,7 +42,7 @@ Voir [`docs/UX.md`](./docs/UX.md), [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.
 | Contrôle (écran) | Mode Lecture (portrait) | Mode Bibliothèque (landscape) |
 |----------|--------------|-------------------|
 | Stick L | Pan (remap portrait) | Curseur grille |
-| L3 / R3 | Toggle Fit Height ↔ Zoom 100 % | Valider |
+| L3 / R3 | Toggle Fit Height ↔ Fit Width | Valider |
 | D-Pad ← / → | **Zoom ±** | Curseur |
 | D-Pad ↑ / ↓ | Page ±1 | Curseur |
 | A | Sens Occidental ↔ Manga | Ouvrir **fiche livre** |

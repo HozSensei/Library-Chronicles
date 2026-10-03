@@ -76,6 +76,19 @@ assert(
   readerView.includes('is-zoom-smooth'),
   'L3 fit toggle : classe transition CSS',
 );
+assert(
+  /toggleZoom\(\)\s*\{[\s\S]*?fit-width[\s\S]*?fit-height/.test(store),
+  'L3 toggleZoom : Fit Width ↔ Fit Height',
+);
+assert(
+  store.includes("fitMode === 'fit-width' ? 'fit-height' : 'fit-width'"),
+  'L3 : déjà fit-width → fit-height, sinon → fit-width',
+);
+assert(
+  readerView.includes("data-fit='fit-width'") &&
+    /fit-width[\s\S]*?width:\s*100%/.test(readerView),
+  'Fit Width CSS : width 100% (largeur locale = largeur utilisateur sous +90°)',
+);
 
 assert(gamepad.includes('reader.hudVisible'), 'gamepad branche modal pause');
 assert(gamepad.includes('closeHud()'), 'B/Select → closeHud en pause');

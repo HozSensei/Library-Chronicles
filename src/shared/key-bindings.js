@@ -12,7 +12,7 @@ export const BINDABLE_ACTIONS = Object.freeze({
     { id: 'toggle-direction', label: 'Sens LTR / RTL' },
     { id: 'close-book', label: 'Fermer le livre' },
     { id: 'toggle-overlay', label: 'Afficher / masquer HUD' },
-    { id: 'toggle-zoom', label: 'Toggle Fit / 100 %' },
+    { id: 'toggle-zoom', label: 'Toggle Fit Height / Fit Width' },
     { id: 'zoom-in', label: 'Zoom +' },
     { id: 'zoom-out', label: 'Zoom −' },
     { id: 'page-prev', label: 'Page précédente' },
