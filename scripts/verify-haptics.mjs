@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Tests haptics — no-op sans actuator, pulse avec mock.
+ * Tests haptics — no-op sans actuator, pulse avec mock, throttle stick-spam.
  */
 import assert from 'assert';
 import { pathToFileURL } from 'url';
@@ -16,7 +16,13 @@ const {
   pulseHaptic,
   hasHaptics,
   resetHapticThrottle,
+  MIN_HAPTIC_GAP_MS,
 } = await import(modUrl);
+
+assert.ok(
+  MIN_HAPTIC_GAP_MS >= 80 && MIN_HAPTIC_GAP_MS <= 120,
+  `MIN_HAPTIC_GAP_MS dans 80–120 (reçu ${MIN_HAPTIC_GAP_MS})`,
+);
 
 resetHapticThrottle();
 assert.strictEqual(hasHaptics(null), false);
@@ -62,5 +68,18 @@ assert.strictEqual(hasHaptics(pad2), true);
 assert.strictEqual(await pulseHaptic(pad2, 'nav'), true);
 assert.strictEqual(pulseLegacy, 1);
 
-console.info('OK  haptics no-op / dual-rumble / pulse legacy');
+// minGapMs custom (tests / overrides)
+resetHapticThrottle();
+playCalls = 0;
+assert.strictEqual(
+  await pulseHaptic(pad, 'nav', { enabled: true, minGapMs: 50 }),
+  true,
+);
+assert.strictEqual(
+  await pulseHaptic(pad, 'nav', { enabled: true, minGapMs: 50 }),
+  false,
+);
+assert.strictEqual(playCalls, 1);
+
+console.info('OK  haptics no-op / dual-rumble / pulse legacy / throttle 80–120');
 console.info('Tous les tests haptics sont passés.');

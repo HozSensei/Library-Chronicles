@@ -50,13 +50,18 @@ const nav = createStickMenuNav({
 });
 
 assert(nav.update(0, -0.6, 0) === 'up', 'edge : premier fire immédiat');
+assert(nav.lastWasRepeat() === false, 'edge : lastWasRepeat=false');
 assert(nav.update(0, -0.6, 100) === null, 'pendant délai initial : silence');
 assert(nav.update(0, -0.6, 319) === null, 'juste avant délai : silence');
 assert(nav.update(0, -0.6, 320) === 'up', 'à initialDelay : premier repeat');
+assert(nav.lastWasRepeat() === true, 'repeat : lastWasRepeat=true');
 assert(nav.update(0, -0.6, 400) === null, 'entre repeats : silence');
 assert(nav.update(0, -0.6, 440) === 'up', 'après repeatMs : fire');
+assert(nav.lastWasRepeat() === true, 'repeat suivant : lastWasRepeat=true');
 assert(nav.update(0, 0, 500) === null, 'retour neutre : null + reset');
+assert(nav.lastWasRepeat() === false, 'reset neutre : lastWasRepeat=false');
 assert(nav.update(0, -0.6, 510) === 'up', 'nouveau edge après neutre');
+assert(nav.lastWasRepeat() === false, 'nouvel edge : lastWasRepeat=false');
 
 assert(nav.update(0.7, 0, 520) === 'right', 'changement de direction : edge');
 assert(nav.update(0.7, 0, 600) === null, 'même dir : silence avant délai');

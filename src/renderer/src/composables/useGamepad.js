@@ -103,9 +103,16 @@ function createLoop(ctx) {
     handlers = next;
   }
 
-  function vibe(kind) {
+  /**
+   * @param {'light'|'confirm'|'nav'} kind
+   * @param {{ stickRepeat?: boolean }} [meta]
+   *   stickRepeat : pas de haptic nav sur auto-repeat stick (edge seulement).
+   */
+  function vibe(kind, meta = {}) {
     const { ui } = handlers;
     if (!ui.hapticsEnabled) return;
+    // Stick maintenu = pas de rumble à chaque pas de repeat
+    if (kind === 'nav' && meta.stickRepeat) return;
     pulseHaptic(currentPad, kind, { enabled: true });
   }
 
@@ -181,6 +188,8 @@ function createLoop(ctx) {
     if (!action) return;
     const { router, ui, reader, library, imp } = handlers;
     const route = ui.routeName;
+    const stickRepeat = Boolean(payload?.stickRepeat);
+    const navVibe = () => vibe('nav', { stickRepeat });
 
     if (ui.listeningForBind && payload?.bindingKey) {
       ui.applyCapturedBind(payload.bindingKey);
@@ -217,14 +226,14 @@ function createLoop(ctx) {
         if (action === 'cursor-left' || action === 'cursor-up') {
           const input = document.querySelector('.profiles__create input');
           void focusTextInputForEdit(input);
-          vibe('nav');
+          navVibe();
           afterFocusMove();
           return;
         }
         if (action === 'cursor-right' || action === 'cursor-down') {
           const btn = document.querySelector('.profiles__create .btn-primary');
           btn?.focus?.();
-          vibe('nav');
+          navVibe();
           afterFocusMove();
           return;
         }
@@ -256,22 +265,22 @@ function createLoop(ctx) {
 
       if (action === 'cursor-up') {
         profiles.moveFocus(-1);
-        vibe('nav');
+        navVibe();
         afterFocusMove();
       }
       if (action === 'cursor-down') {
         profiles.moveFocus(1);
-        vibe('nav');
+        navVibe();
         afterFocusMove();
       }
       if (action === 'cursor-left') {
         profiles.moveFocus(-1);
-        vibe('nav');
+        navVibe();
         afterFocusMove();
       }
       if (action === 'cursor-right') {
         profiles.moveFocus(1);
-        vibe('nav');
+        navVibe();
         afterFocusMove();
       }
       if (action === 'rename' || action === 'book-options') {
@@ -307,12 +316,12 @@ function createLoop(ctx) {
       const max = Math.max(0, document.querySelectorAll('.boot__nav .focus-btn').length - 1);
       if (action === 'cursor-up') {
         ui.setBootFocus(Math.max(0, ui.bootFocusIndex - 1));
-        vibe('nav');
+        navVibe();
         afterFocusMove();
       }
       if (action === 'cursor-down') {
         ui.setBootFocus(Math.min(max, ui.bootFocusIndex + 1));
-        vibe('nav');
+        navVibe();
         afterFocusMove();
       }
       if (action === 'confirm' || action === 'open-book') {
@@ -330,23 +339,23 @@ function createLoop(ctx) {
 
       if (action === 'cursor-up') {
         ui.setSetupFocus(moveSetupFocus(rows, ui.setupFocusIndex, 'up'));
-        vibe('nav');
+        navVibe();
         afterFocusMove();
       }
       if (action === 'cursor-down') {
         ui.setSetupFocus(moveSetupFocus(rows, ui.setupFocusIndex, 'down'));
-        vibe('nav');
+        navVibe();
         afterFocusMove();
       }
       if (action === 'cursor-left') {
         // Navigation horizontale UNIQUEMENT — ne jamais ouvrir le sélecteur de dossier
         ui.setSetupFocus(moveSetupFocus(rows, ui.setupFocusIndex, 'left'));
-        vibe('nav');
+        navVibe();
         afterFocusMove();
       }
       if (action === 'cursor-right') {
         ui.setSetupFocus(moveSetupFocus(rows, ui.setupFocusIndex, 'right'));
-        vibe('nav');
+        navVibe();
         afterFocusMove();
       }
       if (action === 'back') {
@@ -369,22 +378,22 @@ function createLoop(ctx) {
       }
       if (action === 'cursor-up') {
         library.moveCatalog(0, -1);
-        vibe('nav');
+        navVibe();
         afterFocusMove();
       }
       if (action === 'cursor-down') {
         library.moveCatalog(0, 1);
-        vibe('nav');
+        navVibe();
         afterFocusMove();
       }
       if (action === 'cursor-left') {
         library.moveCatalog(-1, 0);
-        vibe('nav');
+        navVibe();
         afterFocusMove();
       }
       if (action === 'cursor-right') {
         library.moveCatalog(1, 0);
-        vibe('nav');
+        navVibe();
         afterFocusMove();
       }
       if (action === 'toggle-series') {
@@ -450,12 +459,12 @@ function createLoop(ctx) {
       // ←→ : même chaîne (footer CTA inclus), comme Import en paysage console.
       if (action === 'cursor-left' || action === 'cursor-up') {
         ui.setBookFocus(clampBookFocus(ui.bookFocusIndex - 1));
-        vibe('nav');
+        navVibe();
         afterFocusMove();
       }
       if (action === 'cursor-right' || action === 'cursor-down') {
         ui.setBookFocus(clampBookFocus(ui.bookFocusIndex + 1));
-        vibe('nav');
+        navVibe();
         afterFocusMove();
       }
       if (action === 'open-book' || action === 'confirm') {
@@ -488,13 +497,13 @@ function createLoop(ctx) {
         vibe('light');
         router.push({ name: 'library' });
       }
+      // Navigation liste/actions : pas de haptic (évite spam stick / scan refresh).
       if (action === 'cursor-up') {
         if (ui.importFocusZone === 'actions') {
           ui.setImportFocusZone('list');
         } else {
           imp.moveCursor(-1);
         }
-        vibe('nav');
         afterFocusMove();
       }
       if (action === 'cursor-down') {
@@ -509,7 +518,6 @@ function createLoop(ctx) {
         } else {
           ui.setImportFocus(Math.min(footerMax, ui.importFocusIndex + 1));
         }
-        vibe('nav');
         afterFocusMove();
       }
       if (action === 'cursor-left') {
@@ -517,7 +525,6 @@ function createLoop(ctx) {
           ui.setImportFocusZone('actions');
         }
         ui.setImportFocus(Math.max(0, ui.importFocusIndex - 1));
-        vibe('nav');
         afterFocusMove();
       }
       if (action === 'cursor-right') {
@@ -525,26 +532,35 @@ function createLoop(ctx) {
           ui.setImportFocusZone('actions');
         }
         ui.setImportFocus(Math.min(footerMax, ui.importFocusIndex + 1));
-        vibe('nav');
         afterFocusMove();
       }
       if (action === 'confirm') {
-        vibe('confirm');
         if (ui.importFocusZone === 'actions') {
           const idx = ui.importFocusIndex;
-          if (idx === 0) imp.commitSelection({ copyToLibrary: true });
-          else if (idx === 1) imp.commitAll({ copyToLibrary: true });
-          else if (idx === 2) imp.enrich();
-          else if (idx === 3) imp.scan();
-          else router.push({ name: 'library' });
+          // Haptic discret : toggle / import done seulement — pas scan / enrich bulk
+          if (idx === 0) {
+            vibe('confirm');
+            imp.commitSelection({ copyToLibrary: true });
+          } else if (idx === 1) {
+            vibe('confirm');
+            imp.commitAll({ copyToLibrary: true });
+          } else if (idx === 2) {
+            imp.enrich();
+          } else if (idx === 3) {
+            imp.scan();
+          } else {
+            vibe('light');
+            router.push({ name: 'library' });
+          }
         } else {
           // Liste : A = toggle sélection multi
+          vibe('confirm');
           imp.toggleSelect();
         }
         afterFocusMove();
       }
       if (action === 'enrich') {
-        vibe('confirm');
+        // Enrichissement = bulk async — pas de rumble
         imp.enrich();
       }
       return;
@@ -565,12 +581,12 @@ function createLoop(ctx) {
       const maxSettings = Math.max(0, focusItems.length - 1);
       if (action === 'cursor-up' || action === 'cursor-left') {
         ui.setSettingsFocus(Math.max(0, ui.settingsFocusIndex - 1));
-        vibe('nav');
+        navVibe();
         afterFocusMove();
       }
       if (action === 'cursor-down' || action === 'cursor-right') {
         ui.setSettingsFocus(Math.min(maxSettings, ui.settingsFocusIndex + 1));
-        vibe('nav');
+        navVibe();
         afterFocusMove();
       }
       /** LT / RT uniquement → sections Paramètres */
@@ -627,7 +643,7 @@ function createLoop(ctx) {
           action === 'cursor-left'
         ) {
           reader.moveHudFocus(-1);
-          vibe('nav');
+          navVibe();
           afterFocusMove();
           return;
         }
@@ -638,7 +654,7 @@ function createLoop(ctx) {
           action === 'cursor-right'
         ) {
           reader.moveHudFocus(1);
-          vibe('nav');
+          navVibe();
           afterFocusMove();
           return;
         }
@@ -789,10 +805,11 @@ function createLoop(ctx) {
             const logical = remapStick(orientation, rawX, rawY);
             const dir = stickMenuNav.update(logical.x, logical.y, performance.now());
             if (dir) {
-              if (dir === 'up') dispatch('cursor-up');
-              else if (dir === 'down') dispatch('cursor-down');
-              else if (dir === 'left') dispatch('cursor-left');
-              else if (dir === 'right') dispatch('cursor-right');
+              const stickPayload = { stickRepeat: stickMenuNav.lastWasRepeat() };
+              if (dir === 'up') dispatch('cursor-up', stickPayload);
+              else if (dir === 'down') dispatch('cursor-down', stickPayload);
+              else if (dir === 'left') dispatch('cursor-left', stickPayload);
+              else if (dir === 'right') dispatch('cursor-right', stickPayload);
             }
           } else {
             // Lecteur : pan analogique avec remap portrait — pas de focus menu.
@@ -809,7 +826,9 @@ function createLoop(ctx) {
           const dir = stickMenuNav.update(rawX, rawY, performance.now());
           if (dir) {
             const action = resolveAction(`dpad:${dir}`);
-            if (action) dispatch(action);
+            if (action) {
+              dispatch(action, { stickRepeat: stickMenuNav.lastWasRepeat() });
+            }
           }
         } else {
           stickMenuNav.reset();
