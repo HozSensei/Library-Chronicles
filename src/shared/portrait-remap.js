@@ -12,7 +12,7 @@
  *   physique DROITE  → logique HAUT     (droite natif pointe vers ABXY / haut)
  *
  * Le plan lecteur CSS est tourné de +90° (CW) pour que la planche soit
- * à l’endroit dans ce hold — voir ReaderView + visualPanToLocal.
+ * à l’endroit dans ce hold — pan stick : même +90° via visualPanToLocal.
  *
  * Toutes les actions UI/lecteur doivent raisonner en directions *logiques*
  * (repère écran utilisateur), jamais en indices bruts du D-Pad XInput.
@@ -99,49 +99,46 @@ export function remapStick(orientation, physicalX, physicalY) {
 }
 
 /**
- * Convertit un pan en repère utilisateur (visuel / logique) vers le repère
- * local du plan lecteur tourné de +90° CSS (CW).
+ * Pan stick → repère local du plan lecteur sous CSS `rotate(90deg)` CW.
  *
- * Spec pan stick lecture — identité visuelle (directions = écran) :
- *   Haut    → la planche/vue se déplace vers le haut
- *   Bas     → vers le bas
- *   Gauche  → vers la gauche
- *   Droite  → vers la droite
+ * Règle unique : **rotate stick like the page** — même +90° CW que le plan
+ * (ReaderView `.reader__plane`), appliquée aux axes stick *physiques*
+ * (= identité landscape des menus), pas au remap portrait CCW.
  *
- * Sous rotate(90deg) CW, un translate local apparaît à l’écran ainsi :
- *   local(+X) → bas écran
- *   local(+Y) → gauche écran
- *   donc screenX = −localY, screenY = localX
+ * Repère Gamepad / CSS (Y ↓) : rotation CW 90°
+ *   (x, y) → (−y, x)
+ * donc :
+ *   localX = −stickY
+ *   localY =  stickX
  *
- * Pour un glissement écran = stick logique (identité), il faut :
+ * | Stick physique | local après +90° CW |
+ * |----------------|---------------------|
+ * | Haut  (0,−1)   | (+1, 0)             |
+ * | Bas   (0,+1)   | (−1, 0)             |
+ * | Gauche (−1,0)  | (0,−1)              |
+ * | Droite (+1,0)  | (0,+1)              |
  *
- *   localX =  visualY
- *   localY = −visualX
+ * Ne pas toucher remapStick : menus landscape + modal pause / D-Pad en dépendent.
  *
- * Chaîne Ally CCW (D-Pad en bas), stick vers le haut de l’écran :
- *   physique → (1,0) → remapStick → logique ↑ (0,−1)
- *   → visualPanToLocal → local (−1, 0) → page glisse vers le haut
- *
- * Ne pas toucher remapStick ici : menus / modal pause / D-Pad en dépendent.
- *
- * @param {number} visualX
- * @param {number} visualY
+ * @param {number} stickX axes stick physiques (ou landscape identité)
+ * @param {number} stickY
  * @returns {{ x: number, y: number }}
  */
-export function visualPanToLocal(visualX, visualY) {
-  return { x: visualY, y: -visualX };
+export function visualPanToLocal(stickX, stickY) {
+  return { x: -stickY, y: stickX };
 }
 
 /**
- * Direction de glissement de la page (repère écran utilisateur) pour un
- * pan logique, une fois appliqué via visualPanToLocal sous +90° CSS.
- * @param {number} visualX
- * @param {number} visualY
+ * Direction de glissement écran de la page pour un stick physique, une fois
+ * passé par visualPanToLocal (+90° CW) puis le plan CSS rotate(90deg).
+ * Composition : écran ≈ −stick (même rotation stick + page).
+ * @param {number} stickX
+ * @param {number} stickY
  * @returns {'up'|'down'|'left'|'right'|null}
  */
-export function pageSlideFromVisualPan(visualX, visualY) {
-  const local = visualPanToLocal(visualX, visualY);
-  // rotate(90deg) CW : screenX = −localY, screenY = localX
+export function pageSlideFromVisualPan(stickX, stickY) {
+  const local = visualPanToLocal(stickX, stickY);
+  // rotate(90deg) CW sur le plan : screenX = −localY, screenY = localX
   const screenX = -local.y;
   const screenY = local.x;
   const ax = Math.abs(screenX);
