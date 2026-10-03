@@ -398,9 +398,9 @@ async function quitReading() {
   bottom: 1.25rem;
   z-index: var(--z-hud);
   padding: 0.75rem 0.9rem;
-  background: color-mix(in srgb, var(--ink) 78%, transparent);
+  background: color-mix(in srgb, var(--bg) 78%, transparent);
   border: 1px solid color-mix(in srgb, var(--brass) 35%, transparent);
-  color: #f2ebe0;
+  color: var(--paper);
   animation: hud-fade 200ms var(--ease-out);
   max-width: min(28rem, calc(100% - 2rem));
   margin-inline: auto;
@@ -431,14 +431,14 @@ async function quitReading() {
 
 .hud-toast__page {
   flex-shrink: 0;
-  color: rgba(242, 235, 224, 0.7);
+  color: var(--paper-dim);
   font-size: 0.78rem;
 }
 
 .hud-toast__track {
   height: 3px;
   border-radius: 999px;
-  background: rgba(242, 235, 224, 0.12);
+  background: color-mix(in srgb, var(--paper) 12%, transparent);
   overflow: hidden;
 }
 
@@ -461,7 +461,7 @@ async function quitReading() {
   place-items: center;
   padding: 1.25rem;
   box-sizing: border-box;
-  color: #f2ebe0;
+  color: var(--paper);
   animation: hud-fade 180ms var(--ease-out);
   max-width: 100%;
   max-height: 100%;
@@ -480,7 +480,8 @@ async function quitReading() {
   border: 0;
   padding: 0;
   margin: 0;
-  background: rgba(6, 10, 14, 0.62);
+  /* Voile semi-transparent clair/foncé selon data-theme (--hud-fade) */
+  background: var(--hud-fade);
   cursor: pointer;
 }
 
@@ -497,14 +498,11 @@ async function quitReading() {
   min-height: 0;
   padding: 1.15rem 1.2rem 1.05rem;
   box-sizing: border-box;
-  background:
-    linear-gradient(
-      165deg,
-      color-mix(in srgb, var(--ink) 92%, var(--brass) 8%),
-      color-mix(in srgb, var(--ink) 96%, transparent)
-    );
+  /* Fond = background du thème (data-theme), pas un noir générique */
+  background: var(--bg);
+  color: var(--paper);
   border: 1px solid color-mix(in srgb, var(--brass) 42%, transparent);
-  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 18px 48px color-mix(in srgb, var(--ink) 45%, transparent);
   overflow: hidden;
 }
 
@@ -532,14 +530,14 @@ async function quitReading() {
 
 .hud__page {
   flex-shrink: 0;
-  color: rgba(242, 235, 224, 0.72);
+  color: var(--paper-dim);
   font-size: 0.82rem;
 }
 
 .hud__track {
   height: 3px;
   border-radius: 999px;
-  background: rgba(242, 235, 224, 0.12);
+  background: color-mix(in srgb, var(--paper) 12%, transparent);
   overflow: hidden;
 }
 
@@ -561,9 +559,9 @@ async function quitReading() {
 
 .hud__tab {
   flex: 1;
-  border: 1px solid rgba(242, 235, 224, 0.18);
+  border: 1px solid var(--border);
   background: transparent;
-  color: rgba(242, 235, 224, 0.75);
+  color: var(--paper-dim);
   padding: 0.45rem 0.4rem;
   font: inherit;
   font-size: 0.78rem;
@@ -572,6 +570,7 @@ async function quitReading() {
 }
 
 .hud__tab.is-active {
+  /* Texte sombre sur pastille accent (lisible clair + sombre) */
   color: #1a1510;
   background: var(--brass-bright);
   border-color: var(--brass-bright);
@@ -605,7 +604,7 @@ async function quitReading() {
 .hud__meta {
   display: flex;
   justify-content: space-between;
-  color: rgba(242, 235, 224, 0.7);
+  color: var(--paper-dim);
   font-size: 0.78rem;
   gap: 0.75rem;
   min-width: 0;
@@ -633,7 +632,7 @@ async function quitReading() {
 .hud__flash {
   margin: 0;
   font-size: 0.75rem;
-  color: rgba(242, 235, 224, 0.65);
+  color: var(--paper-dim);
 }
 
 .hud__hint {
@@ -688,7 +687,7 @@ async function quitReading() {
   flex: 1;
   text-align: left;
   border: 1px solid transparent;
-  background: rgba(242, 235, 224, 0.08);
+  background: color-mix(in srgb, var(--paper) 8%, transparent);
   color: inherit;
   padding: 0.45rem 0.55rem;
   font: inherit;
