@@ -152,7 +152,7 @@ export function pageSlideFromVisualPan(stickX, stickY) {
  * Action lecture associée à une direction logique D-Pad.
  * Spec UX (repère écran portrait) — axes invertis :
  *   ← / →  → pages
- *   ↑ / ↓  → zoom ±
+ *   ↑ = zoom + · ↓ = zoom −
  */
 export function readingActionForLogicalDpad(dir) {
   switch (dir) {
@@ -161,9 +161,9 @@ export function readingActionForLogicalDpad(dir) {
     case LogicalDir.RIGHT:
       return 'page-next';
     case LogicalDir.UP:
-      return 'zoom-out';
-    case LogicalDir.DOWN:
       return 'zoom-in';
+    case LogicalDir.DOWN:
+      return 'zoom-out';
     default:
       return null;
   }

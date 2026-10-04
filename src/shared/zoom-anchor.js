@@ -300,6 +300,74 @@ export function measureReaderZoomGeometry(root) {
 }
 
 /**
+ * Limites de pan stage-local pour une page `translate(pan) scale(s)` (origin centre).
+ * - Axe oversized (page zoomée > stage) : bords atteignables, pas dépassables
+ *   (cover — pas de vide hors image).
+ * - Axe undersized : pan verrouillé à 0 (position layout centrée).
+ *
+ * @param {number} scale
+ * @param {ZoomGeom} geom
+ * @returns {{ minX: number, maxX: number, minY: number, maxY: number }}
+ */
+export function panLimitsForPage(scale, geom) {
+  const stageW = Number(geom?.stageW) || 0;
+  const stageH = Number(geom?.stageH) || 0;
+  const imgW = Number(geom?.imgW) || 0;
+  const imgH = Number(geom?.imgH) || 0;
+  const sRaw = Number(scale);
+  const s = Number.isFinite(sRaw) && sRaw > 0 ? sRaw : 1;
+  if (stageW <= 0 || stageH <= 0 || imgW <= 0 || imgH <= 0) {
+    return { minX: 0, maxX: 0, minY: 0, maxY: 0 };
+  }
+  const imgOffsetX =
+    geom?.imgOffsetX != null
+      ? Number(geom.imgOffsetX)
+      : (stageW - imgW) / 2;
+  const imgOffsetY =
+    geom?.imgOffsetY != null
+      ? Number(geom.imgOffsetY)
+      : (stageH - imgH) / 2;
+  const imgCX = imgOffsetX + imgW / 2;
+  const imgCY = imgOffsetY + imgH / 2;
+
+  const axisLimits = (imgC, sized, stage) => {
+    const half = sized / 2;
+    if (sized + 1e-6 >= stage) {
+      // left/top = imgC + pan - half ≤ 0  ⇒  pan ≤ -imgC + half
+      // right/bot = imgC + pan + half ≥ stage  ⇒  pan ≥ stage - imgC - half
+      return {
+        min: stage - imgC - half,
+        max: -imgC + half,
+      };
+    }
+    // Page plus petite que le stage sur cet axe : pas de pan dans le vide.
+    return { min: 0, max: 0 };
+  };
+
+  const x = axisLimits(imgCX, imgW * s, stageW);
+  const y = axisLimits(imgCY, imgH * s, stageH);
+  return { minX: x.min, maxX: x.max, minY: y.min, maxY: y.max };
+}
+
+/**
+ * Clamp pan pour que l’image ne sorte pas du viewport (bords page = extrémités).
+ * @param {number} panX
+ * @param {number} panY
+ * @param {number} scale
+ * @param {ZoomGeom} geom
+ * @returns {{ panX: number, panY: number }}
+ */
+export function clampPanToPage(panX, panY, scale, geom) {
+  const limits = panLimitsForPage(scale, geom);
+  const x = Number(panX) || 0;
+  const y = Number(panY) || 0;
+  return {
+    panX: Math.min(limits.maxX, Math.max(limits.minX, x)),
+    panY: Math.min(limits.maxY, Math.max(limits.minY, y)),
+  };
+}
+
+/**
  * Évite tout scroll parasite du conteneur pendant un zoom.
  * @param {ParentNode | { querySelectorAll: Function }} [root]
  */

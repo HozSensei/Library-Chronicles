@@ -125,12 +125,12 @@ export const DEFAULT_KEY_BINDINGS = Object.freeze({
     [`button:${GamepadButtons.RB}`]: 'next-volume',
     /**
      * Spec UX : axes invertis (ex-zoom ↔ ex-pages).
-     * ← / →  → pages · ↑ / ↓  → zoom ± (repère logique post-remap)
+     * ← / →  → pages · ↑ = zoom + · ↓ = zoom − (repère logique post-remap)
      */
     'dpad:left': 'page-prev',
     'dpad:right': 'page-next',
-    'dpad:up': 'zoom-out',
-    'dpad:down': 'zoom-in',
+    'dpad:up': 'zoom-in',
+    'dpad:down': 'zoom-out',
     'stick:left': 'pan',
   },
   library: {
