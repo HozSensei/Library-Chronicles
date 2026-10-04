@@ -110,6 +110,69 @@ assert(
     'toggle-direction',
   'A reader → toggle-direction',
 );
+assert(
+  actionForBinding(bindings, 'reader', `button:${GamepadButtons.L3}`) ===
+    'reset-zoom',
+  'L3 → reset-zoom (page entière)',
+);
+assert(
+  actionForBinding(bindings, 'reader', `button:${GamepadButtons.R3}`) ===
+    'reset-zoom',
+  'R3 → reset-zoom',
+);
+assert(
+  DEFAULT_KEY_BINDINGS.reader[`button:${GamepadButtons.L3}`] === 'reset-zoom',
+  'défaut L3 = reset-zoom (pas toggle fit)',
+);
+
+const migrated = resolveKeyBindings({
+  reader: { [`button:${GamepadButtons.L3}`]: 'toggle-zoom' },
+});
+assert(
+  actionForBinding(migrated, 'reader', `button:${GamepadButtons.L3}`) ===
+    'reset-zoom',
+  'remap legacy toggle-zoom → reset-zoom',
+);
+
+const gamepadSrc = gamepad;
+assert(
+  gamepadSrc.includes("action === 'reset-zoom'") &&
+    gamepadSrc.includes('reader.resetZoom()'),
+  'dispatch reader : reset-zoom → resetZoom()',
+);
+assert(
+  !gamepadSrc.includes('reader.toggleZoom()'),
+  'dispatch reader : plus d’appel toggleZoom()',
+);
+
+const store = readFileSync(
+  join(root, 'src/renderer/src/stores/reader.js'),
+  'utf8',
+);
+assert(store.includes('resetZoom()'), 'store expose resetZoom()');
+assert(
+  /resetZoom\(\)\s*\{[\s\S]*?animateScaleTo\(1\)/.test(store),
+  'resetZoom → scale 1 (fit stage)',
+);
+assert(
+  /resetZoom\(\)\s*\{[\s\S]*?this\.panX\s*=\s*0[\s\S]*?this\.panY\s*=\s*0/.test(
+    store,
+  ),
+  'resetZoom recentre le pan',
+);
+{
+  const m = store.match(/resetZoom\(\)\s*\{([^}]*)\}/);
+  assert(
+    m && !/fitMode\s*=/.test(m[1]),
+    'resetZoom ne bascule pas fitMode',
+  );
+}
+assert(
+  !/fitMode\s*=\s*this\.fitMode\s*===\s*'fit-width'\s*\?\s*'fit-height'/.test(
+    store,
+  ),
+  'plus de toggle Fit Height ↔ Fit Width dans le store',
+);
 
 // --- Covers grille / rails uniformes -------------------------------------
 assert(

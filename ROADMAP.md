@@ -42,7 +42,7 @@ Voir [`docs/UX.md`](./docs/UX.md), [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.
 | Contrôle (écran) | Mode Lecture (portrait) | Mode Bibliothèque (landscape) |
 |----------|--------------|-------------------|
 | Stick L | Pan (remap portrait) | Curseur grille |
-| L3 / R3 | Toggle Fit Height ↔ Fit Width | Valider |
+| L3 / R3 | Reset zoom (page entière) | Valider |
 | D-Pad ← / → | **Zoom ±** | Curseur |
 | D-Pad ↑ / ↓ | Page ±1 | Curseur |
 | A | Sens Occidental ↔ Manga | Ouvrir **fiche livre** |
@@ -87,7 +87,7 @@ Voir [`docs/UX.md`](./docs/UX.md), [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.
 ### Phase 1 — MVP lecteur *(fait)*
 
 - [x] CBZ/ZIP réel via JSZip (pages triées, getPage)
-- [x] Fit Height, pan stick (`translate3d`), zoom D-Pad ±15 %, toggle L3
+- [x] Fit Height, pan stick (`translate3d`), zoom D-Pad ±15 %, reset zoom L3
 - [x] Pages D-Pad (avec remap portrait)
 
 ### Phase 2 — Lecteur complet *(fait)*

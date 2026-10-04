@@ -244,7 +244,7 @@ function endFocusId(id) {
   object-fit: contain;
 }
 
-/* L3 fit toggle : transition width/height (le scale D-Pad est lerp rAF). */
+/* L3 reset / LB fit : transition width/height (le scale D-Pad est lerp rAF). */
 .reader__page.is-zoom-smooth {
   transition:
     width 200ms ease-out,

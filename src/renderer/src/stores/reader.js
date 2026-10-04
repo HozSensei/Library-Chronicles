@@ -39,7 +39,7 @@ export const useReaderStore = defineStore('reader', {
     scale: 1,
     /** Cible logique du zoom (±15 % par pas). */
     targetScale: 1,
-    /** Pulse CSS pour transition fit L3 (width/height). */
+    /** Pulse CSS pour transition fit / reset zoom L3 (width/height). */
     zoomTransition: false,
     panX: 0,
     panY: 0,
@@ -525,7 +525,7 @@ export const useReaderStore = defineStore('reader', {
       };
       this._zoomRaf = requestAnimationFrame(step);
     },
-    /** Transition CSS width/height pour toggle fit L3. */
+    /** Transition CSS width/height pour reset / fit (L3, LB). */
     pulseZoomTransition(ms = ZOOM_ANIM_MS + 40) {
       this.zoomTransition = true;
       if (this._zoomTransitionTimer) clearTimeout(this._zoomTransitionTimer);
@@ -559,13 +559,19 @@ export const useReaderStore = defineStore('reader', {
     zoomBy(steps) {
       this.animateScaleTo(this.targetScale + Number(steps) * ZOOM_STEP);
     },
-    /** L3 / R3 — toggle Fit Height ↔ Fit Width. */
-    toggleZoom() {
+    /**
+     * L3 / R3 — reset zoom unique : page entière (fit stage), pan recentré.
+     * Ne bascule PAS Fit Height ↔ Fit Width (fitMode stable).
+     */
+    resetZoom() {
       this.pulseZoomTransition();
-      this.fitMode = this.fitMode === 'fit-width' ? 'fit-height' : 'fit-width';
       this.panX = 0;
       this.panY = 0;
       this.animateScaleTo(1);
+    },
+    /** @deprecated alias — préférer resetZoom() */
+    toggleZoom() {
+      this.resetZoom();
     },
     /** LB — Fit Width direct. */
     setFitWidth() {

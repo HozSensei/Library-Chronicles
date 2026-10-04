@@ -12,7 +12,7 @@ export const BINDABLE_ACTIONS = Object.freeze({
     { id: 'toggle-direction', label: 'Sens LTR / RTL' },
     { id: 'close-book', label: 'Fermer le livre' },
     { id: 'toggle-overlay', label: 'Afficher / masquer HUD' },
-    { id: 'toggle-zoom', label: 'Toggle Fit Height / Fit Width' },
+    { id: 'reset-zoom', label: 'Reset zoom (page entière)' },
     { id: 'zoom-in', label: 'Zoom +' },
     { id: 'zoom-out', label: 'Zoom −' },
     { id: 'page-prev', label: 'Page précédente' },
@@ -118,8 +118,8 @@ export const DEFAULT_KEY_BINDINGS = Object.freeze({
     /** Select / View → menu pause lecture */
     [`button:${GamepadButtons.SELECT}`]: 'toggle-pause',
     [`button:${GamepadButtons.LB}`]: 'fit-width',
-    [`button:${GamepadButtons.L3}`]: 'toggle-zoom',
-    [`button:${GamepadButtons.R3}`]: 'toggle-zoom',
+    [`button:${GamepadButtons.L3}`]: 'reset-zoom',
+    [`button:${GamepadButtons.R3}`]: 'reset-zoom',
     [`button:${GamepadButtons.LT}`]: 'chapter-prev',
     [`button:${GamepadButtons.RT}`]: 'chapter-next',
     [`button:${GamepadButtons.RB}`]: 'next-volume',
@@ -225,10 +225,15 @@ export const DEFAULT_KEY_BINDINGS = Object.freeze({
 export function resolveKeyBindings(user) {
   const out = {};
   for (const ctx of Object.keys(DEFAULT_KEY_BINDINGS)) {
-    out[ctx] = {
+    const merged = {
       ...DEFAULT_KEY_BINDINGS[ctx],
       ...(user?.[ctx] || {}),
     };
+    // Ancien id remap « toggle-zoom » → reset zoom page entière.
+    for (const [key, action] of Object.entries(merged)) {
+      if (action === 'toggle-zoom') merged[key] = 'reset-zoom';
+    }
+    out[ctx] = merged;
   }
   return out;
 }

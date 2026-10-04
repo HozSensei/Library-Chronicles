@@ -408,7 +408,7 @@ async function quitReading() {
 
       <p class="hud__hint">
         A valider · B fermer · Select pause · ↑↓ focus
-        · Stick pan · ↑↓ zoom · L3 fit · ←→ page
+        · Stick pan · ↑↓ zoom · L3 page entière · ←→ page
       </p>
     </div>
   </aside>

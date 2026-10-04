@@ -111,6 +111,18 @@ assert(!hud.includes('toggleReadingMode'), 'HUD sans toggleReadingMode');
 assert(hud.includes('Stick'), 'HUD hints manette stick/zoom');
 assert(hud.includes('←→ page'), 'HUD hint pages ←→');
 assert(hud.includes('↑↓ zoom'), 'HUD hint zoom ↑↓');
+assert(
+  hud.includes('L3 page entière') || hud.includes('Reset zoom'),
+  'HUD hint L3 = page entière / reset zoom',
+);
+assert(!hud.includes('L3 fit'), 'HUD sans ancien hint L3 fit (toggle)');
+assert(store.includes('resetZoom()'), 'store resetZoom (L3)');
+assert(
+  !/fitMode\s*=\s*this\.fitMode\s*===\s*'fit-width'\s*\?\s*'fit-height'/.test(
+    store,
+  ),
+  'store : plus de toggle fit L3',
+);
 
 assert(gamepad.includes('reader.hudVisible'), 'gamepad branche modal pause');
 assert(gamepad.includes('closeHud()'), 'B/Select → closeHud en pause');
