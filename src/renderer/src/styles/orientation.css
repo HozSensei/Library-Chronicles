@@ -58,19 +58,3 @@ body,
   grid-template-columns: 1fr;
   gap: 0.45rem;
 }
-
-[data-orientation='portrait-ccw'] .reader__strip-page {
-  width: 100%;
-}
-
-[data-orientation='landscape'] .reader__strip-page {
-  max-width: min(52vw, 720px);
-  margin-inline: auto;
-}
-
-/* Plan déjà en repère portrait local après +90° */
-[data-reader-rotate='1'] .reader__strip-page {
-  max-width: none;
-  width: 100%;
-  margin-inline: 0;
-}
