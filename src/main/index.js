@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, screen } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, screen, nativeImage } from 'electron';
 import { join } from 'path';
 import fs from 'fs';
 import { IpcChannels } from '../shared/ipc-channels.js';
@@ -29,6 +29,26 @@ import { showWindowsVirtualKeyboard } from './virtual-keyboard.js';
 
 let mainWindow = null;
 
+function resolveAppIcon() {
+  const candidates = [
+    join(process.resourcesPath || '', 'build', 'icon.png'),
+    join(app.getAppPath(), 'build', 'icon.png'),
+    join(__dirname, '../../build/icon.png'),
+    join(__dirname, '../../../build/icon.png'),
+  ];
+  for (const p of candidates) {
+    try {
+      if (p && fs.existsSync(p)) {
+        const img = nativeImage.createFromPath(p);
+        if (!img.isEmpty()) return img;
+      }
+    } catch {
+      // try next
+    }
+  }
+  return undefined;
+}
+
 function primaryWorkArea() {
   try {
     return screen.getPrimaryDisplay().workArea;
@@ -49,6 +69,7 @@ function createWindow() {
   const desired = boundsForOrientation(orientation);
   const bounds = clampSizeToWorkArea(desired, workArea);
   const pos = centerInWorkArea(bounds, workArea);
+  const icon = resolveAppIcon();
 
   mainWindow = new BrowserWindow({
     width: bounds.width,
@@ -58,6 +79,7 @@ function createWindow() {
     minWidth: bounds.minWidth,
     minHeight: bounds.minHeight,
     title: 'Library Chronicles',
+    ...(icon ? { icon } : {}),
     backgroundColor: theme === 'light' ? '#f3f0ea' : '#121418',
     autoHideMenuBar: true,
     show: false,

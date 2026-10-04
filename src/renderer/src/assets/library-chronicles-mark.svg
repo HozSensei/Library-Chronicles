@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 151 150" fill="none" role="img" aria-label="Library Chronicles">
+  <!--
+    Marque Library Chronicles : squircle + glyphe calligraphique.
+    Source design = PNG ; le masque embarqué permet currentColor sur le « C ».
+    Runtime app : préférer AppBrandMark.vue (CSS mask + profile.color).
+    Path SVG vectoriel pur : non fourni — OK user pour formats dérivés.
+  -->
+  <defs>
+    <mask id="lc-c-glyph" maskUnits="userSpaceOnUse" x="0" y="0" width="151" height="150">
+      <image width="151" height="150" xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAJcAAACWCAYAAADTwxrcAAADFElEQVR4nO3by27bQBBE0WaQ//9lZWELEQRRpCgOu6rmnl1287hsMjZcBQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABdL9wJmdLvdbo//XpYl8h4iN9XpOZwzuMb3t3sBzkaElMTyiejUFZTj9GJy7cCEOoa4VhDU9+xG7WjKUbm9Gplcv5SjcjV9XEQ1zrRxEdV4f7oX0ME1LLd1TzW53C7H3RRxEVWP+NciYfWJjouwesXGRVj94r65iEpH1ORKD4tf/zQ5K6xvLjA97k9ZPQlrvrnU0dPgzODcJpfVYl/59PI6L+jb0IjrQp9cltrFHAlNbQ9bbD/oncOq+nxNinvYYhnX3rCWX6PXc5Ty2s5gGdce6RfnwC6uramlPq2eOa31U1Zx7QnrqrVcyXVfNnElh+W89nds4non9XLcWcT1bmqlhJWyj0fycc3++zrn6OTjesf54F9J2490XDO8DpNJxzWjpIdGNi6mlv8+ZeNa437ge6TsUTKu2f+HmEIyrjUpT/QeCXuVi4uplUMqLsLKIhUXstjElfANMhuZuHgl5pGJC3mIC8NIxMUrMZNEXFv4mPdkERc8tcfFKzFXe1zIRVwYhrgwTGtcfG9ls5hcROjJIi54Ii4MYxMXr0Y/NnHBD3FhGKu4eDV6sYqrisCc2MUFH5ZxMb08WMZVRWAObOOq+gmMyHRZx3VHYJoi4qoiMEUxcVXxmlQTFdcdkWmIjOuOyHq1/z3g1ZfP30Bep/2gOycLoY0V/VrcwmtzLIknV+2CmWjnkDhEtbieEdsxMoemHtgzgtsmc0Buca0huv+kDiIlsHdmik9qozPEdYRrkHKLJrBzdYYp93Mu16dUUfdZysVV1X8oCRTOUDKuKo3DwXdk46oisKNUzk06riqdg3KhdF7ycVVpHZgytXOSWswe/KjiNbWwqkwm1yPFQ8Rr1hfFFPuh+sBJLuqIWUNTDasqKK67GSJTDuqRxSKPcg/NJaI11os/SiU693i2RG/uDHtCTI8EAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+f4BmVA0reoxyA4AAAAASUVORK5CYII="/>
+    </mask>
+  </defs>
+  <rect width="151" height="150" rx="34" ry="34" fill="#0a0a0a"/>
+  <rect width="151" height="150" fill="currentColor" mask="url(#lc-c-glyph)"/>
+</svg>

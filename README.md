@@ -1,9 +1,9 @@
-# Vertical Deck Reader (VDR)
+# Library Chronicles
 
 Lecteur de BD, comics et mangas pensé manette pour **ROG Ally X**.  
 **Menus en paysage** · **lecture en portrait** (bascule automatique).
 
-**Electron + Vue 3 + Vite + Pinia + Tailwind** — *Library Chronicles*.
+**Electron + Vue 3 + Vite + Pinia + Tailwind** — code historique parfois abrégé *VDR*.
 
 Prérequis : **Node ≥ 22.12.0**. Sécurité deps : [`docs/SECURITY.md`](./docs/SECURITY.md).
 

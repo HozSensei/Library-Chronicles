@@ -3,6 +3,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import ControlHint from '../components/ControlHint.vue';
 import AppBrandLogo from '../components/AppBrandLogo.vue';
+import AppBrandMark from '../components/AppBrandMark.vue';
 import FocusButton from '../components/FocusButton.vue';
 import { useProfilesStore } from '../stores/profiles';
 import { useUiStore } from '../stores/ui';
@@ -71,15 +72,6 @@ const formTitle = computed(() =>
 const submitLabel = computed(() =>
   editingId.value != null ? t('profiles.save') : t('profiles.create'),
 );
-const previewInitial = computed(() => {
-  const n = newName.value.trim();
-  if (n) return n.slice(0, 1).toUpperCase();
-  if (editingId.value != null) {
-    const p = profiles.profiles.find((x) => x.id === editingId.value);
-    return (p?.name || '?').slice(0, 1).toUpperCase();
-  }
-  return '?';
-});
 const colorOptions = computed(() =>
   profiles.colors?.length
     ? profiles.colors
@@ -480,15 +472,20 @@ defineExpose({
           <span class="avatar__halo" aria-hidden="true">
             <span
               class="avatar__disk"
-              :style="{
-                background: p.avatarPath
-                  ? `center / cover url(${p.avatarPath})`
-                  : p.color,
-              }"
+              :class="{ 'avatar__disk--photo': Boolean(p.avatarPath) }"
+              :style="
+                p.avatarPath
+                  ? { background: `center / cover url(${p.avatarPath})` }
+                  : undefined
+              "
             >
-              <template v-if="!p.avatarPath">{{
-                (p.name || '?').slice(0, 1).toUpperCase()
-              }}</template>
+              <AppBrandMark
+                v-if="!p.avatarPath"
+                :color="p.color"
+                shape="circle"
+                size="fill"
+                class="avatar__mark"
+              />
             </span>
           </span>
           <span class="avatar__name">{{ p.name }}</span>
@@ -518,11 +515,13 @@ defineExpose({
           class="profiles__preview"
           aria-hidden="true"
         >
-          <span
-            class="avatar__disk profiles__preview-disk"
-            :style="{ background: selectedColor }"
-          >
-            {{ previewInitial }}
+          <span class="avatar__disk profiles__preview-disk">
+            <AppBrandMark
+              :color="selectedColor"
+              shape="circle"
+              size="fill"
+              class="avatar__mark"
+            />
           </span>
         </div>
 
@@ -779,18 +778,25 @@ footer {
   overflow: hidden;
   display: grid;
   place-items: center;
-  font-family: var(--font-display);
-  font-weight: 800;
-  font-size: 2rem;
-  color: #0e1419;
+  background: #0a0a0a;
   border: 2px solid color-mix(in srgb, var(--paper) 20%, transparent);
   flex-shrink: 0;
   box-sizing: border-box;
 }
 
+.avatar__disk--photo {
+  background-color: transparent;
+}
+
+.avatar__mark {
+  width: 100%;
+  height: 100%;
+}
+
 .avatar__disk--add {
   background: color-mix(in srgb, var(--ink-800) 80%, transparent);
   color: var(--paper);
+  font-family: var(--font-display);
   font-size: 2.4rem;
   font-weight: 400;
   border-style: dashed;
@@ -823,8 +829,6 @@ footer {
 .profiles__preview-disk {
   width: 4.5rem;
   height: 4.5rem;
-  font-size: 1.75rem;
-  transition: background-color 160ms var(--ease-soft);
 }
 
 .profiles__create label {
