@@ -276,9 +276,9 @@ export const useImportStore = defineStore('import', {
         this.selectedPaths = this.selectedPaths.filter((p) => valid.has(p));
         if (this.viewMode === 'detail' && this.selected) {
           await this.loadDraftFromSelected({ keepResults: false });
-        } else if (this.viewMode === 'detail' && !this.selected) {
-          this.goToList();
         }
+        // Pas de goToList() ici si selected manquant : syncFromRoute (URL)
+        // gère le fallback — évite un flash liste pendant le scan.
       } finally {
         this.loading = false;
       }

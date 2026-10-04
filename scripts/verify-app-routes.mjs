@@ -17,6 +17,8 @@ import {
   uiContextForRoute,
   isImportUiRoute,
   isMetaSearchRoute,
+  isSameAppLocation,
+  viewTransitionKey,
 } from '../src/shared/app-routes.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -91,6 +93,51 @@ const key = itemKeyFromPath('/data/foo bar.cbz');
 assert(pathFromItemKey(key) === '/data/foo bar.cbz', 'itemKey roundtrip');
 assert(importItemLocation('/x.cbz', { meta: true }).name === ROUTE.IMPORT_ITEM_META, 'import item meta loc');
 
+const importListKey = viewTransitionKey({ name: ROUTE.IMPORT, fullPath: '/import' });
+const importItemKey = viewTransitionKey({
+  name: ROUTE.IMPORT_ITEM,
+  params: { itemKey: 'a.cbz' },
+  fullPath: '/import/item/a.cbz',
+});
+const importMetaKey = viewTransitionKey({
+  name: ROUTE.IMPORT_ITEM_META,
+  params: { itemKey: 'a.cbz' },
+  fullPath: '/import/item/a.cbz/meta',
+});
+assert(importListKey === 'import-shell', 'viewKey liste import');
+assert(importItemKey === importListKey, 'viewKey sheet = liste (pas de remount)');
+assert(importMetaKey === importListKey, 'viewKey méta = liste (pas de remount)');
+assert(
+  viewTransitionKey({
+    name: ROUTE.LIBRARY_BOOK_META,
+    params: { id: '1' },
+    fullPath: '/library/book/1/meta',
+  }) === 'import-shell',
+  'viewKey méta biblio = import-shell',
+);
+assert(
+  viewTransitionKey({
+    name: ROUTE.LIBRARY_BOOK,
+    params: { id: '1' },
+    fullPath: '/library/book/1',
+  }) !== importListKey,
+  'viewKey fiche livre ≠ import-shell',
+);
+assert(
+  isSameAppLocation(
+    { name: ROUTE.IMPORT_ITEM, params: { itemKey: 'x' } },
+    { name: ROUTE.IMPORT_ITEM, params: { itemKey: 'x' } },
+  ),
+  'same location',
+);
+assert(
+  !isSameAppLocation(
+    { name: ROUTE.IMPORT_ITEM, params: { itemKey: 'x' } },
+    { name: ROUTE.IMPORT_ITEM, params: { itemKey: 'y' } },
+  ),
+  'diff itemKey ≠ same',
+);
+
 const router = readFileSync(join(root, 'src/renderer/src/router/index.js'), 'utf8');
 assert(router.includes("path: '/library/book/:id'"), 'router library book');
 assert(router.includes("path: '/library/book/:id/meta'"), 'router library meta');
@@ -107,14 +154,22 @@ assert(!bookView.includes('entryIntent'), 'plus entryIntent');
 
 const importView = readFileSync(join(root, 'src/renderer/src/views/ImportView.vue'), 'utf8');
 assert(importView.includes('syncFromRoute'), 'ImportView sync route');
+assert(importView.includes('applyFlowFromRoute'), 'ImportView flow avant await');
+assert(importView.includes('navigateTo'), 'ImportView nav idempotente');
 assert(importView.includes('resolveParentLocation'), 'ImportView B parent');
 assert(!importView.includes("from: 'import'"), 'ImportView sans from=import');
 assert(!importView.includes('consumeEntryIntent'), 'plus consumeEntryIntent');
+
+const appVue = readFileSync(join(root, 'src/renderer/src/App.vue'), 'utf8');
+assert(appVue.includes('viewTransitionKey'), 'App.vue clé transition stable');
+assert(!appVue.includes('route.fullPath'), 'App.vue plus keyed sur fullPath');
 
 const gamepad = readFileSync(join(root, 'src/renderer/src/composables/useGamepad.js'), 'utf8');
 assert(gamepad.includes('resolveParentLocation'), 'gamepad B parent');
 assert(gamepad.includes('isImportUiRoute'), 'gamepad import ui routes');
 assert(gamepad.includes('resolveImportTabAction'), 'gamepad LB/RB resolveImportTabAction');
+assert(gamepad.includes('pushRoute'), 'gamepad pushRoute anti-idempotent');
+assert(gamepad.includes('isSameAppLocation'), 'gamepad isSameAppLocation');
 assert(!gamepad.includes("from: 'import'"), 'gamepad sans from=import');
 assert(!gamepad.includes("query?.from === 'import'"), 'gamepad sans query from');
 

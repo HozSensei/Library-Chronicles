@@ -9,6 +9,7 @@ import { useImportStore } from './stores/import';
 import { markSetupCompleted } from './router';
 import { sessionOrientationForRoute } from '../../shared/portrait-remap.js';
 import { installVirtualKeyboardOnFocus } from '../../shared/virtual-keyboard.js';
+import { viewTransitionKey } from '../../shared/app-routes.js';
 
 const router = useRouter();
 const ui = useUiStore();
@@ -183,7 +184,8 @@ watch(
   >
     <RouterView v-slot="{ Component, route }">
       <Transition :name="route.meta.transition || 'fade-slide'" mode="out-in">
-        <component :is="Component" :key="route.fullPath" />
+        <!-- Clé stable import-shell : pas de remount liste↔fiche↔méta (évite flash). -->
+        <component :is="Component" :key="viewTransitionKey(route)" />
       </Transition>
     </RouterView>
     <AppToast />

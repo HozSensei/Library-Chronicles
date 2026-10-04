@@ -23,6 +23,8 @@ import {
   ROUTE,
   bookDetailLocation,
   importItemLocation,
+  isMetaSearchRoute,
+  isSameAppLocation,
   resolveParentLocation,
 } from '../../../shared/app-routes.js';
 
@@ -103,14 +105,50 @@ const showSheetTabs = computed(
     route.name === ROUTE.IMPORT_ITEM_META || route.name === ROUTE.IMPORT_ITEM,
 );
 
+/** Navigation sans push redondant (même name+params). */
+function navigateTo(location, { replace = false } = {}) {
+  if (!location || isSameAppLocation(route, location)) return Promise.resolve();
+  return replace ? router.replace(location) : router.push(location);
+}
+
+/**
+ * Pose le flow UI immédiatement depuis la route (avant tout await)
+ * pour ne pas re-afficher la liste pendant loadDraft/scan.
+ */
+function applyFlowFromRoute() {
+  const name = route.name;
+  if (name === ROUTE.IMPORT) {
+    imp.goToList();
+    return;
+  }
+  if (name === ROUTE.IMPORT_ITEM) {
+    imp.setFlow(IMPORT_FLOW.SHEET, { metaReturn: 'list', bookId: null });
+    return;
+  }
+  if (name === ROUTE.IMPORT_ITEM_META) {
+    imp.setFlow(IMPORT_FLOW.META_SEARCH, {
+      metaReturn: 'sheet',
+      bookId: null,
+    });
+    return;
+  }
+  if (isMetaSearchRoute(name)) {
+    imp.setFlow(IMPORT_FLOW.META_SEARCH, {
+      metaReturn: 'book',
+      bookId: route.params.id ?? null,
+    });
+  }
+}
+
 /**
  * Aligne le store sur la route (source de vérité — pas d’entryIntent).
  * Ne closeDetail() pas aveuglément : sync depuis l’URL.
+ * setFlow avant loadDraft : une seule transition, pas de flash liste.
  */
 async function syncFromRoute() {
   const name = route.name;
   if (name === ROUTE.IMPORT) {
-    imp.goToList();
+    applyFlowFromRoute();
     ui.setImportFocusZone('list');
     ui.setImportFocus(0);
     return;
@@ -119,19 +157,16 @@ async function syncFromRoute() {
   if (name === ROUTE.IMPORT_ITEM || name === ROUTE.IMPORT_ITEM_META) {
     const ok = imp.selectByItemKey(String(route.params.itemKey || ''));
     if (!ok) {
-      router.replace({ name: ROUTE.IMPORT });
+      await navigateTo({ name: ROUTE.IMPORT }, { replace: true });
       return;
     }
     const meta = name === ROUTE.IMPORT_ITEM_META;
-    await imp.loadDraftFromSelected({ keepResults: meta });
-    imp.setFlow(meta ? IMPORT_FLOW.META_SEARCH : IMPORT_FLOW.SHEET, {
-      metaReturn: meta ? 'sheet' : 'list',
-      bookId: null,
-    });
+    applyFlowFromRoute();
     ui.setImportFocusZone('fields');
     ui.setImportFocus(
       meta ? IMPORT_SEARCH_FIELDS.QUERY : IMPORT_INFOS_FIELDS.TITLE,
     );
+    await imp.loadDraftFromSelected({ keepResults: meta });
     return;
   }
 
@@ -143,21 +178,20 @@ async function syncFromRoute() {
     const ok = imp.selectByBookId(bookId);
     if (!ok) {
       const parent = resolveParentLocation(route);
-      if (parent) router.replace(parent);
-      else router.replace({ name: ROUTE.IMPORT });
+      if (parent) await navigateTo(parent, { replace: true });
+      else await navigateTo({ name: ROUTE.IMPORT }, { replace: true });
       return;
     }
-    await imp.loadDraftFromSelected({ keepResults: true });
-    imp.setFlow(IMPORT_FLOW.META_SEARCH, {
-      metaReturn: 'book',
-      bookId,
-    });
+    applyFlowFromRoute();
     ui.setImportFocusZone('fields');
     ui.setImportFocus(IMPORT_SEARCH_FIELDS.QUERY);
+    await imp.loadDraftFromSelected({ keepResults: true });
   }
 }
 
 onMounted(async () => {
+  // Flow optimiste avant scan : évite un frame liste sur deep-link fiche/méta.
+  applyFlowFromRoute();
   await imp.loadProviders();
   await imp.scan();
   await syncFromRoute();
@@ -193,14 +227,14 @@ async function openDetailAt(index) {
   const item = imp.selected;
   if (!item) return;
   if (item.existingBookId != null) {
-    router.push(bookDetailLocation(item.existingBookId, 'import'));
+    await navigateTo(bookDetailLocation(item.existingBookId, 'import'));
     return;
   }
-  router.push(importItemLocation(item.filePath));
+  await navigateTo(importItemLocation(item.filePath));
 }
 
 function backToList() {
-  router.push({ name: ROUTE.IMPORT });
+  return navigateTo({ name: ROUTE.IMPORT });
 }
 
 function goParent() {
@@ -210,10 +244,9 @@ function goParent() {
   }
   const parent = resolveParentLocation(route);
   if (parent) {
-    router.push(parent);
-    return;
+    return navigateTo(parent);
   }
-  router.push({ name: ROUTE.LIBRARY });
+  return navigateTo({ name: ROUTE.LIBRARY });
 }
 
 function switchTab(tab) {
@@ -227,19 +260,18 @@ function switchTab(tab) {
       return;
     }
     if (item?.filePath) {
-      router.push(importItemLocation(item.filePath, { meta: true }));
+      return navigateTo(importItemLocation(item.filePath, { meta: true }));
     }
     return;
   }
   // Infos : rester sur sheet item — jamais remonter à la liste
   if (route.name === ROUTE.IMPORT_ITEM) return;
   if (route.name === ROUTE.IMPORT_ITEM_META && item?.filePath) {
-    router.push(importItemLocation(item.filePath));
-    return;
+    return navigateTo(importItemLocation(item.filePath));
   }
   const parent = resolveParentLocation(route);
   if (parent && parent.name !== ROUTE.IMPORT) {
-    router.push(parent);
+    return navigateTo(parent);
   }
 }
 
@@ -252,10 +284,10 @@ async function doImportOne() {
   const result = await imp.commitSelected({ copyToLibrary: true });
   const bookId = result?.book?.id ?? imp.selected?.existingBookId;
   if (bookId != null) {
-    router.push(bookDetailLocation(bookId, 'import'));
+    await navigateTo(bookDetailLocation(bookId, 'import'));
     return;
   }
-  backToList();
+  await backToList();
 }
 
 async function doImportAll() {
@@ -271,7 +303,7 @@ async function openMetaSearch() {
     switchTab(IMPORT_DETAIL_TABS.SEARCH);
     return;
   }
-  router.push(importItemLocation(item.filePath, { meta: true }));
+  await navigateTo(importItemLocation(item.filePath, { meta: true }));
 }
 
 async function doSearch() {
