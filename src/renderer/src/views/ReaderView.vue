@@ -17,9 +17,9 @@ const ui = useUiStore();
 const { t } = useI18n();
 const stripEl = ref(null);
 
+/** Strip : filtres seuls — le stick scrolle le conteneur (pas de pan CSS). */
 const stripStyle = computed(() => ({
   filter: reader.filterCss,
-  transform: `translate3d(${reader.panX}px, ${reader.panY}px, 0)`,
 }));
 
 function modeFromRoute() {
@@ -318,14 +318,15 @@ async function onStripScroll() {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  will-change: transform, filter;
+  will-change: filter;
   min-height: 100%;
 }
 
 /*
  * Fit width implicite : pages bord à bord sur la largeur locale.
  * Pas de zoom CSS scale en strip (conflit scroll multi-pages + rotate) —
- * le stick scroll le strip ; D-Pad saute de page.
+ * stick = scroll 4 directions (mêmes axes locaux que pan page) ;
+ * D-Pad ↑↓ saute de page.
  */
 .reader__strip-page {
   width: 100%;
