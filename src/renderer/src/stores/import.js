@@ -12,6 +12,7 @@ import {
   META_SOURCE,
   computeMetaSource,
   metadataFromDetected,
+  metadataPatchFromEnrichResult,
   normalizeImportMetadata,
   resolveItemMetadata,
 } from '../../../shared/import-meta.js';
@@ -540,31 +541,22 @@ export const useImportStore = defineStore('import', {
     },
     /**
      * Applique un résultat API → draft + selectedMeta (pastille verte).
+     * Série : API uniquement (series → title) — pas de fallback filename/folder.
      * @param {object} result
+     * @returns {boolean} true si appliqué
      */
     applyEnrichResult(result) {
-      if (!result) return;
-      // Conserver le tome détecté (fichier) : AniList renvoie souvent le
-      // nombre total de volumes de la série (ex. Solo Leveling → 15).
-      const volume =
-        this.draft.volume != null ? this.draft.volume : (result.volume ?? null);
-      this.patchDraft({
-        title: result.title || this.draft.title,
-        series: result.series || this.draft.series,
-        volume,
-        author: result.author || this.draft.author,
-        year: result.year ?? this.draft.year,
-        description: result.description || this.draft.description,
-        coverUrl: result.coverUrl || this.draft.coverUrl || null,
-        source: result.source || this.draft.source || null,
-      });
-      if (result.coverUrl) {
-        void this.resolveCoverPreview(result.coverUrl);
+      if (!result) return false;
+      const patch = metadataPatchFromEnrichResult(result, this.draft);
+      this.patchDraft(patch);
+      if (patch.coverUrl) {
+        void this.resolveCoverPreview(patch.coverUrl);
       }
       const item = this.selected;
       if (item) {
-        item.selectedMeta = normalizeImportMetadata(this.draft, item);
+        // Marquer SELECTED avant sync ; selectedMeta = méta API normalisée
         item.metaSource = META_SOURCE.SELECTED;
+        item.selectedMeta = normalizeImportMetadata(this.draft, item);
       }
       // Depuis BookDetail : persister aussi la fiche bibliothèque
       const bookId =
@@ -608,10 +600,21 @@ export const useImportStore = defineStore('import', {
           /* toast optionnel */
         }
       }
+      return true;
     },
-    applyEnrichCursor() {
-      const result = this.enrichResults[this.enrichResultCursor];
-      if (result) this.applyEnrichResult(result);
+    /**
+     * Applique le résultat focusé (index UI ou enrichResultCursor).
+     * @param {number} [focusIndex] index zone results (prioritaire)
+     * @returns {boolean}
+     */
+    applyEnrichCursor(focusIndex) {
+      const idx =
+        typeof focusIndex === 'number' && Number.isFinite(focusIndex)
+          ? Math.trunc(focusIndex)
+          : this.enrichResultCursor;
+      if (idx < 0 || idx >= this.enrichResults.length) return false;
+      this.enrichResultCursor = idx;
+      return this.applyEnrichResult(this.enrichResults[idx]);
     },
     /**
      * X — importer le tome focus.

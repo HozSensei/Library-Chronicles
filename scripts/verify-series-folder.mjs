@@ -1,9 +1,12 @@
 /**
  * Vérifie le fallback série = nom du dossier parent (hors blacklist).
- * Priorité : série déjà définie (filename/API) > dossier parent.
+ * Priorité globale : API → filename parse → dossier parent.
+ * Le fallback dossier ne s’applique qu’à la détection locale, jamais
+ * après un apply API (voir metadataPatchFromEnrichResult).
  */
 import assert from 'assert';
 import { detectFromFilename } from '../src/main/metadata/parse-filename.js';
+import { metadataPatchFromEnrichResult } from '../src/shared/import-meta.js';
 import {
   isGenericSeriesFolderName,
   parentFolderName,
@@ -66,5 +69,19 @@ const t2 = detectFromFilename('/media/Akira/02.cbz');
 assert.equal(t1.series, 'Akira');
 assert.equal(t2.series, 'Akira');
 assert.equal(t1.seriesSource, 'folder');
+
+// Apply API ne doit jamais conserver series filename/folder du draft
+const apiOverFolder = metadataPatchFromEnrichResult(
+  { title: 'Berserk', series: 'Berserk', source: 'anilist' },
+  { title: 'Tome 01', series: 'BerserkFolder', volume: 1 },
+);
+assert.equal(apiOverFolder.series, 'Berserk');
+
+const apiTitleOverFilename = metadataPatchFromEnrichResult(
+  { title: 'Sandman', series: null, source: 'openlibrary' },
+  { title: 'Sandman_T02', series: 'Sandman_T02', volume: 2 },
+);
+assert.equal(apiTitleOverFilename.series, 'Sandman');
+assert.notEqual(apiTitleOverFilename.series, 'Sandman_T02');
 
 console.log('verify-series-folder: OK');

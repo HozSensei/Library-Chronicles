@@ -241,6 +241,13 @@ async function doSearch() {
   }
   await imp.enrich();
   if (imp.enrichResults.length) {
+    // Blur query : sinon A sur résultat est mangé par shouldBlockGamepadConfirmForText
+    try {
+      input?.blur?.();
+      /** @type {HTMLElement|null} */ (document.activeElement)?.blur?.();
+    } catch {
+      /* ignore */
+    }
     ui.setImportFocusZone('results');
     ui.setImportFocus(0);
     imp.enrichResultCursor = 0;
@@ -326,10 +333,16 @@ function onSearchFieldActivate(fieldIndex) {
 
 function onResultChoose(index) {
   if (!imp.enrichResults[index]) return;
+  try {
+    /** @type {HTMLElement|null} */ (document.activeElement)?.blur?.();
+  } catch {
+    /* ignore */
+  }
   imp.enrichResultCursor = index;
   ui.setImportFocusZone('results');
   ui.setImportFocus(index);
-  imp.applyEnrichResult(imp.enrichResults[index]);
+  // applyEnrichCursor : même chemin que manette A (pas de double logique)
+  imp.applyEnrichCursor(index);
 }
 
 function rowTitle(item) {
