@@ -26,34 +26,45 @@ function assert(cond, msg) {
   }
 }
 
-// Étape dossiers : library | import  puis next
-const folders = setupFocusRows(1);
-assert(folders.length === 2, 'dossiers : 2 rangées');
-assert(folders[0].join(',') === 'library,import', 'rangée dossiers côte à côte');
-assert(setupFocusables(1).join(',') === 'library,import,next', 'flat dossiers');
+// Pas d’étape welcome : step 0 = dossiers empilés
+assert(setupFocusRows(0)[0]?.[0] === 'library', 'step 0 démarre sur dossiers (pas welcome)');
+assert(
+  !setupFocusables(0).includes('welcome') && setupFocusables(0)[0] === 'library',
+  'pas de splash welcome dans le focus',
+);
+
+// Étape dossiers : library, import, next — chacun sa rangée (stack vertical)
+const folders = setupFocusRows(0);
+assert(folders.length === 3, 'dossiers : 3 rangées empilées');
+assert(folders[0].join(',') === 'library', 'rangée bibliothèque seule');
+assert(folders[1].join(',') === 'import', 'rangée import seule');
+assert(folders[2].join(',') === 'next', 'rangée continuer');
+assert(setupFocusables(0).join(',') === 'library,import,next', 'flat dossiers');
 
 let idx = 0; // library
 idx = moveSetupFocus(folders, idx, 'right');
-assert(setupFocusables(1)[idx] === 'import', '←→ : library → import');
-idx = moveSetupFocus(folders, idx, 'right');
-assert(setupFocusables(1)[idx] === 'import', '←→ : pas d’activation hors rangée');
+assert(setupFocusables(0)[idx] === 'library', '←→ : une seule option = stay');
 idx = moveSetupFocus(folders, idx, 'down');
-assert(setupFocusables(1)[idx] === 'next', '↓ : import → next');
+assert(setupFocusables(0)[idx] === 'import', '↓ : library → import');
+idx = moveSetupFocus(folders, idx, 'down');
+assert(setupFocusables(0)[idx] === 'next', '↓ : import → next');
 idx = moveSetupFocus(folders, idx, 'up');
-assert(setupFocusables(1)[idx] === 'library' || setupFocusables(1)[idx] === 'import', '↑ retour rangée');
+assert(setupFocusables(0)[idx] === 'import', '↑ : next → import');
 
-// Mode côte à côte + rangée accents
-const prefs = setupFocusRows(2);
+// Préférences = step 1
+const prefs = setupFocusRows(1);
 assert(prefs.length === 4, 'prefs : 4 rangées (mode, accents, langue, next)');
 idx = 0;
 idx = moveSetupFocus(prefs, idx, 'right');
-assert(setupFocusables(2)[idx] === 'theme-light', 'thème → light');
+assert(setupFocusables(1)[idx] === 'theme-light', 'thème → light');
 idx = moveSetupFocus(prefs, idx, 'left');
-assert(setupFocusables(2)[idx] === 'theme-dark', 'thème ← dark');
+assert(setupFocusables(1)[idx] === 'theme-dark', 'thème ← dark');
 idx = moveSetupFocus(prefs, idx, 'down');
-assert(String(setupFocusables(2)[idx]).startsWith('accent-'), '↓ → rangée accents');
+assert(String(setupFocusables(1)[idx]).startsWith('accent-'), '↓ → rangée accents');
 idx = moveSetupFocus(prefs, idx, 'right');
-assert(String(setupFocusables(2)[idx]).startsWith('accent-'), '←→ dans accents');
+assert(String(setupFocusables(1)[idx]).startsWith('accent-'), '←→ dans accents');
+
+assert(setupFocusRows(2).flat().join(',') === 'finish', 'step 2 = prêt / finish');
 
 assert(SETUP_FOLDER_IDS.has('library') && SETUP_FOLDER_IDS.has('import'), 'ids dossier connus');
 

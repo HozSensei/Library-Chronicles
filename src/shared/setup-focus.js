@@ -2,6 +2,9 @@
  * Grille de focus setup : rangées d’items côte à côte.
  * ↑↓ change de rangée · ←→ navigue dans la rangée.
  * Confirm/A active l’item (ex. Parcourir) — jamais ←→.
+ *
+ * Étapes : 0 dossiers · 1 préférences · 2 prêt
+ * (pas d’écran welcome — démarrage direct sur les dossiers).
  */
 
 import { accentFocusIds } from './theme-accents.js';
@@ -14,9 +17,8 @@ import { accentFocusIds } from './theme-accents.js';
  * @returns {FocusId[][]}
  */
 export function setupFocusRows(step) {
-  if (step === 0) return [['next']];
-  if (step === 1) return [['library', 'import'], ['next']];
-  if (step === 2) {
+  if (step === 0) return [['library'], ['import'], ['next']];
+  if (step === 1) {
     return [
       ['theme-dark', 'theme-light'],
       accentFocusIds(),
