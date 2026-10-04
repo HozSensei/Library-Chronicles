@@ -42,14 +42,16 @@ const tokens = readFileSync(
   join(root, 'src/renderer/src/styles/tokens.css'),
   'utf8',
 );
+const i18n = readFileSync(join(root, 'src/shared/i18n.js'), 'utf8');
 
 assert(hud.includes('role="dialog"'), 'ReaderHud = dialog modal');
 assert(hud.includes('aria-modal="true"'), 'ReaderHud aria-modal');
 assert(hud.includes('hud__backdrop'), 'overlay hud__backdrop');
 assert(hud.includes('hud__dialog'), 'panneau centré hud__dialog');
 assert(hud.includes('data-hud-focus'), 'cibles focus manette data-hud-focus');
-assert(hud.includes('A valider'), 'hint A valider');
-assert(hud.includes('B fermer'), 'hint B fermer');
+assert(hud.includes("t('reader.hint')"), 'hint via i18n reader.hint');
+assert(i18n.includes('A valider'), 'hint FR A valider');
+assert(i18n.includes('B fermer'), 'hint FR B fermer');
 assert(hud.includes('hud-toast'), 'toast progression distinct de la modal');
 assert(
   /\.hud__backdrop\s*\{[\s\S]*?background:\s*var\(--hud-fade\)/.test(hud),
@@ -97,23 +99,23 @@ assert(store.includes('targetScale'), 'zoom targetScale');
 assert(readerView.includes('reader__stage'), 'mode page reader__stage');
 assert(readerView.includes('reader__page'), 'mode page reader__page');
 assert(readerView.includes('reader__pan'), 'mode page reader__pan');
-assert(!readerView.includes('reader__strip'), 'plus de DOM strip vertical');
-assert(!readerView.includes('data-strip'), 'plus de data-strip');
-assert(!store.includes('loadStripWindow'), 'plus de loadStripWindow');
-assert(!store.includes('toggleReadingMode'), 'plus de toggleReadingMode');
-assert(!store.includes('isStripMode'), 'plus de isStripMode');
-assert(!store.includes('readingMode'), 'plus de readingMode strip|page');
-assert(store.includes('zoomBy(steps)'), 'store zoomBy restauré');
+assert(readerView.includes('reader__strip'), 'DOM strip vertical optionnel');
+assert(readerView.includes('data-strip'), 'data-strip mode strip|page');
+assert(store.includes('loadStripWindow'), 'store loadStripWindow (mode strip)');
+assert(!store.includes('toggleReadingMode'), 'pas de toggleReadingMode global');
+assert(store.includes('isStripMode'), 'getter isStripMode');
+assert(store.includes('readingMode'), 'store readingMode strip|page');
+assert(store.includes('zoomBy(steps)'), 'store zoomBy restauré (mode page)');
 assert(!store.includes('toggleWebtoon'), 'plus de toggleWebtoon');
 assert(!hud.includes('Mode webtoon'), 'HUD sans bouton Mode webtoon');
 assert(!hud.includes('Strip vertical'), 'HUD sans bascule Strip vertical');
 assert(!hud.includes('toggleReadingMode'), 'HUD sans toggleReadingMode');
-assert(hud.includes('Stick'), 'HUD hints manette stick/zoom');
-assert(hud.includes('←→ page'), 'HUD hint pages ←→');
-assert(hud.includes('↑↓ zoom'), 'HUD hint zoom ↑↓');
+assert(i18n.includes('Stick pan'), 'HUD hints manette stick/zoom (i18n)');
+assert(i18n.includes('←→ page'), 'HUD hint pages ←→ (i18n)');
+assert(i18n.includes('↑↓ zoom'), 'HUD hint zoom ↑↓ (i18n)');
 assert(
-  hud.includes('L3 page entière') || hud.includes('Reset zoom'),
-  'HUD hint L3 = page entière / reset zoom',
+  i18n.includes('L3 page entière') || i18n.includes('L3 full page'),
+  'HUD hint L3 = page entière / reset zoom (i18n)',
 );
 assert(!hud.includes('L3 fit'), 'HUD sans ancien hint L3 fit (toggle)');
 assert(store.includes('resetZoom()'), 'store resetZoom (L3)');

@@ -27,7 +27,7 @@ assert.match(store, /openPrevVolume/, 'openPrevVolume');
 assert.match(store, /openAdjacentVolume/, 'openAdjacentVolume');
 assert.match(
   store,
-  /open\(offer\.filePath,\s*\{\s*resume:\s*false\s*\}\)/,
+  /open\(offer\.filePath,\s*\{\s*resume:\s*false(?:,\s*readingMode:\s*mode)?\s*\}\)/,
   'ouverture adjacent sans reprise milieu',
 );
 assert.doesNotMatch(
@@ -38,13 +38,13 @@ assert.doesNotMatch(
 
 assert.match(view, /showEndSeriesNav/, 'overlay fin si showEndSeriesNav');
 assert.match(view, /data-end-focus/, 'boutons fin focusables manette');
-assert.match(view, /Tome précédent/, 'libellé Tome précédent');
-assert.match(view, /Tome suivant/, 'libellé Tome suivant');
+assert.match(view, /Tome précédent|reader\.prevVolume|t\('reader\.prevVolume'\)/, 'libellé Tome précédent');
+assert.match(view, /Tome suivant|reader\.nextVolume|t\('reader\.nextVolume'\)/, 'libellé Tome suivant');
 assert.match(view, /endFocusId\('prev-volume'\)/, 'focus prev overlay');
 assert.match(view, /endFocusId\('next-volume'\)/, 'focus next overlay');
 
 assert.match(hud, /prevVolumeOffer/, 'HUD bouton précédent');
-assert.match(hud, /Tome précédent/, 'HUD libellé précédent');
+assert.match(hud, /t\('reader\.prevVolume'\)|Tome précédent/, 'HUD libellé précédent');
 assert.match(hud, /openAdjacent\(-1\)/, 'HUD ouvre précédent');
 
 assert.match(gamepad, /showEndSeriesNav/, 'gamepad gère overlay fin');

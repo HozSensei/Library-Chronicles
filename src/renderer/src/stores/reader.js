@@ -1,5 +1,13 @@
 import { defineStore } from 'pinia';
 import { ZOOM_STEP } from '../../../shared/gamepad-codes.js';
+import {
+  stripPrefetchRange,
+  stripWindowRange,
+} from '../../../shared/reader-strip.js';
+import {
+  normalizeReadingMode,
+  READING_MODE,
+} from '../../../shared/reading-mode.js';
 import { findAdjacentVolume } from '../../../shared/series.js';
 import {
   clampPanToPage,
@@ -16,7 +24,7 @@ const RESET_FILTERS = { brightness: 1, contrast: 1, sepia: 0 };
 const ZOOM_ANIM_MS = 200;
 /** Seuil « zoomé » pour pan stick. */
 const ZOOMED_EPS = 1.02;
-/** Voisines gardées en cache ObjectURL (prefetch page ±N). */
+/** Voisines gardées en cache ObjectURL (prefetch page ±N) — mode page. */
 const PAGE_CACHE_RADIUS = 2;
 
 function clampScale(value) {
@@ -35,6 +43,11 @@ export const useReaderStore = defineStore('reader', {
     pageCount: 0,
     direction: 'ltr',
     fitMode: 'fit-height',
+    /**
+     * Mode d’ouverture : page (défaut) | strip (continu vertical).
+     * Posé à open() depuis la fiche ; pas de préférence globale.
+     */
+    readingMode: READING_MODE.PAGE,
     /** Échelle affichée (interpolée). */
     scale: 1,
     /** Cible logique du zoom (±15 % par pas). */
@@ -51,6 +64,8 @@ export const useReaderStore = defineStore('reader', {
     /** Toast progression (page ±) — distinct de la modal. */
     toastVisible: false,
     pageUrl: null,
+    /** Pages empilées strip vertical { index, url } — fenêtre ~4–5. */
+    stripPages: [],
     chapters: [],
     chapterIndex: 0,
     bookmarks: [],
@@ -70,6 +85,8 @@ export const useReaderStore = defineStore('reader', {
     _hudTimer: null,
     _zoomRaf: null,
     _zoomTransitionTimer: null,
+    /** Demande scrollIntoView après nav programmatique (pas scroll utilisateur). */
+    stripScrollToken: 0,
     /** Cache ObjectURL pages { index → url } (courante + prefetch). */
     _pageUrlCache: {},
     /** @type {Record<number, Promise<string|null>>} */
@@ -80,6 +97,7 @@ export const useReaderStore = defineStore('reader', {
     progress: (s) => (s.pageCount ? ((s.pageIndex + 1) / s.pageCount) * 100 : 0),
     transform: (s) => `scale(${s.scale})`,
     currentChapter: (s) => s.chapters[s.chapterIndex] || null,
+    isStripMode: (s) => s.readingMode === READING_MODE.STRIP,
     filterCss(s) {
       return `brightness(${s.brightness}) contrast(${s.contrast}) sepia(${s.sepia})`;
     },
@@ -169,12 +187,13 @@ export const useReaderStore = defineStore('reader', {
         // ignore
       }
     },
-    async open(filePath, { resume = true } = {}) {
+    async open(filePath, { resume = true, readingMode } = {}) {
       this.loading = true;
       this.error = null;
       this.prevVolumeOffer = null;
       this.nextVolumeOffer = null;
       this.endFocusIndex = 0;
+      this.readingMode = normalizeReadingMode(readingMode ?? this.readingMode);
       this.revokePageCache();
       try {
         await this.loadPrefs();
@@ -187,6 +206,8 @@ export const useReaderStore = defineStore('reader', {
         this.chapterIndex = 0;
         this.renderEngine = meta.renderEngine || meta.format || null;
         this.resetTransform();
+        // Strip = fit-width bord à bord (pas de zoom CSS scale — voir docs).
+        if (this.isStripMode) this.fitMode = 'fit-width';
 
         // Métadonnées série déjà fournies par reader.open (plus de listBooks)
         this.series = meta.series ?? null;
@@ -199,7 +220,7 @@ export const useReaderStore = defineStore('reader', {
           start = meta.resumePage;
         }
         this.pageIndex = start;
-        await this.loadCurrentPage();
+        await this.loadCurrentPage({ scrollToCurrent: this.isStripMode });
         await this.refreshBookmarks();
         this.flashHud(1800);
         return meta;
@@ -210,15 +231,25 @@ export const useReaderStore = defineStore('reader', {
         this.loading = false;
       }
     },
-    async loadCurrentPage() {
+    async loadCurrentPage({ scrollToCurrent = false } = {}) {
       if (!this.filePath || this.pageCount === 0) return;
-      const url = await this.ensurePageUrl(this.pageIndex);
-      this.pageUrl = url;
-      this.trimPageCache();
-      void this.prefetchNeighbors(this.pageIndex);
+      if (this.isStripMode) {
+        await this.loadStripWindow();
+        if (scrollToCurrent) this.requestStripScroll();
+      } else {
+        const url = await this.ensurePageUrl(this.pageIndex);
+        this.pageUrl = url;
+        this.stripPages = [];
+        this.trimPageCache();
+        void this.prefetchNeighbors(this.pageIndex);
+      }
       this.syncChapterIndex();
       this.persistProgress();
       if (this.isFinished) await this.checkNextVolume();
+    },
+    /** Signale à ReaderView de scroller la page courante (nav A/B, signet…). */
+    requestStripScroll() {
+      this.stripScrollToken += 1;
     },
     blobUrlFromPage(page) {
       const bin = atob(page.data);
@@ -251,8 +282,22 @@ export const useReaderStore = defineStore('reader', {
       })();
       return this._pagePending[index];
     },
-    /** Prefetch voisines ±PAGE_CACHE_RADIUS (hors page courante). */
+    /**
+     * Prefetch voisines (page ±RADIUS ou strip hors fenêtre).
+     * Ne bloque pas le rendu de la fenêtre visible en strip.
+     */
     async prefetchNeighbors(center = this.pageIndex) {
+      if (this.isStripMode) {
+        const { start, end } = stripPrefetchRange(center, this.pageCount);
+        const win = stripWindowRange(center, this.pageCount);
+        const jobs = [];
+        for (let i = start; i <= end; i += 1) {
+          if (i < win.start || i > win.end) jobs.push(this.ensurePageUrl(i));
+        }
+        if (jobs.length) await Promise.all(jobs);
+        this.trimPageCache(center);
+        return;
+      }
       const jobs = [];
       for (let i = center - PAGE_CACHE_RADIUS; i <= center + PAGE_CACHE_RADIUS; i += 1) {
         if (i === center) continue;
@@ -261,17 +306,25 @@ export const useReaderStore = defineStore('reader', {
       if (jobs.length) await Promise.all(jobs);
       this.trimPageCache(center);
     },
-    /** Garde page courante + prefetch ; révoque le reste. */
+    /** Garde page courante + prefetch (ou fenêtre strip) ; révoque le reste. */
     trimPageCache(center = this.pageIndex) {
       const keep = new Set();
-      for (let i = center - PAGE_CACHE_RADIUS; i <= center + PAGE_CACHE_RADIUS; i += 1) {
-        if (i >= 0 && i < this.pageCount) keep.add(i);
+      if (this.isStripMode) {
+        const { start, end } = stripPrefetchRange(center, this.pageCount);
+        for (let i = start; i <= end; i += 1) keep.add(i);
+      } else {
+        for (let i = center - PAGE_CACHE_RADIUS; i <= center + PAGE_CACHE_RADIUS; i += 1) {
+          if (i >= 0 && i < this.pageCount) keep.add(i);
+        }
       }
+      const stripUrls = new Set(
+        (this.stripPages || []).map((p) => p.url).filter(Boolean),
+      );
       for (const key of Object.keys(this._pageUrlCache)) {
         const idx = Number(key);
         if (!keep.has(idx)) {
           const url = this._pageUrlCache[idx];
-          if (url && url !== this.pageUrl) {
+          if (url && url !== this.pageUrl && !stripUrls.has(url)) {
             try {
               URL.revokeObjectURL(url);
             } catch {
@@ -294,6 +347,45 @@ export const useReaderStore = defineStore('reader', {
       }
       this._pageUrlCache = {};
       this._pagePending = {};
+      this.stripPages = [];
+    },
+    /**
+     * Charge ~4–5 pages dans le strip DOM + prefetch voisines (cache partagé).
+     */
+    async loadStripWindow() {
+      if (!this.filePath || this.pageCount === 0) {
+        this.stripPages = [];
+        this.pageUrl = null;
+        return;
+      }
+      const { start, end } = stripWindowRange(this.pageIndex, this.pageCount);
+      const jobs = [];
+      for (let i = start; i <= end; i += 1) {
+        jobs.push(this.ensurePageUrl(i));
+      }
+      await Promise.all(jobs);
+      const next = [];
+      for (let i = start; i <= end; i += 1) {
+        const url = this._pageUrlCache[i];
+        if (url) next.push({ index: i, url });
+      }
+      this.stripPages = next;
+      this.pageUrl = this._pageUrlCache[this.pageIndex] || null;
+      void this.prefetchNeighbors(this.pageIndex);
+    },
+    /**
+     * Scroll utilisateur : maj index + glisse la fenêtre si besoin.
+     * @param {number} index
+     */
+    async setPageFromStripScroll(index) {
+      const i = Number(index);
+      if (!Number.isFinite(i) || i < 0 || i >= this.pageCount) return;
+      if (i === this.pageIndex) return;
+      this.pageIndex = i;
+      this.syncChapterIndex();
+      this.persistProgress();
+      await this.loadStripWindow();
+      if (this.isFinished) await this.checkNextVolume();
     },
     syncChapterIndex() {
       if (!this.chapters.length) {
@@ -377,8 +469,9 @@ export const useReaderStore = defineStore('reader', {
         offer = step > 0 ? this.nextVolumeOffer : this.prevVolumeOffer;
       }
       if (!offer?.filePath) return false;
+      const mode = this.readingMode;
       await this.close();
-      await this.open(offer.filePath, { resume: false });
+      await this.open(offer.filePath, { resume: false, readingMode: mode });
       return true;
     },
     async openNextVolume() {
@@ -395,6 +488,9 @@ export const useReaderStore = defineStore('reader', {
       this.targetScale = 1;
       this.revokePageCache();
       this.pageUrl = null;
+      this.stripPages = [];
+      this.stripScrollToken = 0;
+      this.readingMode = READING_MODE.PAGE;
       await window.vdr.reader.close();
       this.filePath = null;
       this.bookId = null;
@@ -654,7 +750,7 @@ export const useReaderStore = defineStore('reader', {
       if (bm == null) return;
       this.pageIndex = bm.page;
       this.resetTransform();
-      await this.loadCurrentPage();
+      await this.loadCurrentPage({ scrollToCurrent: this.isStripMode });
       this.flashHud(900);
     },
     async stepPage(which) {
@@ -667,7 +763,7 @@ export const useReaderStore = defineStore('reader', {
       }
       this.pageIndex = next;
       this.resetTransform();
-      await this.loadCurrentPage();
+      await this.loadCurrentPage({ scrollToCurrent: this.isStripMode });
       this.flashHud(900);
       return true;
     },
@@ -680,7 +776,7 @@ export const useReaderStore = defineStore('reader', {
         if (next === this.pageIndex) return false;
         this.pageIndex = next;
         this.resetTransform();
-        await this.loadCurrentPage();
+        await this.loadCurrentPage({ scrollToCurrent: this.isStripMode });
         this.flashHud(900);
         return true;
       }
@@ -689,7 +785,7 @@ export const useReaderStore = defineStore('reader', {
       this.chapterIndex = nextIdx;
       this.pageIndex = this.chapters[nextIdx].startIndex;
       this.resetTransform();
-      await this.loadCurrentPage();
+      await this.loadCurrentPage({ scrollToCurrent: this.isStripMode });
       this.flashHud(900);
       return true;
     },

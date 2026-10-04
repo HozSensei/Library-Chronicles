@@ -46,9 +46,22 @@ assert(t('setup.prefsTitle') === 'Preferences', 't setup prefs EN');
 assert(t('boot.library') === 'Library', 't boot library EN');
 assert(accentLabel('amber') === 'Brass', 'accentLabel amber EN');
 assert(accentLabelI18n('blue', 'en') === 'Blue', 'accentLabelI18n blue EN');
+assert(t('book.read') === 'Read', 't book.read EN');
+assert(t('book.readStrip') === 'Read continuously', 't book.readStrip EN');
+assert(
+  t('book.readStripUnsupported') === 'Unavailable for this format',
+  't book.readStripUnsupported EN',
+);
 
 setLocale('fr');
 assert(t('lang.fr') === 'Français', 't lang.fr');
+assert(t('book.read') === 'Lire', 't book.read FR');
+assert(t('book.readStrip') === 'Lire en continu', 't book.readStrip FR');
+assert(t('book.readSub') === 'Page par page', 't book.readSub FR');
+assert(
+  t('book.readStripUnsupported') === 'Indisponible pour ce format',
+  't book.readStripUnsupported FR',
+);
 assert(accentLabel('amber') === 'Laiton', 'accentLabel amber FR');
 assert(interpolate('Hello {name}', { name: 'VDR' }) === 'Hello VDR', 'interpolate');
 assert(t('missing.key.zzz') === 'missing.key.zzz', 'missing key → key');

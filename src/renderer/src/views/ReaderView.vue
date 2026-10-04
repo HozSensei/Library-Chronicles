@@ -1,34 +1,61 @@
 <script setup>
-import { onMounted, onUnmounted, watch } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import ReaderHud from '../components/ReaderHud.vue';
 import { useReaderStore } from '../stores/reader';
 import { useUiStore } from '../stores/ui';
 import { useI18n } from '../composables/useI18n';
+import {
+  normalizeReadingMode,
+  READING_MODE,
+} from '../../../shared/reading-mode.js';
 
 const router = useRouter();
 const route = useRoute();
 const reader = useReaderStore();
 const ui = useUiStore();
 const { t } = useI18n();
+const stripEl = ref(null);
+
+const stripStyle = computed(() => ({
+  filter: reader.filterCss,
+  transform: `translate3d(${reader.panX}px, ${reader.panY}px, 0)`,
+}));
+
+function modeFromRoute() {
+  return normalizeReadingMode(route.query.mode);
+}
+
+function readerQuery(filePath, mode = reader.readingMode) {
+  const query = { path: filePath };
+  if (normalizeReadingMode(mode) === READING_MODE.STRIP) {
+    query.mode = READING_MODE.STRIP;
+  }
+  return query;
+}
+
+async function openFromRoute() {
+  const filePath = route.query.path;
+  const mode = modeFromRoute();
+  if (filePath) {
+    await reader.open(String(filePath), { readingMode: mode });
+    return;
+  }
+  const config = await window.vdr.getConfig();
+  if (config.phase1TestCbz) {
+    await reader.open(config.phase1TestCbz, { readingMode: mode });
+  } else if (config.lastOpenedPath) {
+    await reader.open(config.lastOpenedPath, { readingMode: mode });
+  }
+}
 
 /**
  * Ouverture fichier uniquement.
  * Le resize / setSessionMode est géré UNE FOIS par App.vue (watch route → reader).
  */
 onMounted(async () => {
-  const filePath = route.query.path;
   try {
-    if (filePath) {
-      await reader.open(String(filePath));
-      return;
-    }
-    const config = await window.vdr.getConfig();
-    if (config.phase1TestCbz) {
-      await reader.open(config.phase1TestCbz);
-    } else if (config.lastOpenedPath) {
-      await reader.open(config.lastOpenedPath);
-    }
+    await openFromRoute();
   } catch (err) {
     console.warn('[VDR] open:', err.message);
   }
@@ -40,9 +67,26 @@ onUnmounted(() => {
 });
 
 watch(
-  () => route.query.path,
-  async (path) => {
-    if (path) await reader.open(String(path));
+  () => [route.query.path, route.query.mode],
+  async ([path]) => {
+    if (path) {
+      try {
+        await reader.open(String(path), { readingMode: modeFromRoute() });
+      } catch (err) {
+        console.warn('[VDR] open:', err.message);
+      }
+    }
+  },
+);
+
+/** Nav programmatique uniquement — ne pas combattre le scroll utilisateur. */
+watch(
+  () => reader.stripScrollToken,
+  async () => {
+    if (!reader.isStripMode) return;
+    await nextTick();
+    const el = stripEl.value?.querySelector(`[data-page="${reader.pageIndex}"]`);
+    el?.scrollIntoView({ block: 'start', behavior: 'smooth' });
   },
 );
 
@@ -55,7 +99,10 @@ async function openAdjacent(delta) {
   const ok =
     delta < 0 ? await reader.openPrevVolume() : await reader.openNextVolume();
   if (!ok) return;
-  router.replace({ name: 'reader', query: { path: reader.filePath } });
+  router.replace({
+    name: 'reader',
+    query: readerQuery(reader.filePath, reader.readingMode),
+  });
 }
 
 function endFocusId(id) {
@@ -64,12 +111,35 @@ function endFocusId(id) {
   if (reader.nextVolumeOffer) ids.push('next-volume');
   return ids[reader.endFocusIndex] === id;
 }
+
+async function onStripScroll() {
+  if (!stripEl.value || !reader.isStripMode) return;
+  const el = stripEl.value;
+  const nodes = [...el.querySelectorAll('[data-page]')];
+  if (!nodes.length) return;
+  const top = el.scrollTop + 40;
+  let best = reader.pageIndex;
+  for (const node of nodes) {
+    if (node.offsetTop <= top) best = Number(node.dataset.page);
+  }
+  if (best === reader.pageIndex) return;
+  const marker = el.querySelector(`[data-page="${best}"]`);
+  const offsetBefore = marker?.offsetTop ?? 0;
+  const scrollBefore = el.scrollTop;
+  await reader.setPageFromStripScroll(best);
+  await nextTick();
+  const after = el.querySelector(`[data-page="${best}"]`);
+  if (!after) return;
+  const delta = after.offsetTop - offsetBefore;
+  if (Math.abs(delta) > 0.5) el.scrollTop = scrollBefore + delta;
+}
 </script>
 
 <template>
   <section
     class="reader"
     :aria-label="t('reader.aria')"
+    :data-strip="reader.isStripMode ? '1' : '0'"
     :data-css-rotate="ui.readerCssRotate ? '1' : '0'"
   >
     <!--
@@ -79,8 +149,30 @@ function endFocusId(id) {
     -->
     <div class="reader__plane">
       <div class="reader__viewport">
+        <!-- Mode strip : pages empilées, scroll vertical continu -->
         <div
-          v-if="reader.pageCount > 0"
+          v-if="reader.isStripMode && reader.pageCount > 0"
+          ref="stripEl"
+          class="reader__strip"
+          @scroll.passive="onStripScroll"
+        >
+          <div class="reader__strip-inner" :style="stripStyle">
+            <img
+              v-for="page in reader.stripPages"
+              :key="page.index"
+              class="reader__strip-page"
+              :class="{ 'is-current': page.index === reader.pageIndex }"
+              :src="page.url"
+              :data-page="page.index"
+              :alt="`Page ${page.index + 1}`"
+              draggable="false"
+            />
+          </div>
+        </div>
+
+        <!-- Mode page : une page + zoom/pan -->
+        <div
+          v-else-if="reader.pageCount > 0"
           class="reader__stage"
           :data-fit="reader.fitMode"
         >
@@ -213,6 +305,34 @@ function endFocusId(id) {
   min-width: 0;
   min-height: 0;
   touch-action: none;
+}
+
+.reader__strip {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.reader__strip-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  will-change: transform, filter;
+  min-height: 100%;
+}
+
+/*
+ * Fit width implicite : pages bord à bord sur la largeur locale.
+ * Pas de zoom CSS scale en strip (conflit scroll multi-pages + rotate) —
+ * le stick scroll le strip ; D-Pad saute de page.
+ */
+.reader__strip-page {
+  width: 100%;
+  height: auto;
+  display: block;
+  user-select: none;
+  pointer-events: none;
 }
 
 .reader__stage {

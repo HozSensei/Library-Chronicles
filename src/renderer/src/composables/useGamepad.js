@@ -1188,27 +1188,40 @@ function createLoop(ctx) {
         reader.toggleDirection();
       }
       if (action === 'reset-zoom' || action === 'toggle-zoom') {
-        reader.resetZoom();
+        if (!reader.isStripMode) reader.resetZoom();
       }
-      if (action === 'fit-width') reader.setFitWidth();
+      if (action === 'fit-width') {
+        if (!reader.isStripMode) reader.setFitWidth();
+      }
       if (action === 'add-bookmark') reader.addBookmark();
       if (action === 'next-volume') {
         reader.openNextVolume().then((ok) => {
           if (ok && reader.filePath) {
-            router.replace({ name: 'reader', query: { path: reader.filePath } });
+            const query = { path: reader.filePath };
+            if (reader.isStripMode) query.mode = 'strip';
+            router.replace({ name: 'reader', query });
           }
         });
       }
       if (action === 'prev-volume') {
         reader.openPrevVolume().then((ok) => {
           if (ok && reader.filePath) {
-            router.replace({ name: 'reader', query: { path: reader.filePath } });
+            const query = { path: reader.filePath };
+            if (reader.isStripMode) query.mode = 'strip';
+            router.replace({ name: 'reader', query });
           }
         });
       }
-      // Zoom D-Pad ↑/↓ ; pages ←/→ (axes invertis vs ancien mapping).
-      if (action === 'zoom-in') reader.zoomBy(1);
-      if (action === 'zoom-out') reader.zoomBy(-1);
+      // Mode page : zoom D-Pad ↑/↓ ; pages ←/→.
+      // Mode strip : pas de zoom (bord à bord) — ↑/↓ et ←/→ sautent de page ;
+      // stick scroll le strip.
+      if (reader.isStripMode) {
+        if (action === 'zoom-in') reader.stepPage('prev');
+        if (action === 'zoom-out') reader.stepPage('next');
+      } else {
+        if (action === 'zoom-in') reader.zoomBy(1);
+        if (action === 'zoom-out') reader.zoomBy(-1);
+      }
       if (action === 'page-prev') {
         vibe('light');
         reader.stepPage('prev');
@@ -1232,7 +1245,15 @@ function createLoop(ctx) {
         const local = ui.readerCssRotate
           ? visualPanToLocal(payload.x, payload.y)
           : payload;
-        reader.pan(local.x, local.y);
+        if (reader.isStripMode) {
+          const strip = document.querySelector('.reader__strip');
+          if (strip) {
+            strip.scrollTop += local.y * 28;
+            strip.scrollLeft += local.x * 10;
+          }
+        } else {
+          reader.pan(local.x, local.y);
+        }
       }
     }
   }
