@@ -155,6 +155,9 @@ assert(
 );
 
 assert(view.includes('syncFromRoute'), 'ImportView syncFromRoute');
+assert(view.includes('hydrateDraftFromSelected'), 'ImportView hydrate avant flow');
+assert(store.includes('hydrateDraftFromSelected'), 'store hydrateDraftFromSelected');
+assert(store.includes('loadCoverForSelected'), 'store loadCover sans clear systématique');
 assert(
   !/onMounted\([\s\S]*?imp\.closeDetail\(\)/.test(view),
   'ImportView onMounted ne closeDetail plus aveuglément',

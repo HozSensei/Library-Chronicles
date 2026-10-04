@@ -105,6 +105,12 @@ const showSheetTabs = computed(
     route.name === ROUTE.IMPORT_ITEM_META || route.name === ROUTE.IMPORT_ITEM,
 );
 
+/** Fiche prête : draft hydraté pour l’item courant (pas de champs vides flash). */
+const draftReady = computed(() => {
+  const path = imp.selected?.filePath;
+  return Boolean(path && imp._draftItemPath === path);
+});
+
 /** Navigation sans push redondant (même name+params). */
 function navigateTo(location, { replace = false } = {}) {
   if (!location || isSameAppLocation(route, location)) return Promise.resolve();
@@ -143,7 +149,8 @@ function applyFlowFromRoute() {
 /**
  * Aligne le store sur la route (source de vérité — pas d’entryIntent).
  * Ne closeDetail() pas aveuglément : sync depuis l’URL.
- * setFlow avant loadDraft : une seule transition, pas de flash liste.
+ * Ordre anti-flash méta : select → hydrateDraft (sync) → applyFlow → cover async.
+ * Jamais de frame fiche avec draft vide, ni double loadDraft (scan + sync).
  */
 async function syncFromRoute() {
   const name = route.name;
@@ -161,12 +168,14 @@ async function syncFromRoute() {
       return;
     }
     const meta = name === ROUTE.IMPORT_ITEM_META;
+    // Draft synchrone avant setFlow : la fiche s’ouvre déjà remplie.
+    imp.hydrateDraftFromSelected({ keepResults: meta });
     applyFlowFromRoute();
     ui.setImportFocusZone('fields');
     ui.setImportFocus(
       meta ? IMPORT_SEARCH_FIELDS.QUERY : IMPORT_INFOS_FIELDS.TITLE,
     );
-    await imp.loadDraftFromSelected({ keepResults: meta });
+    await imp.loadCoverForSelected();
     return;
   }
 
@@ -182,18 +191,20 @@ async function syncFromRoute() {
       else await navigateTo({ name: ROUTE.IMPORT }, { replace: true });
       return;
     }
+    imp.hydrateDraftFromSelected({ keepResults: true });
     applyFlowFromRoute();
     ui.setImportFocusZone('fields');
     ui.setImportFocus(IMPORT_SEARCH_FIELDS.QUERY);
-    await imp.loadDraftFromSelected({ keepResults: true });
+    await imp.loadCoverForSelected();
   }
 }
 
 onMounted(async () => {
-  // Flow optimiste avant scan : évite un frame liste sur deep-link fiche/méta.
+  // Deep-link : shell fiche tout de suite, mais scan sans reloadDraft —
+  // syncFromRoute hydrate une seule fois (pas de méta flash vide/rechargée).
   applyFlowFromRoute();
   await imp.loadProviders();
-  await imp.scan();
+  await imp.scan({ reloadDraft: false });
   await syncFromRoute();
   nextTick(() => scheduleScrollFocusedIntoView('.import'));
 });
@@ -625,7 +636,10 @@ defineExpose({
             class="import__sheet"
             aria-label="Fiche livre (brouillon)"
           >
-            <div class="import__sheet-hero">
+            <div v-if="!draftReady" class="import__sheet-loading" aria-busy="true">
+              {{ t('import.scanning') }}
+            </div>
+            <div v-else class="import__sheet-hero">
               <aside class="import__sheet-cover">
                 <div class="import__sheet-cover-frame">
                   <img
@@ -1272,6 +1286,14 @@ defineExpose({
   gap: 1.25rem;
   min-width: 0;
   max-width: 64rem;
+}
+
+.import__sheet-loading {
+  min-height: 12rem;
+  display: grid;
+  place-items: center;
+  color: var(--text-muted, rgba(255, 255, 255, 0.55));
+  font-size: 0.95rem;
 }
 
 .import__sheet-hero {

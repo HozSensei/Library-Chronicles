@@ -50,12 +50,15 @@ assert(store.includes('confirmApplyEnrich'), 'store confirm modal');
 assert(store.includes('filterMetaPatchBySelection'), 'store filtre champs');
 assert(store.includes('pendingApplyResult'), 'store pending');
 assert(store.includes('applyFieldSelection'), 'store selection');
+assert(store.includes('hydrateDraftFromSelected'), 'hydrate draft sans empty flash');
+assert(store.includes('loadCoverForSelected'), 'cover reload idempotent');
 
 const view = readFileSync(join(root, 'src/renderer/src/views/ImportView.vue'), 'utf8');
 assert(view.includes('import__apply-modal'), 'modal DOM');
 assert(view.includes('Appliquer les métadonnées'), 'titre modal');
 assert(view.includes('confirmApplyModal'), 'handler confirm');
 assert(view.includes('metaApplyFields'), 'liste champs');
+assert(view.includes('draftReady'), 'fiche gated tant que draft non hydraté');
 
 const gamepad = readFileSync(join(root, 'src/renderer/src/composables/useGamepad.js'), 'utf8');
 assert(gamepad.includes('isApplyModalOpen'), 'gamepad modal branch');

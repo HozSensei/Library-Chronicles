@@ -108,6 +108,10 @@ export const useImportStore = defineStore('import', {
     lastImported: null,
     _providersLoaded: false,
     _enrichCoverToken: 0,
+    /** filePath du draft hydraté — évite empty intermediate / reload inutile. */
+    _draftItemPath: null,
+    /** filePath dont la coverPreview est valide. */
+    _coverPreviewPath: null,
   }),
   getters: {
     selected: (s) => s.items[s.cursor] || null,
@@ -259,7 +263,12 @@ export const useImportStore = defineStore('import', {
         url: provider.helpUrl,
       });
     },
-    async scan() {
+    /**
+     * @param {{ reloadDraft?: boolean }} [opts]
+     * reloadDraft=false : laisse syncFromRoute hydrater une seule fois
+     * (évite draft rempli → vidé/rechargé).
+     */
+    async scan({ reloadDraft = true } = {}) {
       this.loading = true;
       this.error = null;
       try {
@@ -274,7 +283,11 @@ export const useImportStore = defineStore('import', {
         this.cursor = Math.min(this.cursor, Math.max(0, this.items.length - 1));
         const valid = new Set(this.items.map((i) => i.filePath));
         this.selectedPaths = this.selectedPaths.filter((p) => valid.has(p));
-        if (this.viewMode === 'detail' && this.selected) {
+        if (
+          reloadDraft &&
+          this.viewMode === 'detail' &&
+          this.selected
+        ) {
           await this.loadDraftFromSelected({ keepResults: false });
         }
         // Pas de goToList() ici si selected manquant : syncFromRoute (URL)
@@ -397,10 +410,17 @@ export const useImportStore = defineStore('import', {
         this.committing = false;
       }
     },
-    async loadDraftFromSelected({ keepResults = false } = {}) {
+    /**
+     * Hydratation synchrone du draft depuis l’item sélectionné.
+     * À appeler avant applyFlowFromRoute pour n’avoir aucun frame champs vides.
+     * @param {{ keepResults?: boolean }} [opts]
+     * @returns {boolean}
+     */
+    hydrateDraftFromSelected({ keepResults = false } = {}) {
       const item = this.selected;
-      if (!item) return;
+      if (!item) return false;
       const d = draftFromItem(item);
+      const sameItem = this._draftItemPath === item.filePath;
       this.draft = {
         title: d.title,
         series: d.series,
@@ -411,11 +431,15 @@ export const useImportStore = defineStore('import', {
         coverUrl: d.coverUrl || null,
         source: d.source || null,
       };
+      this._draftItemPath = item.filePath;
       // Préremplissage auto depuis draft/fichier : strip « Tome N » / « Vol. N »
       // pour matcher la série. La saisie manuelle (setSearchQuery / enrich) ne
       // strippe pas — voir prepareMetadataSearchQuery côté main.
-      const prefillRaw = String(d.series || d.title || item.name || '').trim();
-      this.searchQuery = normalizeMetadataQuery(prefillRaw) || prefillRaw;
+      // Ne pas écraser la query si on re-hydrate le même item (onglet Infos↔Search).
+      if (!sameItem || !String(this.searchQuery || '').trim()) {
+        const prefillRaw = String(d.series || d.title || item.name || '').trim();
+        this.searchQuery = normalizeMetadataQuery(prefillRaw) || prefillRaw;
+      }
       if (!keepResults) {
         this.enrichResults = [];
         this.enrichResultCursor = 0;
@@ -424,19 +448,46 @@ export const useImportStore = defineStore('import', {
         this.enrichError = null;
         this.clearEnrichCoverPreviews();
       }
-      this.coverPreview = null;
-      if (d.coverUrl) {
-        await this.resolveCoverPreview(d.coverUrl);
+      return true;
+    },
+    /**
+     * Charge la jaquette sans vider coverPreview si déjà valide pour cet item.
+     */
+    async loadCoverForSelected() {
+      const item = this.selected;
+      if (!item) return;
+      const token = item.filePath;
+      if (this._coverPreviewPath === token && this.coverPreview) {
+        return;
+      }
+      const coverUrl = this.draft?.coverUrl || draftFromItem(item).coverUrl;
+      // Ne clear qu’au changement d’item — pas de flash cover sur re-sync.
+      if (this._coverPreviewPath !== token) {
+        this.coverPreview = null;
+      }
+      if (coverUrl) {
+        await this.resolveCoverPreview(coverUrl);
       } else {
         try {
           const cover = await window.vdr.import.previewCover(item.filePath);
+          if (this.selected?.filePath !== token) return;
           if (cover?.data) {
             this.coverPreview = `data:${cover.mime};base64,${cover.data}`;
+          } else {
+            this.coverPreview = null;
           }
         } catch {
+          if (this.selected?.filePath !== token) return;
           this.coverPreview = null;
         }
       }
+      if (this.selected?.filePath === token) {
+        this._coverPreviewPath = token;
+      }
+    },
+    async loadDraftFromSelected({ keepResults = false } = {}) {
+      this.hydrateDraftFromSelected({ keepResults });
+      await this.loadCoverForSelected();
     },
     /**
      * Affiche une jacket : data-URL directe, sinon téléchargement main
