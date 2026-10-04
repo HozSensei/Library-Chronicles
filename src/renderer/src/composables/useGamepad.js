@@ -7,9 +7,11 @@ import { useImportStore } from '../stores/import';
 import { useProfilesStore } from '../stores/profiles';
 import {
   DeviceOrientation,
+  pauseMenuFocusDelta,
   remapDpad,
   remapStick,
   sessionOrientationForRoute,
+  uiActionForLogicalDpad,
   visualPanToLocal,
 } from '../../../shared/portrait-remap.js';
 import { applyPageReaderAction } from '../../../shared/reader-page-controls.js';
@@ -1114,6 +1116,7 @@ function createLoop(ctx) {
 
     if (route === 'reader') {
       // Modal pause Select : focus trap — A valider, B fermer, D-Pad/stick nav.
+      // Overlay dans `.reader__plane` (+90° CW) ; dirs = écran (remap portrait).
       if (reader.hudVisible) {
         if (
           action === 'close-book' ||
@@ -1125,24 +1128,34 @@ function createLoop(ctx) {
           reader.closeHud();
           return;
         }
+        // cursor-* (stick + D-Pad via uiActionForLogicalDpad) et filet de sécu
+        // si un binding lecture arrive encore : ↑=zoom-in/−1, ↓=zoom-out/+1.
+        let focusDelta = 0;
         if (
           action === 'cursor-up' ||
-          action === 'page-prev' ||
-          action === 'zoom-out' ||
-          action === 'cursor-left'
-        ) {
-          reader.moveHudFocus(-1);
-          navVibe();
-          afterFocusMove();
-          return;
-        }
-        if (
-          action === 'cursor-down' ||
-          action === 'page-next' ||
+          action === 'cursor-left' ||
           action === 'zoom-in' ||
-          action === 'cursor-right'
+          action === 'page-prev'
         ) {
-          reader.moveHudFocus(1);
+          focusDelta = pauseMenuFocusDelta(
+            action === 'cursor-up' || action === 'zoom-in'
+              ? 'up'
+              : 'left',
+          );
+        } else if (
+          action === 'cursor-down' ||
+          action === 'cursor-right' ||
+          action === 'zoom-out' ||
+          action === 'page-next'
+        ) {
+          focusDelta = pauseMenuFocusDelta(
+            action === 'cursor-down' || action === 'zoom-out'
+              ? 'down'
+              : 'right',
+          );
+        }
+        if (focusDelta) {
+          reader.moveHudFocus(focusDelta);
           navVibe();
           afterFocusMove();
           return;
@@ -1276,10 +1289,18 @@ function createLoop(ctx) {
   function emitLogicalDpad(physical) {
     const logical = remapDpad(orientation, physical);
     const key = `dpad:${logical}`;
-    const { ui } = handlers;
+    const { ui, reader } = handlers;
 
     if (ui.listeningForBind) {
       ui.applyCapturedBind(key);
+      return;
+    }
+
+    // Modal pause (+90° plan) : dirs écran → cursor-*, pas zoom/page lecture
+    // (sinon ↑ logique = zoom-in était mappé focus +1 = bas — axes « paysage »).
+    if (ui.routeName === 'reader' && reader.hudVisible) {
+      const menuAction = uiActionForLogicalDpad(logical);
+      if (menuAction) dispatch(menuAction);
       return;
     }
 
@@ -1324,15 +1345,14 @@ function createLoop(ctx) {
 
         if (ui.routeName === 'reader') {
           if (reader.hudVisible) {
-            // Modal pause : stick = nav focus (comme menus), pas de pan.
+            // Modal pause (+90° plan) : stick remappé portrait → dirs écran
+            // (pas identité landscape des menus hors lecteur, pas visualPanToLocal).
             const logical = remapStick(orientation, rawX, rawY);
             const dir = stickMenuNav.update(logical.x, logical.y, performance.now());
             if (dir) {
               const stickPayload = { stickRepeat: stickMenuNav.lastWasRepeat() };
-              if (dir === 'up') dispatch('cursor-up', stickPayload);
-              else if (dir === 'down') dispatch('cursor-down', stickPayload);
-              else if (dir === 'left') dispatch('cursor-left', stickPayload);
-              else if (dir === 'right') dispatch('cursor-right', stickPayload);
+              const menuAction = uiActionForLogicalDpad(dir);
+              if (menuAction) dispatch(menuAction, stickPayload);
             }
           } else {
             // Lecteur : pan analogique — pas de focus menu.

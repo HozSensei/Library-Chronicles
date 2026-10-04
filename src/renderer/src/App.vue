@@ -40,7 +40,8 @@ function syncOrientationSideEffects(orientation) {
       ? 'landscape'
       : expected;
   ui.applyOrientation(safe);
-  if (safe !== 'portrait-ccw') ui.setReaderCssRotate(false);
+  // Lecteur : garder +90° CSS même si un event orientation arrive sans cssRotate.
+  ui.setReaderCssRotate(safe === 'portrait-ccw');
   library.syncColumns('landscape');
   refreshOrientation();
 }

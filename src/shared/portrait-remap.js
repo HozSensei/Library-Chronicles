@@ -118,7 +118,8 @@ export function remapStick(orientation, physicalX, physicalY) {
  * | Gauche (−1,0)  | (0,−1)              |
  * | Droite (+1,0)  | (0,+1)              |
  *
- * Ne pas toucher remapStick : menus landscape + modal pause / D-Pad en dépendent.
+ * Ne pas toucher remapStick : menus landscape + modal pause (dirs écran) /
+ * D-Pad en dépendent. Le pan contenu sous +90° CSS utilise visualPanToLocal.
  *
  * @param {number} stickX axes stick physiques (ou landscape identité)
  * @param {number} stickY
@@ -185,4 +186,38 @@ export function uiActionForLogicalDpad(dir) {
     default:
       return null;
   }
+}
+
+/**
+ * Delta focus modal pause (liste 1D) pour une direction *logique écran*.
+ * Le menu vit dans `.reader__plane` (+90° CW) : après remap portrait CCW,
+ * ↑/← = précédent, ↓/→ = suivant (repère écran Ally portrait).
+ *
+ * @param {'up'|'down'|'left'|'right'|null|undefined} logicalDir
+ * @returns {-1|1|0}
+ */
+export function pauseMenuFocusDelta(logicalDir) {
+  switch (logicalDir) {
+    case LogicalDir.UP:
+    case LogicalDir.LEFT:
+      return -1;
+    case LogicalDir.DOWN:
+    case LogicalDir.RIGHT:
+      return 1;
+    default:
+      return 0;
+  }
+}
+
+/**
+ * Delta focus modal pause depuis un stick / D-Pad *physique*.
+ * Chaîne Ally lecture : remap portrait CCW → directions écran → focus.
+ * (Ne pas utiliser visualPanToLocal ici : réservé au pan contenu sous +90°.)
+ *
+ * @param {typeof DeviceOrientation[keyof typeof DeviceOrientation]} orientation
+ * @param {'up'|'down'|'left'|'right'} physicalDir
+ * @returns {-1|1|0}
+ */
+export function pauseMenuFocusDeltaFromPhysical(orientation, physicalDir) {
+  return pauseMenuFocusDelta(remapDpad(orientation, physicalDir));
 }

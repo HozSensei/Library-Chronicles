@@ -3,7 +3,8 @@
  * landscape = menus (défaut) · portrait-ccw = lecteur (logique).
  * data-reader-rotate=1 = plan lecteur CSS +90° (stratégie B, fenêtre landscape).
  *
- * Menu pause = modal dans `.reader__plane` (même repère tourné que le stage).
+ * Menu pause = modal dans `.reader__plane` (même repère tourné +90° que le stage).
+ * Contrôles modal = remap portrait CCW (dirs écran), pas identité landscape menus.
  */
 
 [data-orientation='landscape'] {
@@ -30,6 +31,14 @@ body,
   padding: 1.25rem;
   background: transparent;
   box-sizing: border-box;
+}
+
+/* Plan CSS +90° : le HUD hérite du transform — pas de counter-rotate. */
+[data-reader-rotate='1'] .hud {
+  inset: 0;
+  width: 100%;
+  max-width: 100%;
+  max-height: 100%;
 }
 
 /* Hors lecteur (ne devrait pas s’afficher) — garde-fou */
