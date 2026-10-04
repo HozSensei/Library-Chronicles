@@ -275,7 +275,7 @@ assert(
   assert(el2.scrollTop < 0 || el2.scrollTop === -14, 'stick helper speed 14');
 }
 
-// Runtime : EPUB font / chapter / stick scroll
+// Runtime : EPUB font / page-écran / stick page (plus de scroll)
 {
   assert(isEpubZoomNoop('fit-width'), 'epub fit-width no-op');
   const calls = [];
@@ -284,18 +284,20 @@ assert(
     adjustFontSize: (n) => calls.push(`font:${n}`),
     stepPage: (w) => calls.push(`page:${w}`),
   };
-  const el = { scrollLeft: 0, scrollTop: 5 };
   assert(applyEpubReaderAction(reader, 'reset-zoom'), 'epub L3 reset font');
   assert(applyEpubReaderAction(reader, 'zoom-in'), 'epub zoom-in → font+');
   assert(applyEpubReaderAction(reader, 'page-next'), 'epub page-next');
   assert(
-    applyEpubReaderAction(reader, 'pan', { x: 0, y: 1 }, el),
-    'epub stick scroll',
+    applyEpubReaderAction(reader, 'pan', { x: 0, y: 1 }, null),
+    'epub stick page',
   );
-  assert(el.scrollTop !== 5, 'epub stick a scrollé');
   assert(
-    calls.join('|') === 'resetFont|font:1|page:next',
-    'epub path : reset font, font+, chapter',
+    calls.includes('page:next'),
+    'epub stick tourne une page-écran',
+  );
+  assert(
+    calls.join('|').startsWith('resetFont|font:1|page:next'),
+    'epub path : reset font, font+, page',
   );
 }
 

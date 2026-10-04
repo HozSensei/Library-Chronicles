@@ -1,19 +1,25 @@
 /**
- * Chemin manette — lecteur EPUB (texte reflow).
+ * Chemin manette — lecteur EPUB (texte reflow paginé type liseuse).
  *
- * Stick = scroll du conteneur `.reader__epub`.
- * D-Pad ←/→ = chapitre/spine ±1 (page-prev / page-next).
- * D-Pad ↑/↓ = taille police ± (zoom-in / zoom-out).
+ * Stick / D-Pad ←→ = page-écran ±1 dans le chapitre, puis chapitre voisin.
+ * D-Pad ↑/↓ = taille police ± (reflow → re-pagination).
  * L3 / R3 = reset taille police.
  * LB fit-width = no-op (pas d’image à fitter).
+ * Pas de scroll continu ni de filtres sépia manga sur le HTML.
  */
 
-import { applyStickToStripScroll } from './reader-stick.js';
+import {
+  EPUB_STICK_PAGE_COOLDOWN_MS,
+  stickToEpubPageWhich,
+} from './epub-pagination.js';
 
 /** Fit-width image : sans objet en EPUB. */
 export const EPUB_ZOOM_NOOP_ACTIONS = Object.freeze(['fit-width']);
 
 const ZOOM_NOOP = new Set(EPUB_ZOOM_NOOP_ACTIONS);
+
+/** @type {number} */
+let lastStickPageAt = 0;
 
 /**
  * @param {string} action
@@ -21,6 +27,32 @@ const ZOOM_NOOP = new Set(EPUB_ZOOM_NOOP_ACTIONS);
  */
 export function isEpubZoomNoop(action) {
   return ZOOM_NOOP.has(action);
+}
+
+/**
+ * Reset cooldown stick (tests).
+ */
+export function resetEpubStickPageClock() {
+  lastStickPageAt = 0;
+}
+
+/**
+ * Stick → page-écran (discret + cooldown), pas de scroll.
+ *
+ * @param {{ stepPage: (which: 'prev'|'next') => unknown }} reader
+ * @param {number} localX
+ * @param {number} localY
+ * @param {number} [now]
+ * @returns {boolean}
+ */
+export function applyEpubStickPage(reader, localX, localY, now = Date.now()) {
+  if (!reader || typeof reader.stepPage !== 'function') return false;
+  const which = stickToEpubPageWhich(localX, localY);
+  if (!which) return false;
+  if (now - lastStickPageAt < EPUB_STICK_PAGE_COOLDOWN_MS) return true;
+  lastStickPageAt = now;
+  reader.stepPage(which);
+  return true;
 }
 
 /**
@@ -35,14 +67,14 @@ export function isEpubZoomNoop(action) {
  * }} reader
  * @param {string} action
  * @param {{ x: number, y: number } | null} [stickLocal]
- * @param {{ scrollLeft: number, scrollTop: number } | null} [epubEl]
+ * @param {unknown} [_epubEl] réservé (plus de scroll conteneur)
  * @returns {boolean} true si consommé
  */
 export function applyEpubReaderAction(
   reader,
   action,
   stickLocal = null,
-  epubEl = null,
+  _epubEl = null,
 ) {
   if (!reader) return false;
 
@@ -72,7 +104,7 @@ export function applyEpubReaderAction(
     return true;
   }
   if (stickLocal) {
-    return applyStickToStripScroll(epubEl, stickLocal.x, stickLocal.y);
+    return applyEpubStickPage(reader, stickLocal.x, stickLocal.y);
   }
   return false;
 }

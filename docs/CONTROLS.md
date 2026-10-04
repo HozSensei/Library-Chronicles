@@ -80,17 +80,18 @@ Trois chemins séparés selon le format / mode d’ouverture :
 
 CTA fiche **« Lire en continu »** : disabled pour EPUB (et formats texte).
 
-### EPUB (reflow) — parité partielle
+### EPUB (reflow paginé) — type liseuse
 
-EPUB = XHTML/CSS reflow, **pas** des images page. Pas de zoom/pan image ni strip vertical.
+EPUB = XHTML/CSS reflow. Une **page** = un **viewport** (colonnes CSS), pas un chapitre spine entier.
+Changement de taille police → **re-pagination** (reflow). Contenu isolé des filtres manga (brightness / sépia).
 
 | Contrôle | Action |
 |----------|--------|
-| Stick L | **Scroll** du chapitre (conteneur `.reader__epub`) |
-| D-Pad **↑** / **↓** | Taille police ±10 % (70–200 %) |
+| Stick L | **Page-écran** ±1 (discret + cooldown) ; en bout de chapitre → chapitre voisin |
+| D-Pad ← / → | **Page-écran** ±1 ; en bout → chapitre / spine ±1 |
+| D-Pad **↑** / **↓** | Taille police ±10 % (70–200 %) → reflow |
 | L3 / R3 | Reset taille police (100 %) |
-| D-Pad ← / → | Chapitre / spine ±1 |
-| LT / RT | Chapitre ±1 |
+| LT / RT | Chapitre spine ±1 (atterrit début / fin) |
 | LB Fit Width | **No-op** (pas d’image à fitter) |
 | A / B / X / Y / Select | Sens, quitter, signet, HUD, pause (comme page) |
 
@@ -98,15 +99,17 @@ EPUB = XHTML/CSS reflow, **pas** des images page. Pas de zoom/pan image ni strip
 |---------|--------------|------|
 | Import / scan / watcher | oui | oui |
 | Lire depuis fiche | oui | oui |
-| Progression (index / %) | oui | oui (spine) |
-| Page / chapitre ± | oui | oui (spine / TOC) |
-| Stick scroll / pan | pan (zoom) | scroll |
-| Thème fond/texte (filtres) | oui | oui (filtres + CSS) |
-| Taille police | non | oui |
+| Progression | index page | spine + écran viewport |
+| Page ± | page image | **écran** puis chapitre |
+| Stick | pan (zoom) | page-écran |
+| Thème / filtres image | oui | **non** (encre `#1a1a1a` sur papier `#f4efe6`) |
+| Taille police | non | oui (reflow) |
 | Zoom image + pan clamp | oui | **non** |
 | Strip vertical pages | oui | **non** (CTA disabled) |
 | Fit-width image | oui | **non** |
 | Jaquette à l’import | page 0 | OPF cover / cover-image |
+
+Implémentation : `src/shared/epub-pagination.js` + `EpubReaderStage.vue` (multi-colonnes + `translateX`).
 
 ### Modèle de transform — mode page
 

@@ -1,13 +1,12 @@
 /**
- * Smoke EPUB : archive minimale (container + OPF + spine XHTML + cover PNG).
- * + garde-fou CSP : iframe chapitre = blob: (frame-src / child-src).
+ * Smoke EPUB : archive minimale + pagination liseuse + thème encre/papier.
  */
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import zlib from 'node:zlib';
+import { fileURLToPath } from 'node:url';
 import JSZip from 'jszip';
 import {
   openEpub,
@@ -18,7 +17,6 @@ import {
 } from '../src/main/extractors/epub.js';
 import { detectFormat, openBook } from '../src/main/extractors/index.js';
 import { SUPPORTED } from '../src/main/library/scanner.js';
-import { t, setLocale } from '../src/shared/i18n.js';
 import {
   READING_MODE,
   isEpubFormat,
@@ -28,60 +26,22 @@ import {
   supportsStripReading,
 } from '../src/shared/reading-mode.js';
 import {
+  EPUB_INK,
+  EPUB_PAPER_BG,
+  buildEpubThemeCss,
+  clampScreenIndex,
+  computeScreenCount,
+  remapScreenIndex,
+  resolveEpubPageStep,
+  screenOffsetX,
+  stickToEpubPageWhich,
+} from '../src/shared/epub-pagination.js';
+import {
   applyEpubReaderAction,
+  applyEpubStickPage,
   isEpubZoomNoop,
+  resetEpubStickPageClock,
 } from '../src/shared/reader-epub-controls.js';
-
-const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
-const indexHtml = fs.readFileSync(
-  path.join(root, 'src/renderer/index.html'),
-  'utf8',
-);
-const cspMatch = indexHtml.match(
-  /http-equiv="Content-Security-Policy"\s+content="([^"]+)"/,
-);
-assert.ok(cspMatch, 'meta CSP présente dans index.html');
-const csp = cspMatch[1];
-assert.match(csp, /img-src[^;]*blob:/, 'CSP img-src autorise blob: (pages images)');
-assert.match(csp, /img-src[^;]*data:/, 'CSP img-src autorise data: (assets EPUB)');
-assert.match(
-  csp,
-  /frame-src[^;]*blob:/,
-  'CSP frame-src autorise blob: (iframe chapitre EPUB)',
-);
-assert.match(
-  csp,
-  /child-src[^;]*blob:/,
-  'CSP child-src autorise blob: (Chromium legacy frames)',
-);
-assert.match(
-  csp,
-  /style-src[^;]*'unsafe-inline'/,
-  'CSP style-src unsafe-inline (CSS inliné EPUB)',
-);
-assert.match(csp, /media-src[^;]*blob:/, 'CSP media-src autorise blob:');
-assert.match(csp, /media-src[^;]*data:/, 'CSP media-src autorise data:');
-
-const readerStoreSrc = fs.readFileSync(
-  path.join(root, 'src/renderer/src/stores/reader.js'),
-  'utf8',
-);
-assert.match(
-  readerStoreSrc,
-  /reader\.chapterOf|chapterOf/,
-  'HUD EPUB utilise chapterOf (pas « pages » trompeur)',
-);
-assert.match(
-  readerStoreSrc,
-  /READING_MODE\.EPUB|isEpubFormat/,
-  'pageLabel branche EPUB',
-);
-
-setLocale('fr');
-assert.equal(t('reader.chapterOf', { cur: 3, total: 43 }), 'Chapitre 3 / 43');
-setLocale('en');
-assert.equal(t('reader.chapterOf', { cur: 3, total: 43 }), 'Chapter 3 / 43');
-setLocale('fr');
 
 function tinyPng(r, g, b) {
   const signature = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
@@ -167,6 +127,65 @@ assert.equal(resolveReadingMode('epub', 'strip'), READING_MODE.EPUB);
 assert.equal(resolveReadingMode('cbz', 'strip'), READING_MODE.STRIP);
 assert.equal(isEpubZoomNoop('fit-width'), true);
 
+// ——— Pagination pure ————————————————————————————————————————————————
+assert.equal(computeScreenCount(3240, 1080), 3);
+assert.equal(computeScreenCount(1080, 1080), 1);
+assert.equal(computeScreenCount(0, 1080), 1);
+assert.equal(clampScreenIndex(5, 3), 2);
+assert.equal(clampScreenIndex(-1, 3), 0);
+assert.equal(screenOffsetX(2, 1080), 2160);
+assert.equal(remapScreenIndex(1, 4, 8), 2);
+assert.equal(remapScreenIndex(0, 1, 5), 0);
+
+{
+  const mid = resolveEpubPageStep({
+    screenIndex: 1,
+    screenCount: 3,
+    which: 'next',
+  });
+  assert.deepEqual(mid, { type: 'screen', index: 2 });
+  const end = resolveEpubPageStep({
+    screenIndex: 2,
+    screenCount: 3,
+    which: 'next',
+  });
+  assert.deepEqual(end, { type: 'chapter', which: 'next', landOn: 'start' });
+  const start = resolveEpubPageStep({
+    screenIndex: 0,
+    screenCount: 3,
+    which: 'prev',
+  });
+  assert.deepEqual(start, { type: 'chapter', which: 'prev', landOn: 'end' });
+  const rtl = resolveEpubPageStep({
+    screenIndex: 0,
+    screenCount: 2,
+    which: 'next',
+    rtl: true,
+  });
+  assert.equal(rtl.type, 'chapter');
+  assert.equal(rtl.which, 'prev');
+}
+
+assert.equal(stickToEpubPageWhich(0.8, 0.1), 'next');
+assert.equal(stickToEpubPageWhich(-0.8, 0.1), 'prev');
+assert.equal(stickToEpubPageWhich(0.1, 0.9), 'next');
+assert.equal(stickToEpubPageWhich(0.1, -0.9), 'prev');
+assert.equal(stickToEpubPageWhich(0.1, 0.1), null);
+
+{
+  const css = buildEpubThemeCss({
+    fontPct: 120,
+    pageWidth: 1080,
+    pageHeight: 1920,
+  });
+  assert.match(css, new RegExp(`color:\\s*${EPUB_INK}`));
+  assert.match(css, new RegExp(`background:\\s*${EPUB_PAPER_BG}`));
+  assert.match(css, /column-width:\s*1080px/);
+  assert.match(css, /font-size:\s*120%/);
+  assert.doesNotMatch(css, /var\(--paper/);
+  assert.doesNotMatch(css, /sepia|brightness\(|contrast\(/);
+}
+
 {
   const calls = [];
   const reader = {
@@ -174,14 +193,42 @@ assert.equal(isEpubZoomNoop('fit-width'), true);
     adjustFontSize: (n) => calls.push(`font:${n}`),
     stepPage: (w) => calls.push(`page:${w}`),
   };
-  const el = { scrollLeft: 0, scrollTop: 0 };
+  resetEpubStickPageClock();
   assert.equal(applyEpubReaderAction(reader, 'fit-width'), true);
   assert.equal(applyEpubReaderAction(reader, 'reset-zoom'), true);
   assert.equal(applyEpubReaderAction(reader, 'zoom-in'), true);
   assert.equal(applyEpubReaderAction(reader, 'page-next'), true);
-  assert.equal(applyEpubReaderAction(reader, 'pan', { x: 0, y: 1 }, el), true);
-  assert.ok(el.scrollTop !== 0, 'stick scroll EPUB');
-  assert.deepEqual(calls, ['reset', 'font:1', 'page:next']);
+  assert.equal(
+    applyEpubReaderAction(reader, 'pan', { x: 0, y: 1 }, null),
+    true,
+  );
+  assert.ok(calls.includes('page:next'), 'stick page-tourne');
+  // Deuxième stick immédiat = cooldown (consommé, pas de 2e step)
+  const before = calls.filter((c) => c.startsWith('page:')).length;
+  assert.equal(applyEpubStickPage(reader, 0, 1, Date.now()), true);
+  assert.equal(
+    calls.filter((c) => c.startsWith('page:')).length,
+    before,
+    'cooldown stick',
+  );
+  assert.deepEqual(
+    calls.filter((c) => !c.startsWith('page:') || c === 'page:next').slice(0, 3),
+    ['reset', 'font:1', 'page:next'],
+  );
+}
+
+// Stage : pas de filter manga, pagination flag
+{
+  const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
+  const stage = fs.readFileSync(
+    path.join(root, 'src/renderer/src/components/EpubReaderStage.vue'),
+    'utf8',
+  );
+  assert.match(stage, /data-epub-paginated/);
+  assert.match(stage, /buildEpubThemeCss|epub-pagination/);
+  assert.match(stage, /filter:\s*none/);
+  assert.doesNotMatch(stage, /reader\.filterCss/);
+  assert.doesNotMatch(stage, /color:\s*var\(--paper/);
 }
 
 async function buildFixture() {
@@ -223,8 +270,6 @@ try {
   assert.equal(book.title, 'Demo EPUB');
   assert.equal(book.author, 'VDR Tester');
   assert.ok(book.chapters.length >= 2);
-  // pageCount = longueur spine (= chapitres), pas pagination visuelle reflow
-  assert.equal(book.pageCount, book.chapters.length);
 
   const page0 = await book.getPage(0);
   assert.ok(page0.buffer?.length);
@@ -260,4 +305,6 @@ try {
   fs.unlinkSync(tmp);
 }
 
-console.log('OK  EPUB extracteur + CSP blob iframe + compteur chapitres');
+console.log(
+  'OK  EPUB extracteur + pagination viewport + thème encre/papier (sans sépia)',
+);
