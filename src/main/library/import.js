@@ -96,6 +96,8 @@ export async function commitImport({ sourcePath, metadata, copyToLibrary = true 
     console.warn('[VDR] openBook pendant import:', err.message);
   }
 
+  const appliedRemote =
+    Boolean(coverPath) && Boolean(remoteCoverUrl);
   const meta = {
     filePath: destPath,
     title: metadata?.title || path.basename(destPath, path.extname(destPath)),
@@ -110,6 +112,8 @@ export async function commitImport({ sourcePath, metadata, copyToLibrary = true 
     metadata: {
       ...(metadata || {}),
       coverUrl: remoteCoverUrl || metadata?.coverUrl || null,
+      /** remote = jacket API écrite ; archive = page 0 ; null = aucune. */
+      coverSource: appliedRemote ? 'remote' : coverPath ? 'archive' : null,
       importedAt: new Date().toISOString(),
       sourcePath,
     },

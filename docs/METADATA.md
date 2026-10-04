@@ -24,7 +24,8 @@ séparées de `vdr-config.json`. **Jamais** commités dans le dépôt.
 - **Paramètres → API métadonnées** : liste des providers, badge gratuit / clé requise, champ clé seulement si `requiresApiKey`, texte d’aide + lien (`shell.openExternal`, pas de webview).
 - **Import (fiche détail)** : sélecteur de provider + champ **mots-clés** éditable (clavier virtuel) ; `search(query)` via le provider actif ; choisir un résultat pour appliquer les méta (`metaSource: selected`, pastille verte), puis Importer ce tome (X) ou tout importer (Y).
 - **Résolution méta (X/Y)** : `selectedMeta` si choix API, sinon méta détectées / nom de fichier. Pastilles liste : bleu = `detected`, rouge = `empty`, vert = `selected`.
-- **Jackets** : `coverUrl` des résultats API est conservé dans `selectedMeta` / draft et téléchargé au commit (`ensureCoverFromUrl`) — fallback page 0 de l’archive si échec réseau.
+- **Jackets** : `coverUrl` des résultats API est conservé dans `selectedMeta` / draft et téléchargé au commit (`ensureCoverFromUrl`) — fallback page 0 de l’archive si échec réseau. Le scan bibliothèque privilégie `metadata.coverUrl` (`coverSource: remote`) et ne laisse pas le watcher écraser une jaquette API avec la page 0.
+- **Recherche** : la query est normalisée (`normalizeMetadataQuery`) — suffixes `Tome N` / `Vol. N` retirés pour AniList / MangaDex / Open Library.
 - **Fiche livre** : titre / série / tome / année / auteur / synopsis éditables post-import (`library.updateBook`) ; statut / pages / provider restent en lecture seule.
 - **Défaut** : `anilist` (gratuit, sans clé) — plus `stub` par défaut.
 - Warnings visibles si réseau / clé / résultats vides ; synopsis appliquée au draft.

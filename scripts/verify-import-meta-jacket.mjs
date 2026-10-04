@@ -169,16 +169,25 @@ const csp = readFileSync(join(root, 'src/renderer/index.html'), 'utf8');
 
 assert(importMain.includes('ensureCoverFromUrl'), 'commitImport appelle ensureCoverFromUrl');
 assert(importMain.includes('remoteCoverUrl'), 'commitImport lit coverUrl méta');
+assert(importMain.includes('coverSource'), 'commitImport marque coverSource');
 assert(importMain.includes('previewCoverFromUrl'), 'previewCoverFromUrl exporté');
 assert(importMain.includes('findBookForImportSource'), 'scan déjà-importé persistant');
 assert(thumbs.includes('export async function ensureCoverFromUrl'), 'ensureCoverFromUrl exporté');
 assert(thumbs.includes('force: true'), 'jacket force overwrite cache');
 assert(thumbs.includes('normalizeRemoteCoverUrl'), 'normalizeRemoteCoverUrl');
 assert(thumbs.includes('bufferToDataUrl'), 'bufferToDataUrl');
+assert(
+  thumbs.includes('TOCTOU') || thumbs.includes('ne pas écraser'),
+  'ensureCover protège jacket contre race page 0',
+);
 assert(fetchSrc.includes('export async function fetchBuffer'), 'fetchBuffer dispo');
 assert(importStore.includes('coverUrl'), 'store import draft coverUrl');
 assert(importStore.includes('resolveCoverPreview'), 'store resolveCoverPreview');
 assert(importStore.includes('previewCoverFromUrl'), 'store appelle previewCoverFromUrl');
+assert(
+  importStore.includes('this.draft.volume != null'),
+  'applyEnrich garde volume détecté (pas total série API)',
+);
 assert(libraryStore.includes('async updateBook'), 'library.updateBook action');
 assert(bookView.includes('v-model="draft.title"'), 'fiche titre éditable');
 assert(bookView.includes('v-model="draft.series"'), 'fiche série éditable');
@@ -207,6 +216,40 @@ assert(
 assert(
   !/img-src[^;]*https:/.test(csp),
   'CSP n’autorise pas https img (proxy obligatoire)',
+);
+
+// --- scan bibliothèque : priorité jacket API + réparation coverSource ---
+const ipcLibrary = readFileSync(
+  join(root, 'src/main/ipc/library.js'),
+  'utf8',
+);
+const providerSrc = readFileSync(
+  join(root, 'src/main/metadata/provider.js'),
+  'utf8',
+);
+const typesSrc = readFileSync(
+  join(root, 'src/main/metadata/types.js'),
+  'utf8',
+);
+assert(
+  ipcLibrary.includes('ensureCoverFromUrl'),
+  'LIBRARY_SCAN peut re-télécharger jacket API',
+);
+assert(
+  ipcLibrary.includes('needsRemoteCover'),
+  'scan détecte jacket API non appliquée',
+);
+assert(
+  ipcLibrary.includes("coverSource !== 'remote'"),
+  'scan ne skip pas si coverSource ≠ remote',
+);
+assert(
+  typesSrc.includes('export function normalizeMetadataQuery'),
+  'normalizeMetadataQuery exporté',
+);
+assert(
+  providerSrc.includes('normalizeMetadataQuery'),
+  'searchMetadata normalise query (strip tome)',
 );
 
 if (failed) {
