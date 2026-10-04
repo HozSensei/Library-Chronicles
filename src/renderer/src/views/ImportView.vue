@@ -280,6 +280,7 @@ async function doSearch() {
   }
   await imp.enrich();
   if (imp.enrichResults.length) {
+    // Blur query : sinon A sur résultat est mangé par shouldBlockGamepadConfirmForText
     try {
       input?.blur?.();
       /** @type {HTMLElement|null} */ (document.activeElement)?.blur?.();
