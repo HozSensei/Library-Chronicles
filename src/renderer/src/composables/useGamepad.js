@@ -1030,7 +1030,7 @@ function createLoop(ctx) {
           }
         });
       }
-      // Zoom D-Pad ←/→ toujours actif (strip + page) — plus de remap page ±.
+      // Zoom D-Pad ↑/↓ ; pages ←/→ (axes invertis vs ancien mapping).
       if (action === 'zoom-in') reader.zoomBy(1);
       if (action === 'zoom-out') reader.zoomBy(-1);
       if (action === 'page-prev') {
@@ -1056,23 +1056,7 @@ function createLoop(ctx) {
         const local = ui.readerCssRotate
           ? visualPanToLocal(payload.x, payload.y)
           : payload;
-        if (reader.isStripMode) {
-          // Strip : stick Y = scroll ; si zoomé, X/Y = pan sur la page visible.
-          if (reader.isZoomed) {
-            reader.pan(local.x, local.y);
-          } else {
-            const strip = document.querySelector('.reader__strip');
-            if (strip) {
-              strip.scrollTop += local.y * 28;
-              strip.scrollLeft += local.x * 10;
-            } else {
-              reader.pan(local.x, local.y);
-            }
-          }
-        } else {
-          // Mode page : pan stick classique.
-          reader.pan(local.x, local.y);
-        }
+        reader.pan(local.x, local.y);
       }
     }
   }

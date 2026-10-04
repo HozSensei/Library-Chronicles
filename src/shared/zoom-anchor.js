@@ -245,16 +245,9 @@ export function measureReaderZoomGeometry(root) {
   if (!doc) return null;
 
   const reader = doc.querySelector('.reader');
-  const pageStage = doc.querySelector('.reader__stage');
-  const stripStage = doc.querySelector('.reader__strip');
-  const stage = pageStage || stripStage;
-  const pan = pageStage
-    ? doc.querySelector('.reader__pan')
-    : doc.querySelector('.reader__strip-inner');
-  const page = pageStage
-    ? doc.querySelector('.reader__page')
-    : doc.querySelector('.reader__strip-page.is-current') ||
-      doc.querySelector('.reader__strip-page');
+  const stage = doc.querySelector('.reader__stage');
+  const pan = doc.querySelector('.reader__pan');
+  const page = doc.querySelector('.reader__page');
   if (!stage || !page) return null;
 
   const rotate90 = reader?.getAttribute?.('data-css-rotate') === '1';
@@ -267,15 +260,9 @@ export function measureReaderZoomGeometry(root) {
   let imgOffsetY;
   // offset* = position layout (ignore transform scale/pan) — idéal.
   // Mode page : pan wrapper centré (offset = .reader__pan seul).
-  // Mode strip : page courante dans le strip-inner (offset page ± scroll).
-  if (pageStage && pan && pan.offsetParent === stage) {
+  if (pan && pan.offsetParent === stage) {
     imgOffsetX = pan.offsetLeft;
     imgOffsetY = pan.offsetTop;
-  } else if (!pageStage && page) {
-    const scrollTop = Number(stage.scrollTop) || 0;
-    const scrollLeft = Number(stage.scrollLeft) || 0;
-    imgOffsetX = (Number(page.offsetLeft) || 0) - scrollLeft;
-    imgOffsetY = (Number(page.offsetTop) || 0) - scrollTop;
   } else if (page.offsetParent === stage) {
     imgOffsetX = page.offsetLeft;
     imgOffsetY = page.offsetTop;
@@ -325,7 +312,7 @@ export function pinReaderOverflow(root) {
         : null;
   if (!doc) return;
   const nodes = doc.querySelectorAll(
-    '.reader, .reader__plane, .reader__viewport, .reader__stage, .reader__strip',
+    '.reader, .reader__plane, .reader__viewport, .reader__stage',
   );
   for (const el of nodes) {
     if (el.scrollTop) el.scrollTop = 0;

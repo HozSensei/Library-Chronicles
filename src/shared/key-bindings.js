@@ -123,11 +123,14 @@ export const DEFAULT_KEY_BINDINGS = Object.freeze({
     [`button:${GamepadButtons.LT}`]: 'chapter-prev',
     [`button:${GamepadButtons.RT}`]: 'chapter-next',
     [`button:${GamepadButtons.RB}`]: 'next-volume',
-    /** Spec UX : D-Pad droite = Zoom +, gauche = Zoom − (repère logique post-remap) */
-    'dpad:right': 'zoom-in',
-    'dpad:left': 'zoom-out',
-    'dpad:up': 'page-prev',
-    'dpad:down': 'page-next',
+    /**
+     * Spec UX : axes invertis (ex-zoom ↔ ex-pages).
+     * ← / →  → pages · ↑ / ↓  → zoom ± (repère logique post-remap)
+     */
+    'dpad:left': 'page-prev',
+    'dpad:right': 'page-next',
+    'dpad:up': 'zoom-out',
+    'dpad:down': 'zoom-in',
     'stick:left': 'pan',
   },
   library: {

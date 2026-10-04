@@ -36,7 +36,7 @@ L’app appelle `setSessionMode('reader'|'ui')` à l’entrée / sortie du lecte
 6. **Récents** — **une entrée par série** (dernier tome touché) ; A → fiche série si multi-tomes, sinon fiche tome
 7. **Fiche série** (`/series/:seriesId`) — cover 1er tome, méta agrégées, grille des tomes (ordre volume) → A ouvre la fiche tome
 8. **Fiche tome** (`/book/:id`) — cover + méta + synopsis · Lire / Retour / Options (footer fixe) ; accessible depuis série ou grille
-9. **Lecteur** — portrait (+90° CSS), menu pause Select en **modal** (quitter, signets, filtres, webtoon, sens)
+9. **Lecteur** — portrait (+90° CSS), menu pause Select en **modal** (quitter, signets, filtres, sens) · page unique
 10. **Paramètres** — thème, profils, haptics, remap, API (orientation info seule)
 
 ### Série vs tome

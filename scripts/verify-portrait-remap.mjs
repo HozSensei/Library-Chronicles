@@ -103,20 +103,28 @@ assert(
 );
 assert(sessionModeForRoute('reader') === 'reader', 'route reader → mode reader');
 
-// Spec UX : droite = Zoom +, gauche = Zoom − ; haut/bas = pages
-assert(readingActionForLogicalDpad('right') === 'zoom-in', '→ écran = zoom +');
-assert(readingActionForLogicalDpad('left') === 'zoom-out', '← écran = zoom −');
-assert(readingActionForLogicalDpad('up') === 'page-prev', '↑ écran = page prev');
-assert(readingActionForLogicalDpad('down') === 'page-next', '↓ écran = page next');
+// Spec UX : ←/→ = pages ; ↑/↓ = zoom (axes invertis)
+assert(readingActionForLogicalDpad('left') === 'page-prev', '← écran = page prev');
+assert(readingActionForLogicalDpad('right') === 'page-next', '→ écran = page next');
+assert(readingActionForLogicalDpad('up') === 'zoom-out', '↑ écran = zoom −');
+assert(readingActionForLogicalDpad('down') === 'zoom-in', '↓ écran = zoom +');
 
 const bindings = resolveKeyBindings(null);
 assert(
-  actionForBinding(bindings, 'reader', 'dpad:right') === 'zoom-in',
-  'binding défaut zoom-in (droite)',
+  actionForBinding(bindings, 'reader', 'dpad:left') === 'page-prev',
+  'binding défaut page-prev (gauche)',
 );
 assert(
-  actionForBinding(bindings, 'reader', 'dpad:left') === 'zoom-out',
-  'binding défaut zoom-out (gauche)',
+  actionForBinding(bindings, 'reader', 'dpad:right') === 'page-next',
+  'binding défaut page-next (droite)',
+);
+assert(
+  actionForBinding(bindings, 'reader', 'dpad:up') === 'zoom-out',
+  'binding défaut zoom-out (haut)',
+);
+assert(
+  actionForBinding(bindings, 'reader', 'dpad:down') === 'zoom-in',
+  'binding défaut zoom-in (bas)',
 );
 assert(
   actionForBinding(bindings, 'library', 'dpad:up') === 'cursor-up',

@@ -86,20 +86,20 @@ assert(
   'B → close-book',
 );
 assert(
-  actionForBinding(bindings, 'reader', 'dpad:up') === 'page-prev',
-  'D-Pad ↑ logique → page-prev',
+  actionForBinding(bindings, 'reader', 'dpad:left') === 'page-prev',
+  'D-Pad ← logique → page-prev',
 );
 assert(
-  actionForBinding(bindings, 'reader', 'dpad:down') === 'page-next',
-  'D-Pad ↓ logique → page-next',
+  actionForBinding(bindings, 'reader', 'dpad:right') === 'page-next',
+  'D-Pad → logique → page-next',
 );
 assert(
-  actionForBinding(bindings, 'reader', 'dpad:right') === 'zoom-in',
-  'D-Pad → logique → zoom-in',
+  actionForBinding(bindings, 'reader', 'dpad:up') === 'zoom-out',
+  'D-Pad ↑ logique → zoom-out',
 );
 assert(
-  actionForBinding(bindings, 'reader', 'dpad:left') === 'zoom-out',
-  'D-Pad ← logique → zoom-out',
+  actionForBinding(bindings, 'reader', 'dpad:down') === 'zoom-in',
+  'D-Pad ↓ logique → zoom-in',
 );
 assert(
   actionForBinding(bindings, 'reader', 'stick:left') === 'pan',
