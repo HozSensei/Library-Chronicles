@@ -1013,7 +1013,9 @@ function createLoop(ctx) {
         vibe('confirm');
         reader.toggleDirection();
       }
-      if (action === 'toggle-zoom') reader.toggleZoom();
+      if (action === 'reset-zoom' || action === 'toggle-zoom') {
+        reader.resetZoom();
+      }
       if (action === 'fit-width') reader.setFitWidth();
       if (action === 'add-bookmark') reader.addBookmark();
       if (action === 'next-volume') {

@@ -46,7 +46,7 @@ Pan plan +90° CSS : mêmes axes **physiques**, puis `visualPanToLocal` = **mêm
 | Contrôle | Action |
 |----------|--------|
 | Stick L | Pan (axes physiques → `visualPanToLocal` +90°) |
-| L3 / R3 | Toggle **Fit Height ↔ Fit Width** |
+| L3 / R3 | **Reset zoom** (page entière / fit stage) |
 | D-Pad **→** | **Zoom +** |
 | D-Pad **←** | **Zoom −** |
 | D-Pad ↑ / ↓ | Page ±1 (inversé en Manga) |
@@ -55,7 +55,7 @@ Pan plan +90° CSS : mêmes axes **physiques**, puis `visualPanToLocal` = **mêm
 | X | Ajouter un signet |
 | Y | HUD onglets |
 | **Select** | **Menu pause** (modal centrée, plan +90°) |
-| LB | Fit Width (même mode que L3 → width) |
+| LB | Fit Width |
 | RB | Tome suivant non lu |
 | LT / RT | Chapitre ±1 |
 
@@ -67,8 +67,8 @@ Pan plan +90° CSS : mêmes axes **physiques**, puis `visualPanToLocal` = **mêm
   CSS : `width: 100%; height: auto` + `scale = 1`
   (formule équivalente : `scale = stageLocalWidth / pageNaturalWidth`).
 - **Fit Height** : 100 % de la hauteur locale (`height: 100%; width: auto`).
-- **L3** : si déjà `fit-width` → `fit-height` ; sinon → `fit-width`
-  (toggle classique, animation smooth width/height + scale).
+- **L3 / R3** : **reset zoom** — `scale = 1`, pan recentré/clampé, **sans**
+  basculer Fit Height ↔ Fit Width (`fitMode` inchangé).
 
 ### Menu pause ouvert *(même plan tourné que le stage)*
 

@@ -40,7 +40,9 @@ export const ReadingDirection = Object.freeze({
 
 export const Actions = Object.freeze({
   PAN: 'pan',
-  TOGGLE_ZOOM: 'toggle-zoom',
+  RESET_ZOOM: 'reset-zoom',
+  /** @deprecated use RESET_ZOOM — ancien id remap */
+  TOGGLE_ZOOM: 'reset-zoom',
   ZOOM_IN: 'zoom-in',
   ZOOM_OUT: 'zoom-out',
   PAGE_NEXT: 'page-next',

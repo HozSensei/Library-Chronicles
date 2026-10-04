@@ -401,6 +401,22 @@ assert(
     !/zoomBy\(\s*steps\s*\)\s*\{[\s\S]*?fitMode\s*=\s*['"]custom['"]/.test(store),
   'zoomBy ne bascule plus en fitMode custom (évite saut taille naturelle)',
 );
+assert(store.includes('resetZoom()'), 'store resetZoom (L3 page entière)');
+{
+  const m = store.match(/resetZoom\(\)\s*\{([^}]*)\}/);
+  assert(
+    m &&
+      /animateScaleTo\(1\)/.test(m[1]) &&
+      !/fitMode\s*=/.test(m[1]),
+    'resetZoom : scale→1 sans changer fitMode',
+  );
+}
+assert(
+  !/fitMode\s*=\s*this\.fitMode\s*===\s*'fit-width'\s*\?\s*'fit-height'/.test(
+    store,
+  ),
+  'plus de toggle Fit Height ↔ Fit Width',
+);
 assert(
   store.includes("transformOrigin: 'center center'") ||
     store.includes('transformOrigin: "center center"'),
