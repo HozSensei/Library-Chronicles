@@ -139,6 +139,18 @@ assert(
   'i18n FR toast.readerStartMenu',
 );
 assert(i18n.includes('Start · Reader menu'), 'i18n EN toast.readerStartMenu');
+assert(i18n.includes('updateReady:'), 'i18n toast.updateReady');
+assert(i18n.includes('updateAvailable:'), 'i18n toast.updateAvailable');
+
+const appVueUpdater = readFileSync(
+  join(root, 'src/renderer/src/App.vue'),
+  'utf8',
+);
+assert(
+  appVueUpdater.includes('handleUpdateStatus') &&
+    appVueUpdater.includes('toast.updateReady'),
+  'App.vue toasts auto-update',
+);
 
 if (failed) {
   console.error(`\n${failed} assertion(s) failed`);

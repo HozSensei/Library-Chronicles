@@ -79,10 +79,18 @@ assert(interpolate('Hello {name}', { name: 'VDR' }) === 'Hello VDR', 'interpolat
 assert(t('missing.key.zzz') === 'missing.key.zzz', 'missing key → key');
 
 assert(t('toast.readerStartMenu') === 'Start · Menu lecteur', 'toast Start FR');
+assert(
+  t('toast.updateReady', { version: '0.1.1' }).includes('0.1.1'),
+  'toast updateReady FR',
+);
 assert(t('reader.fullscreen') === 'Plein écran', 'reader.fullscreen FR');
 assert(t('reader.fullscreenExit') === 'Quitter plein écran', 'reader.fullscreenExit FR');
 setLocale('en');
 assert(t('toast.readerStartMenu') === 'Start · Reader menu', 'toast Start EN');
+assert(
+  t('toast.updateReady', { version: '0.1.1' }).includes('installs on quit'),
+  'toast updateReady EN',
+);
 assert(t('reader.fullscreen') === 'Fullscreen', 'reader.fullscreen EN');
 assert(t('reader.fullscreenExit') === 'Exit fullscreen', 'reader.fullscreenExit EN');
 setLocale('fr');

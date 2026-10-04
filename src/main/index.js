@@ -26,6 +26,7 @@ import {
   needsCssPortraitRotate,
 } from './window-bounds.js';
 import { showWindowsVirtualKeyboard } from './virtual-keyboard.js';
+import { registerUpdaterIpc, startAutoUpdater } from './updater.js';
 
 let mainWindow = null;
 
@@ -239,12 +240,17 @@ app.whenReady().then(() => {
   registerMetadataIpc();
   registerProfilesIpc();
   registerBookmarksIpc();
+  registerUpdaterIpc();
 
   syncWatchersFromConfig();
   createWindow();
+  startAutoUpdater(mainWindow);
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    if (BrowserWindow.getAllWindows().length === 0) {
+      createWindow();
+      startAutoUpdater(mainWindow);
+    }
   });
 });
 

@@ -5,6 +5,10 @@
   "main": "./out/main/index.js",
   "author": "Library Chronicles",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/HozSensei/Library-Chronicles.git"
+  },
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
@@ -51,9 +55,10 @@
     "test:profile-locale": "node scripts/verify-profile-locale.mjs",
     "test:toasts": "node scripts/verify-toasts.mjs",
     "test:brand-logo": "node scripts/verify-brand-logo.mjs",
+    "test:updater": "node scripts/verify-updater.mjs",
     "probe:googlebooks": "node scripts/probe-google-books.mjs",
     "probe:covers": "node scripts/probe-solo-leveling-covers.mjs",
-    "test": "npm run test:remap && npm run test:cbz && npm run test:epub && npm run test:pdf && npm run test:watcher && npm run test:haptics && npm run test:series && npm run test:series-folder && npm run test:metadata && npm run test:meta-mappers && npm run test:provider-test && npm run test:bounds && npm run test:setup-focus && npm run test:theme-accents && npm run test:i18n && npm run test:focus-scroll && npm run test:stick-nav && npm run test:text-input && npm run test:hud-modal && npm run test:gamepad-reader && npm run test:book-focus && npm run test:reader-strip && npm run test:page-view && npm run test:library-all-tab && npm run test:library-nav-continue && npm run test:library-empty && npm run test:import-list-detail && npm run test:import-meta-search && npm run test:import-meta-jacket && npm run test:app-routes && npm run test:meta-apply-fields && npm run test:plain-clone && npm run test:series-tome && npm run test:adjacent-tome && npm run test:perf-cache && npm run test:grenze-titles && npm run test:profile-avatar && npm run test:profile-locale && npm run test:toasts && npm run test:brand-logo",
+    "test": "npm run test:remap && npm run test:cbz && npm run test:epub && npm run test:pdf && npm run test:watcher && npm run test:haptics && npm run test:series && npm run test:series-folder && npm run test:metadata && npm run test:meta-mappers && npm run test:provider-test && npm run test:bounds && npm run test:setup-focus && npm run test:theme-accents && npm run test:i18n && npm run test:focus-scroll && npm run test:stick-nav && npm run test:text-input && npm run test:hud-modal && npm run test:gamepad-reader && npm run test:book-focus && npm run test:reader-strip && npm run test:page-view && npm run test:library-all-tab && npm run test:library-nav-continue && npm run test:library-empty && npm run test:import-list-detail && npm run test:import-meta-search && npm run test:import-meta-jacket && npm run test:app-routes && npm run test:meta-apply-fields && npm run test:plain-clone && npm run test:series-tome && npm run test:adjacent-tome && npm run test:perf-cache && npm run test:grenze-titles && npm run test:profile-avatar && npm run test:profile-locale && npm run test:toasts && npm run test:brand-logo && npm run test:updater",
     "reset:library": "node scripts/reset-library.mjs",
     "reset:app": "node scripts/reset-library.mjs --setup",
     "rebuild:native": "node scripts/rebuild-native.mjs",
@@ -67,6 +72,7 @@
   },
   "dependencies": {
     "@fontsource/figtree": "^5.2.5",
+    "electron-updater": "^6.8.9",
     "epubjs": "^0.3.93",
     "jszip": "^3.10.1",
     "node-unrar-js": "^2.0.2",
@@ -134,6 +140,13 @@
     "portable": {
       "artifactName": "${productName}-${version}-portable.${ext}"
     },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "HozSensei",
+        "repo": "Library-Chronicles"
+      }
+    ],
     "npmRebuild": true,
     "nodeGypRebuild": false,
     "buildDependenciesFromSource": false,
