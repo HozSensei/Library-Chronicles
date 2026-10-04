@@ -4,6 +4,9 @@
  * La pagination viewport n’est plus maison (colonnes CSS + translateX) :
  * elle est déléguée à **epub.js** (`EpubReaderStage`). Ce module ne fournit
  * plus de géométrie multi-colonnes ni d’offset translateX.
+ *
+ * Manette EPUB minimale (`reader-epub-controls`) : D-Pad ←→ page, ↑↓ police.
+ * Les helpers stick ci-dessous restent pour tests / compat ; non branchés.
  */
 
 /** Fond papier EPUB (indépendant des tokens UI --paper = texte menus). */

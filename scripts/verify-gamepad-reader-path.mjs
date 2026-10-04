@@ -189,7 +189,11 @@ assert(
 assert(
   gamepad.includes('reader.isEpubMode') &&
     gamepad.includes("querySelector('.reader__epub')"),
-  'dispatch EPUB : stick sur .reader__epub',
+  'dispatch EPUB : branche .reader__epub',
+);
+assert(
+  /chapter-prev[\s\S]*?isEpubMode[\s\S]*?stepChapter/.test(gamepad),
+  'LT/RT chapitre skippés en mode EPUB',
 );
 assert(
   !gamepad.includes('applyStickToStripScroll'),
@@ -286,29 +290,37 @@ assert(
   assert(el2.scrollTop < 0 || el2.scrollTop === -14, 'stick helper speed 14');
 }
 
-// Runtime : EPUB font / page-écran / stick page (plus de scroll)
+// Runtime : EPUB font / page D-Pad uniquement (stick / L3 = no-op)
 {
   assert(isEpubZoomNoop('fit-width'), 'epub fit-width no-op');
+  assert(isEpubZoomNoop('reset-zoom'), 'epub L3 reset-zoom no-op');
   const calls = [];
   const reader = {
     resetFontSize: () => calls.push('resetFont'),
     adjustFontSize: (n) => calls.push(`font:${n}`),
     stepPage: (w) => calls.push(`page:${w}`),
   };
-  assert(applyEpubReaderAction(reader, 'reset-zoom'), 'epub L3 reset font');
+  assert(applyEpubReaderAction(reader, 'reset-zoom'), 'epub L3 consommé no-op');
   assert(applyEpubReaderAction(reader, 'zoom-in'), 'epub zoom-in → font+');
+  assert(applyEpubReaderAction(reader, 'zoom-out'), 'epub zoom-out → font−');
   assert(applyEpubReaderAction(reader, 'page-next'), 'epub page-next');
+  assert(applyEpubReaderAction(reader, 'page-prev'), 'epub page-prev');
   assert(
     applyEpubReaderAction(reader, 'pan', { x: 0, y: 1 }, null),
-    'epub stick page',
+    'epub stick consommé no-op',
   );
   assert(
-    calls.includes('page:next'),
-    'epub stick tourne une page-écran',
+    !calls.includes('resetFont'),
+    'epub L3 ne reset plus la police',
   );
   assert(
-    calls.join('|').startsWith('resetFont|font:1|page:next'),
-    'epub path : reset font, font+, page',
+    !calls.includes('page:next') ||
+      calls.filter((c) => c === 'page:next').length === 1,
+    'epub stick ne tourne pas de page (seul D-Pad page-next)',
+  );
+  assert(
+    calls.join('|') === 'font:1|font:-1|page:next|page:prev',
+    'epub path : font± + page± uniquement',
   );
 }
 

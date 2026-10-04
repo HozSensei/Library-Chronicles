@@ -225,25 +225,26 @@ assert.equal(stickToEpubPageWhich(0.1, 0.1), null);
     stepPage: (w) => calls.push(`page:${w}`),
   };
   resetEpubStickPageClock();
+  assert.equal(isEpubZoomNoop('fit-width'), true);
+  assert.equal(isEpubZoomNoop('reset-zoom'), true);
   assert.equal(applyEpubReaderAction(reader, 'fit-width'), true);
   assert.equal(applyEpubReaderAction(reader, 'reset-zoom'), true);
+  assert.equal(calls.includes('reset'), false, 'L3 = no-op (pas de reset font)');
   assert.equal(applyEpubReaderAction(reader, 'zoom-in'), true);
+  assert.equal(applyEpubReaderAction(reader, 'zoom-out'), true);
   assert.equal(applyEpubReaderAction(reader, 'page-next'), true);
+  assert.equal(applyEpubReaderAction(reader, 'page-prev'), true);
   assert.equal(
     applyEpubReaderAction(reader, 'pan', { x: 0, y: 1 }, null),
     true,
+    'stick consommé en no-op',
   );
-  assert.ok(calls.includes('page:next'), 'stick page-tourne');
-  const before = calls.filter((c) => c.startsWith('page:')).length;
   assert.equal(applyEpubStickPage(reader, 0, 1, Date.now()), true);
+  assert.deepEqual(calls, ['font:1', 'font:-1', 'page:next', 'page:prev']);
   assert.equal(
     calls.filter((c) => c.startsWith('page:')).length,
-    before,
-    'cooldown stick',
-  );
-  assert.deepEqual(
-    calls.filter((c) => !c.startsWith('page:') || c === 'page:next').slice(0, 3),
-    ['reset', 'font:1', 'page:next'],
+    2,
+    'stick ne tourne pas de page',
   );
 }
 
@@ -303,11 +304,30 @@ assert.equal(stickToEpubPageWhich(0.1, 0.1), null);
     'utf8',
   );
   assert.match(controlsDoc, /break-before:\s*page/);
-  assert.match(controlsDoc, /Chapitre spine ±1/);
+  assert.match(controlsDoc, /Contrôles manette minimaux/);
+  assert.match(controlsDoc, /Stick L[\s\S]*No-op/);
+  assert.match(controlsDoc, /LT \/ RT[\s\S]*No-op/);
+  assert.match(controlsDoc, /L3 \/ R3[\s\S]*No-op/);
   assert.match(controlsDoc, /h1.*h2|\.chapter/);
 
   const i18n = fs.readFileSync(path.join(root, 'src/shared/i18n.js'), 'utf8');
-  assert.match(i18n, /LT\/RT chapitre spine ±1|LT\/RT spine chapter ±1/);
+  assert.match(i18n, /hintEpub:\s*'A valider · B fermer · Select pause · ←→ page · ↑↓ police'/);
+  assert.match(i18n, /hintEpub:\s*'A confirm · B close · Select pause · ←→ page · ↑↓ font'/);
+  const hintEpubBlocks = [...i18n.matchAll(/hintEpub:\s*'([^']*)'/g)].map((m) => m[1]);
+  assert.equal(hintEpubBlocks.length, 2, 'hintEpub FR + EN');
+  for (const h of hintEpubBlocks) {
+    assert.equal(/LT\/RT|Stick|L3/.test(h), false, `hintEpub minimal sans Stick/L3/LT: ${h}`);
+  }
+
+  const gamepad = fs.readFileSync(
+    path.join(root, 'src/renderer/src/composables/useGamepad.js'),
+    'utf8',
+  );
+  assert.match(gamepad, /isEpubMode[\s\S]*?stepChapter/);
+  assert.match(
+    gamepad,
+    /EPUB minimal|stick \/ L3 \/ LT|D-Pad ←→ page/,
+  );
 
   const bindings = fs.readFileSync(
     path.join(root, 'src/shared/key-bindings.js'),
@@ -315,11 +335,11 @@ assert.equal(stickToEpubPageWhich(0.1, 0.1), null);
   );
   assert.ok(
     bindings.includes("GamepadButtons.LT}`]: 'chapter-prev'"),
-    'LT → chapter-prev',
+    'LT → chapter-prev (page/strip ; no-op EPUB via useGamepad)',
   );
   assert.ok(
     bindings.includes("GamepadButtons.RT}`]: 'chapter-next'"),
-    'RT → chapter-next',
+    'RT → chapter-next (page/strip ; no-op EPUB via useGamepad)',
   );
 
   const ipc = fs.readFileSync(
@@ -431,5 +451,5 @@ try {
 }
 
 console.log(
-  'OK  EPUB extracteur + epub.js (viewport) + thème encre/papier + chapter breaks',
+  'OK  EPUB extracteur + epub.js (viewport) + contrôles manette minimaux',
 );
