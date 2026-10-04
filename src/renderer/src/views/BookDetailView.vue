@@ -827,9 +827,6 @@ function onEditableKeydown(ev) {
 .book-detail__field {
   border-radius: var(--radius-sm);
   min-width: 0;
-  transition:
-    box-shadow 160ms var(--ease-soft),
-    transform 160ms var(--ease-soft);
 }
 
 .book-detail__field--title {
@@ -954,9 +951,12 @@ function onEditableKeydown(ev) {
   letter-spacing: 0.02em;
 }
 
+/* Anneau sur le contrôle uniquement — pas de halo sur le wrapper .field */
 .book-detail__field.is-focused,
 .book-detail__field:focus-within {
   outline: none;
+  box-shadow: none;
+  background: transparent;
 }
 
 .book-detail__field.is-focused .book-detail__headline,
@@ -967,12 +967,6 @@ function onEditableKeydown(ev) {
 .book-detail__field--synopsis:focus-within .book-detail__textarea {
   border-color: var(--brass-bright);
   box-shadow: 0 0 0 3px var(--focus-glow);
-}
-
-.book-detail__field.is-focused,
-.book-detail__field:focus-within {
-  background: color-mix(in srgb, var(--brass) 6%, transparent);
-  border-radius: var(--radius-sm);
 }
 
 /* Rail horizontal sous le hero — stacking bas, overflow clip sur les thumbs */
