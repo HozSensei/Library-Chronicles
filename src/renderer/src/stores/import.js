@@ -16,7 +16,15 @@ import {
   normalizeImportMetadata,
   resolveItemMetadata,
 } from '../../../shared/import-meta.js';
+import {
+  clampMetaApplyFocus,
+  defaultMetaApplySelection,
+  filterMetaPatchBySelection,
+  hasMetaApplySelection,
+  META_APPLY_FOCUS,
+} from '../../../shared/meta-apply-fields.js';
 import { normalizeMetadataQuery } from '../../../shared/metadata-query.js';
+import { pathFromItemKey } from '../../../shared/app-routes.js';
 import { useLibraryStore } from './library.js';
 import { useToastStore } from './toast.js';
 import { t } from '../../../shared/i18n.js';
@@ -55,17 +63,21 @@ export const useImportStore = defineStore('import', {
     /** Onglet fiche : infos (méta) | search (API). */
     detailTab: 'infos',
     /**
-     * Contexte de retour B depuis sheet / meta-search.
-     * `book` → BookDetail ; `sheet` → fiche brouillon ; `list` → liste.
+     * @deprecated B = hiérarchie de routes. Conservé pour sync / tests.
      */
     metaReturn: META_RETURN.LIST,
-    /** Id livre BookDetail quand metaReturn === 'book'. */
+    /** Id livre lié (persist apply depuis méta fiche biblio/import). */
     metaReturnBookId: null,
     /**
-     * Intent d’entrée consommé au mount ImportView (évite reset list).
-     * null | list | sheet | meta-search
+     * @deprecated Sync depuis la route — plus d’entryIntent mount.
      */
     entryIntent: null,
+    /** Résultat API en attente de checklist champs (modal). */
+    pendingApplyResult: null,
+    /** Cases cochées modal apply (defaults tous true). */
+    applyFieldSelection: defaultMetaApplySelection(),
+    /** Focus manette dans la modal apply. */
+    applyModalFocus: 0,
     loading: false,
     committing: false,
     root: null,
@@ -126,8 +138,26 @@ export const useImportStore = defineStore('import', {
     isMetaSearchFlow: (s) =>
       flowFromViewState({ viewMode: s.viewMode, detailTab: s.detailTab }) ===
       IMPORT_FLOW.META_SEARCH,
+    isApplyModalOpen: (s) => Boolean(s.pendingApplyResult),
   },
   actions: {
+    selectByItemKey(itemKey) {
+      const path = pathFromItemKey(itemKey);
+      if (!path) return false;
+      const idx = this.items.findIndex((i) => i.filePath === path);
+      if (idx < 0) return false;
+      this.cursor = idx;
+      return true;
+    },
+    selectByBookId(bookId) {
+      if (bookId == null || bookId === '') return false;
+      const idx = this.items.findIndex(
+        (i) => String(i.existingBookId) === String(bookId),
+      );
+      if (idx < 0) return false;
+      this.cursor = idx;
+      return true;
+    },
     /**
      * Pose le flow nommé et synchronise viewMode/detailTab.
      * @param {'list'|'sheet'|'meta-search'} flow
@@ -540,51 +570,83 @@ export const useImportStore = defineStore('import', {
         this.enrichLoading = false;
       }
     },
+    beginApplyEnrichResult(result) {
+      if (!result) return false;
+      this.pendingApplyResult = result;
+      this.applyFieldSelection = defaultMetaApplySelection();
+      this.applyModalFocus = META_APPLY_FOCUS.APPLY;
+      return true;
+    },
+    cancelApplyEnrich() {
+      this.pendingApplyResult = null;
+      this.applyModalFocus = 0;
+    },
+    toggleApplyField(fieldId) {
+      if (!fieldId || !(fieldId in this.applyFieldSelection)) return;
+      this.applyFieldSelection = {
+        ...this.applyFieldSelection,
+        [fieldId]: !this.applyFieldSelection[fieldId],
+      };
+    },
+    setApplyModalFocus(index) {
+      this.applyModalFocus = clampMetaApplyFocus(index);
+    },
     /**
      * Applique un résultat API → draft + selectedMeta (pastille verte).
      * Série : API uniquement (series → title) — pas de fallback filename/folder.
      * @param {object} result
+     * @param {{ fields?: Record<string, boolean>, bookId?: number|string|null }} [opts]
      * @returns {boolean} true si appliqué
      */
-    applyEnrichResult(result) {
+    applyEnrichResult(result, opts = {}) {
       if (!result) return false;
-      const patch = metadataPatchFromEnrichResult(result, this.draft);
+      const selection = opts.fields || defaultMetaApplySelection();
+      if (!hasMetaApplySelection(selection)) return false;
+      const fullPatch = metadataPatchFromEnrichResult(result, this.draft);
+      const patch = filterMetaPatchBySelection(fullPatch, selection);
       this.patchDraft(patch);
-      if (patch.coverUrl) {
+      if (selection.cover && patch.coverUrl) {
         void this.resolveCoverPreview(patch.coverUrl);
       }
       const item = this.selected;
       if (item) {
-        // Marquer SELECTED avant sync ; selectedMeta = méta API normalisée
         item.metaSource = META_SOURCE.SELECTED;
         item.selectedMeta = normalizeImportMetadata(this.draft, item);
       }
-      // Depuis BookDetail : persister aussi la fiche bibliothèque
       const bookId =
-        this.metaReturn === META_RETURN.BOOK
-          ? (this.metaReturnBookId ?? item?.existingBookId)
-          : null;
+        opts.bookId != null
+          ? opts.bookId
+          : (this.metaReturnBookId ?? item?.existingBookId ?? null);
       if (bookId != null) {
         void (async () => {
           try {
             const lib = useLibraryStore();
-            await lib.updateBook(
-              bookId,
-              {
-                title: this.draft.title,
-                series: this.draft.series || null,
-                volume: this.draft.volume,
-                year: this.draft.year,
-                author: this.draft.author || null,
-                metadata: {
-                  description: this.draft.description || null,
-                  synopsis: this.draft.description || null,
-                  coverUrl: this.draft.coverUrl || null,
-                  source: this.draft.source || null,
-                },
-              },
-              { silent: true },
-            );
+            /** @type {Record<string, unknown>} */
+            const update = {};
+            if (selection.title) update.title = this.draft.title;
+            if (selection.series) update.series = this.draft.series || null;
+            if (selection.volume) update.volume = this.draft.volume;
+            if (selection.year) update.year = this.draft.year;
+            if (selection.author) update.author = this.draft.author || null;
+            if (selection.synopsis || selection.cover || selection.title) {
+              const prev = lib.getBookById?.(bookId)?.metadata || {};
+              update.metadata = {
+                ...prev,
+                ...(selection.synopsis
+                  ? {
+                      description: this.draft.description || null,
+                      synopsis: this.draft.description || null,
+                    }
+                  : {}),
+                ...(selection.cover
+                  ? { coverUrl: this.draft.coverUrl || null }
+                  : {}),
+                ...(selection.title || selection.series || selection.author
+                  ? { source: this.draft.source || null }
+                  : {}),
+              };
+            }
+            await lib.updateBook(bookId, update, { silent: true });
             useToastStore().success('Métadonnées appliquées');
           } catch (err) {
             try {
@@ -601,10 +663,19 @@ export const useImportStore = defineStore('import', {
           /* toast optionnel */
         }
       }
+      this.pendingApplyResult = null;
       return true;
     },
+    confirmApplyEnrich(opts = {}) {
+      const result = this.pendingApplyResult;
+      if (!result) return false;
+      return this.applyEnrichResult(result, {
+        ...opts,
+        fields: this.applyFieldSelection,
+      });
+    },
     /**
-     * Applique le résultat focusé (index UI ou enrichResultCursor).
+     * Ouvre la modal pour le résultat focusé (index UI ou enrichResultCursor).
      * @param {number} [focusIndex] index zone results (prioritaire)
      * @returns {boolean}
      */
@@ -615,7 +686,7 @@ export const useImportStore = defineStore('import', {
           : this.enrichResultCursor;
       if (idx < 0 || idx >= this.enrichResults.length) return false;
       this.enrichResultCursor = idx;
-      return this.applyEnrichResult(this.enrichResults[idx]);
+      return this.beginApplyEnrichResult(this.enrichResults[idx]);
     },
     /**
      * X — importer le tome focus.

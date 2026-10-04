@@ -75,14 +75,14 @@ assert(setupFocusRows(2).flat().join(',') === 'finish', 'step 2 = prêt / finish
 
 assert(SETUP_FOLDER_IDS.has('library') && SETUP_FOLDER_IDS.has('import'), 'ids dossier connus');
 
-// Confirm/A doit cibler FocusButton ET swatches accent (sinon A ignore la couleur focusée)
+// Confirm/A cible FocusButton + swatches (A reste inoffensif ; accent auto au focus)
 assert(
   SETUP_CONFIRM_FOCUS_SELECTOR.includes('.focus-btn.is-focused'),
   'confirm setup : FocusButton',
 );
 assert(
   SETUP_CONFIRM_FOCUS_SELECTOR.includes('.accent-swatch.is-focused'),
-  'confirm setup : swatch accent (A sélectionne la couleur)',
+  'confirm setup : swatch accent (A confirm inoffensif)',
 );
 
 // moveSetupFocus ne « clique » jamais — pure navigation d’index

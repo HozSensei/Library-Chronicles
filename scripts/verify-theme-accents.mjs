@@ -1,6 +1,9 @@
 /**
- * Vérifie accents / thème (normalisation + grille setup).
+ * Vérifie accents / thème (normalisation + grille setup + auto-apply focus).
  */
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import {
   ACCENTS,
   ACCENT_IDS,
@@ -18,6 +21,9 @@ import {
   SETUP_CONFIRM_FOCUS_SELECTOR,
 } from '../src/shared/setup-focus.js';
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const root = path.resolve(__dirname, '..');
+
 let failed = 0;
 
 function assert(cond, msg) {
@@ -27,6 +33,10 @@ function assert(cond, msg) {
   } else {
     console.log('OK  ', msg);
   }
+}
+
+function read(rel) {
+  return fs.readFileSync(path.join(root, rel), 'utf8');
 }
 
 assert(DEFAULT_THEME === 'dark', 'thème défaut sombre');
@@ -65,7 +75,26 @@ assert(setupFocusables(1)[idx] === 'accent-green', '←→ vert');
 
 assert(
   SETUP_CONFIRM_FOCUS_SELECTOR.includes('accent-swatch'),
-  'A/confirm setup inclut les swatches accent',
+  'A/confirm setup inclut les swatches accent (confirm inoffensif)',
+);
+
+// Auto-apply au focus (parité couleur profil) — Setup + Settings
+const setupView = read('src/renderer/src/views/SetupView.vue');
+assert(
+  setupView.includes('watch(focusedId') &&
+    setupView.includes("startsWith('accent-')") &&
+    /watch\(focusedId[\s\S]{0,200}setAccent/.test(setupView),
+  'setup : accent appliqué au focus (watch focusedId)',
+);
+
+const settingsView = read('src/renderer/src/views/SettingsView.vue');
+assert(
+  settingsView.includes('accentOffset') &&
+    settingsView.includes('void setAccent') &&
+    /settingsFocusIndex[\s\S]{0,400}accentOffset[\s\S]{0,200}setAccent/.test(
+      settingsView,
+    ),
+  'settings : accent appliqué au focus (watch settingsFocusIndex)',
 );
 
 if (failed) {

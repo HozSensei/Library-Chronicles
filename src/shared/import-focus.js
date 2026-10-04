@@ -234,7 +234,7 @@ export function resolveImportConfirmAction({
 
 /**
  * Résout B / back selon contexte.
- * meta-search → sheet (ou book si metaReturn) ; sheet → list (ou book) ; list → biblio.
+ * Préférer `routeName` (hiérarchie) ; metaReturn = fallback legacy.
  *
  * Alias rétrocompat : `to-infos` === `to-sheet`.
  *
@@ -244,8 +244,9 @@ export function resolveImportConfirmAction({
  *   zone?: string,
  *   flow?: string,
  *   metaReturn?: string,
+ *   routeName?: string,
  * }} opts
- * @returns {'library'|'to-list'|'to-sheet'|'to-infos'|'to-book'}
+ * @returns {'library'|'to-list'|'to-sheet'|'to-infos'|'to-book'|'to-parent'}
  */
 export function resolveImportBackAction({
   isDetail = false,
@@ -253,6 +254,7 @@ export function resolveImportBackAction({
   zone = 'list',
   flow,
   metaReturn = META_RETURN.LIST,
+  routeName,
 } = {}) {
   void zone;
   const action = resolveImportFlowBack({
@@ -260,6 +262,7 @@ export function resolveImportBackAction({
     metaReturn,
     isDetail,
     detailTab,
+    routeName,
   });
   // Alias historique pour les tests / handlers qui écoutent to-infos
   if (action === 'to-sheet') return 'to-infos';

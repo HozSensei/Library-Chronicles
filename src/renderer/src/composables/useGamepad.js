@@ -44,7 +44,20 @@ import {
   resolveImportBackAction,
   resolveImportConfirmAction,
 } from '../../../shared/import-focus.js';
-import { IMPORT_FLOW, META_RETURN } from '../../../shared/import-flow.js';
+import { IMPORT_FLOW } from '../../../shared/import-flow.js';
+import {
+  META_APPLY_FIELDS,
+  META_APPLY_FOCUS,
+  clampMetaApplyFocus,
+} from '../../../shared/meta-apply-fields.js';
+import {
+  ROUTE,
+  bookDetailLocation,
+  importItemLocation,
+  isImportUiRoute,
+  resolveParentLocation,
+  uiContextForRoute,
+} from '../../../shared/app-routes.js';
 import { createStickMenuNav } from '../../../shared/stick-menu-nav.js';
 import {
   isTextInputFocused,
@@ -180,17 +193,7 @@ function createLoop(ctx) {
   }
 
   function bindingContext(route) {
-    if (route === 'boot') return 'boot';
-    if (route === 'library') return 'library';
-    if (route === 'book') return 'book';
-    // Fiche série : mêmes bindings que fiche tome (A ouvrir, B retour, ↑↓)
-    if (route === 'series') return 'book';
-    if (route === 'reader') return 'reader';
-    if (route === 'setup') return 'setup';
-    if (route === 'import') return 'import';
-    if (route === 'settings') return 'settings';
-    if (route === 'profiles') return 'profiles';
-    return 'boot';
+    return uiContextForRoute(route);
   }
 
   function resolveAction(key) {
@@ -222,7 +225,8 @@ function createLoop(ctx) {
     // Exception import méta-search : zone results — A doit appliquer même si
     // le champ query a encore le focus DOM (sinon apply flaky 1 fois sur 2).
     const importApplyResultPending =
-      route === 'import' &&
+      isImportUiRoute(route) &&
+      !imp.isApplyModalOpen &&
       imp.isDetail &&
       imp.flow === IMPORT_FLOW.META_SEARCH &&
       ui.importFocusZone === 'results' &&
@@ -230,7 +234,8 @@ function createLoop(ctx) {
     if (
       (action === 'confirm' || action === 'open-book') &&
       shouldBlockGamepadConfirmForText() &&
-      !importApplyResultPending
+      !importApplyResultPending &&
+      !imp.isApplyModalOpen
     ) {
       void showVirtualKeyboard(document.activeElement);
       vibe('light');
@@ -458,24 +463,24 @@ function createLoop(ctx) {
           }
           if (item.action === 'import') {
             vibe('light');
-            router.push({ name: 'import' });
+            router.push({ name: ROUTE.IMPORT });
             return;
           }
           if (item.action === 'settings') {
             vibe('light');
-            router.push({ name: 'settings' });
+            router.push({ name: ROUTE.SETTINGS });
             return;
           }
           if (item.action === 'profile') {
             vibe('light');
             clearProfileSelected();
-            router.push({ name: 'profiles', query: { manage: '1' } });
+            router.push({ name: ROUTE.PROFILES, query: { manage: '1' } });
             return;
           }
           return;
         }
         if (!library.books.length) {
-          router.push({ name: 'import' });
+          router.push({ name: ROUTE.IMPORT });
           return;
         }
         if (library.focusZone === 'series') {
@@ -483,7 +488,7 @@ function createLoop(ctx) {
           if (target?.type === 'series' && target.seriesId) {
             vibe('confirm');
             router.push({
-              name: 'series',
+              name: ROUTE.LIBRARY_SERIES,
               params: { seriesId: String(target.seriesId) },
             });
           }
@@ -494,7 +499,7 @@ function createLoop(ctx) {
           if (target?.type === 'series' && target.seriesId) {
             vibe('confirm');
             router.push({
-              name: 'series',
+              name: ROUTE.LIBRARY_SERIES,
               params: { seriesId: String(target.seriesId) },
             });
             return;
@@ -508,16 +513,16 @@ function createLoop(ctx) {
         const book = library.selected;
         if (book?.id) {
           vibe('confirm');
-          router.push({ name: 'book', params: { id: String(book.id) } });
+          router.push(bookDetailLocation(book.id, 'library'));
         }
       }
       if (action === 'import') {
         vibe('light');
-        router.push({ name: 'import' });
+        router.push({ name: ROUTE.IMPORT });
       }
       if (action === 'settings') {
         vibe('light');
-        router.push({ name: 'settings' });
+        router.push({ name: ROUTE.SETTINGS });
       }
       /** LB / RB → onglets Bibliothèque / Tous / Récents / Séries */
       if (action === 'tab-next') {
@@ -542,18 +547,20 @@ function createLoop(ctx) {
       return;
     }
 
-    if (route === 'book') {
+    if (
+      route === ROUTE.BOOK ||
+      route === ROUTE.LIBRARY_BOOK ||
+      route === ROUTE.IMPORT_BOOK
+    ) {
       if (action === 'back') {
         vibe('light');
-        // Depuis import : B → liste import (pas de bouton Retour redondant)
-        if (router.currentRoute.value.query?.from === 'import') {
+        const parent = resolveParentLocation(router.currentRoute.value);
+        if (parent?.name === ROUTE.IMPORT) {
           imp.goToList();
           ui.setImportFocusZone('list');
           ui.setImportFocus(0);
-          router.push({ name: 'import' });
-        } else {
-          router.push({ name: 'library' });
         }
+        router.push(parent || { name: ROUTE.LIBRARY });
       }
       // ↑↓ / stick : parcours blocs focusables (méta, synopsis…) → scrollIntoView
       // ←→ : même chaîne (footer CTA inclus), comme Import en paysage console.
@@ -588,22 +595,22 @@ function createLoop(ctx) {
         }
       }
       if (action === 'settings') {
-        router.push({ name: 'settings' });
+        router.push({ name: ROUTE.SETTINGS });
       }
       if (action === 'import') {
-        router.push({ name: 'import' });
+        router.push({ name: ROUTE.IMPORT });
       }
       return;
     }
 
-    if (route === 'series') {
+    if (route === ROUTE.SERIES || route === ROUTE.LIBRARY_SERIES) {
       const seriesId = router.currentRoute.value.params.seriesId;
       const group = library.getSeriesById(seriesId);
       const volumeCount = group?.volumes?.length || 0;
 
       if (action === 'back') {
         vibe('light');
-        router.push({ name: 'library' });
+        router.push({ name: ROUTE.LIBRARY });
         return;
       }
       if (action === 'cursor-left' || action === 'cursor-up') {
@@ -626,7 +633,7 @@ function createLoop(ctx) {
         const kind = seriesFocusKind(ui.seriesFocusIndex, volumeCount);
         if (kind === 'back') {
           vibe('light');
-          router.push({ name: 'library' });
+          router.push({ name: ROUTE.LIBRARY });
           return;
         }
         let book = null;
@@ -637,19 +644,60 @@ function createLoop(ctx) {
         }
         if (book?.id) {
           vibe('confirm');
-          router.push({ name: 'book', params: { id: String(book.id) } });
+          router.push(bookDetailLocation(book.id, 'library'));
         }
       }
       if (action === 'settings') {
-        router.push({ name: 'settings' });
+        router.push({ name: ROUTE.SETTINGS });
       }
       if (action === 'import') {
-        router.push({ name: 'import' });
+        router.push({ name: ROUTE.IMPORT });
       }
       return;
     }
 
-    if (route === 'import') {
+    if (isImportUiRoute(route)) {
+      // ——— Modal apply champs méta ———
+      if (imp.isApplyModalOpen) {
+        if (action === 'back') {
+          vibe('light');
+          imp.cancelApplyEnrich();
+          return;
+        }
+        if (action === 'cursor-up' || action === 'cursor-left') {
+          imp.setApplyModalFocus(imp.applyModalFocus - 1);
+          afterFocusMove();
+          return;
+        }
+        if (action === 'cursor-down' || action === 'cursor-right') {
+          imp.setApplyModalFocus(imp.applyModalFocus + 1);
+          afterFocusMove();
+          return;
+        }
+        if (action === 'confirm' || action === 'open-book') {
+          const focus = clampMetaApplyFocus(imp.applyModalFocus);
+          if (focus === META_APPLY_FOCUS.APPLY) {
+            vibe('confirm');
+            const cur = router.currentRoute.value;
+            const bookId =
+              cur.name === ROUTE.IMPORT_BOOK_META ||
+              cur.name === ROUTE.LIBRARY_BOOK_META
+                ? cur.params.id
+                : (imp.metaReturnBookId ?? imp.selected?.existingBookId ?? null);
+            imp.confirmApplyEnrich({ bookId });
+            afterFocusMove();
+            return;
+          }
+          const field = META_APPLY_FIELDS[focus];
+          if (field) {
+            imp.toggleApplyField(field.id);
+            vibe('light');
+          }
+          return;
+        }
+        return;
+      }
+
       // ——— Fiche détail : flows sheet / meta-search ———
       if (imp.isDetail) {
         const resultCount = imp.enrichResults.length;
@@ -667,53 +715,45 @@ function createLoop(ctx) {
             ? clampSearchFieldFocus
             : clampInfosFieldFocus;
 
+        const current = router.currentRoute.value;
+
         const goToInfos = () => {
-          imp.goToSheet();
-          ui.setImportFocusZone('fields');
-          ui.setImportFocus(IMPORT_INFOS_FIELDS.TITLE);
-          afterFocusMove();
+          const parent = resolveParentLocation(current);
+          if (parent) {
+            router.push(parent);
+            return;
+          }
+          const item = imp.selected;
+          if (item?.filePath) {
+            router.push(importItemLocation(item.filePath));
+            return;
+          }
+          router.push({ name: ROUTE.IMPORT });
         };
 
         const goToSearch = () => {
-          void imp.openMetaSearch({
-            returnTo:
-              imp.metaReturn === META_RETURN.BOOK
-                ? META_RETURN.BOOK
-                : META_RETURN.SHEET,
-            bookId: imp.metaReturnBookId,
-            entryIntent: false,
-            keepResults: true,
-          }).then(() => {
-            ui.setImportFocusZone('fields');
-            ui.setImportFocus(IMPORT_SEARCH_FIELDS.QUERY);
-            afterFocusMove();
-          });
-        };
-
-        const closeToList = () => {
-          imp.goToList();
-          ui.setImportFocusZone('list');
-          ui.setImportFocus(0);
-          afterFocusMove();
-        };
-
-        const backToBook = () => {
-          const bookId = imp.metaReturnBookId ?? imp.selected?.existingBookId;
-          imp.goToList();
-          ui.setImportFocusZone('list');
-          ui.setImportFocus(0);
-          if (bookId != null) {
-            router.push({
-              name: 'book',
-              params: { id: String(bookId) },
-              query: { from: 'import' },
-            });
+          const item = imp.selected;
+          if (item?.filePath) {
+            router.push(importItemLocation(item.filePath, { meta: true }));
             return;
           }
           afterFocusMove();
         };
 
-        // B : meta-search → sheet|book ; sheet → list|book
+        const closeToList = () => {
+          router.push({ name: ROUTE.IMPORT });
+        };
+
+        const goParentRoute = () => {
+          const parent = resolveParentLocation(current);
+          if (parent) {
+            router.push(parent);
+            return;
+          }
+          closeToList();
+        };
+
+        // B : toujours route parent (jamais ?from=import)
         if (action === 'back') {
           vibe('light');
           const back = resolveImportBackAction({
@@ -722,15 +762,32 @@ function createLoop(ctx) {
             isDetail: true,
             detailTab: tab,
             zone,
+            routeName: current.name,
           });
-          if (back === 'to-book') backToBook();
-          else if (back === 'to-infos' || back === 'to-sheet') goToInfos();
-          else closeToList();
+          if (
+            back === 'to-book' ||
+            back === 'to-infos' ||
+            back === 'to-sheet' ||
+            back === 'to-list' ||
+            back === 'to-parent'
+          ) {
+            goParentRoute();
+          } else {
+            router.push({ name: ROUTE.LIBRARY });
+          }
           return;
         }
 
-        // LB / RB : bascule sheet ↔ meta-search
+        // LB / RB : bascule sheet ↔ meta-search (routes)
         if (action === 'tab-prev' || action === 'tab-next') {
+          if (
+            current.name === ROUTE.IMPORT_BOOK_META ||
+            current.name === ROUTE.LIBRARY_BOOK_META
+          ) {
+            goParentRoute();
+            vibe('light');
+            return;
+          }
           if (tab === IMPORT_DETAIL_TABS.SEARCH) goToInfos();
           else goToSearch();
           vibe('light');
@@ -853,7 +910,7 @@ function createLoop(ctx) {
           }
         }
 
-        // X sur fiche = Importer le livre → puis fiche bibliothèque
+        // X sur fiche = Importer le livre → puis fiche /import/book/:id
         if (action === 'import-one') {
           if (imp.selected && !imp.committing) {
             vibe('confirm');
@@ -862,12 +919,7 @@ function createLoop(ctx) {
               const bookId =
                 result?.book?.id ?? imp.selected?.existingBookId;
               if (bookId != null) {
-                imp.goToList();
-                router.push({
-                  name: 'book',
-                  params: { id: String(bookId) },
-                  query: { from: 'import' },
-                });
+                router.push(bookDetailLocation(bookId, 'import'));
                 return;
               }
               closeToList();
@@ -875,22 +927,11 @@ function createLoop(ctx) {
           }
         }
 
-        // Y : sheet → meta-search ; meta-search → lancer search
+        // Y : sheet → meta-search (route) ; meta-search → lancer search
         if (action === 'import-all' || action === 'enrich') {
           void (async () => {
             if (tab !== IMPORT_DETAIL_TABS.SEARCH) {
-              await imp.openMetaSearch({
-                returnTo:
-                  imp.metaReturn === META_RETURN.BOOK
-                    ? META_RETURN.BOOK
-                    : META_RETURN.SHEET,
-                bookId: imp.metaReturnBookId,
-                entryIntent: false,
-                keepResults: true,
-              });
-              ui.setImportFocusZone('fields');
-              ui.setImportFocus(IMPORT_SEARCH_FIELDS.QUERY);
-              afterFocusMove();
+              goToSearch();
               return;
             }
             // Sync query depuis le DOM (clavier virtuel)
@@ -924,7 +965,7 @@ function createLoop(ctx) {
       // ——— Liste fichiers ———
       if (action === 'back') {
         vibe('light');
-        router.push({ name: 'library' });
+        router.push({ name: ROUTE.LIBRARY });
       }
       // Navigation liste + header « Tout importer ». Plus de footer actions / Y bulk.
       if (action === 'cursor-up') {
@@ -963,24 +1004,16 @@ function createLoop(ctx) {
           }
           return;
         }
-        // Liste : A = ouvrir fiche bibliothèque (ou draft import aligné)
+        // Liste : A = ouvrir fiche /import/book/:id ou /import/item/:key
         vibe('confirm');
         void (async () => {
           const item = imp.selected;
           if (item?.existingBookId != null) {
-            imp.goToList();
-            router.push({
-              name: 'book',
-              params: { id: String(item.existingBookId) },
-              query: { from: 'import' },
-            });
+            router.push(bookDetailLocation(item.existingBookId, 'import'));
             return;
           }
-          const ok = await imp.openSheet();
-          if (ok) {
-            ui.setImportFocusZone('fields');
-            ui.setImportFocus(IMPORT_INFOS_FIELDS.TITLE);
-            afterFocusMove();
+          if (item?.filePath) {
+            router.push(importItemLocation(item.filePath));
           }
         })();
       }
@@ -1003,7 +1036,7 @@ function createLoop(ctx) {
           return;
         }
         vibe('light');
-        router.push({ name: 'library' });
+        router.push({ name: ROUTE.LIBRARY });
       }
       const focusItems = [
         ...document.querySelectorAll('.settings [data-settings-item]'),
@@ -1141,7 +1174,7 @@ function createLoop(ctx) {
         vibe('light');
         // Sortie lecture : navigation seule → App.vue fait exitReaderMode une fois.
         reader.close().then(() => {
-          router.push({ name: 'library' });
+          router.push({ name: ROUTE.LIBRARY });
         });
         return;
       }

@@ -121,6 +121,19 @@ async function setAccent(accent) {
   await ui.setAccent(accent);
 }
 
+/** Accent appliqué dès le focus (←→), comme la couleur profil — A optionnel. */
+watch(
+  () => [ui.settingsFocusIndex, section.value],
+  () => {
+    if (section.value !== 'general') return;
+    const accentOffset = ui.settingsFocusIndex - 2;
+    if (accentOffset < 0 || accentOffset >= accents.length) return;
+    const id = accents[accentOffset].id;
+    if (id === ui.accent) return;
+    void setAccent(id);
+  },
+);
+
 async function toggleHaptics() {
   await ui.setHapticsEnabled(!ui.hapticsEnabled);
 }

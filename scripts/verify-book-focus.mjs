@@ -96,9 +96,10 @@ assert(view.includes('book-detail__meta'), 'méta labels + valeurs');
 assert(view.includes('grid-template-columns'), 'layout grid (pas absolute croisé)');
 assert(view.includes('Importer des méta'), 'CTA Importer des méta');
 assert(view.includes('goImportMeta'), 'handler recherche API');
-assert(view.includes('openMetaSearch'), 'goImportMeta → openMetaSearch');
-assert(view.includes('entryIntent: true'), 'entryIntent pour reprise mount');
-assert(view.includes("from === 'import'"), 'retour liste si from=import');
+assert(view.includes('bookMetaLocation'), 'goImportMeta → route …/meta');
+assert(view.includes('resolveParentLocation'), 'B = route parent');
+assert(!view.includes('entryIntent'), 'plus entryIntent');
+assert(!view.includes("from === 'import'"), 'plus query from=import');
 assert(
   !view.includes('action-label">Retour</span>'),
   'pas de bouton Retour redondant (B suffit)',
@@ -118,14 +119,18 @@ const pad = readFileSync(
   'utf8',
 );
 assert(pad.includes('clampBookFocus'), 'useGamepad clamp book focus');
-assert(pad.includes("route === 'book'"), 'handler route book');
+assert(
+  pad.includes('LIBRARY_BOOK') || pad.includes("route === 'book'"),
+  'handler route book / library-book',
+);
 assert(pad.includes('resolveBookConfirmAction'), 'confirm resolve book');
 assert(pad.includes('focusTextInputForEdit'), 'confirm édite champ méta');
 assert(pad.includes('data-book-action'), 'confirm cible actions fiche');
 assert(
-  pad.includes("query?.from === 'import'"),
-  'B fiche depuis import → liste',
+  pad.includes('resolveParentLocation'),
+  'B fiche = route parent (import-book → import)',
 );
+assert(!pad.includes("query?.from === 'import'"), 'plus query from=import');
 // Ne pas casser le chemin reader (scope tick)
 const tickBody = pad.slice(pad.indexOf('function tick()'));
 assert(

@@ -1,6 +1,6 @@
 <script setup>
 import { computed, nextTick, onMounted, watch } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import ControlHint from '../components/ControlHint.vue';
 import { useImportStore } from '../stores/import';
 import { useUiStore } from '../stores/ui';
@@ -12,14 +12,27 @@ import {
   IMPORT_SEARCH_FIELDS,
   importFieldDomId,
 } from '../../../shared/import-focus.js';
-import { IMPORT_FLOW, META_RETURN } from '../../../shared/import-flow.js';
+import { IMPORT_FLOW } from '../../../shared/import-flow.js';
 import { metaSourceLabel } from '../../../shared/import-meta.js';
 import { focusTextInputForEdit } from '../../../shared/virtual-keyboard.js';
+import {
+  META_APPLY_FIELDS,
+  META_APPLY_FOCUS,
+} from '../../../shared/meta-apply-fields.js';
+import {
+  ROUTE,
+  bookDetailLocation,
+  importItemLocation,
+  resolveParentLocation,
+} from '../../../shared/app-routes.js';
 
+const route = useRoute();
 const router = useRouter();
 const imp = useImportStore();
 const ui = useUiStore();
 const { t } = useI18n();
+
+const metaApplyFields = META_APPLY_FIELDS;
 
 const listHints = computed(() => {
   const imported = Boolean(imp.selected?.alreadyInLibrary);
@@ -41,11 +54,7 @@ const infosHints = computed(() => [
   { key: 'A', label: 'éditer' },
   { key: 'X', label: 'Importer le livre' },
   { key: 'Y', label: 'Importer des méta' },
-  {
-    key: 'B',
-    label:
-      imp.metaReturn === META_RETURN.BOOK ? 'retour fiche' : 'retour liste',
-  },
+  { key: 'B', label: 'retour liste' },
 ]);
 
 const searchHints = computed(() => [
@@ -56,7 +65,14 @@ const searchHints = computed(() => [
   { key: 'B', label: 'retour fiche' },
 ]);
 
+const applyModalHints = computed(() => [
+  { key: '↑↓', label: 'champ' },
+  { key: 'A', label: 'cocher / appliquer' },
+  { key: 'B', label: 'annuler' },
+]);
+
 const hints = computed(() => {
+  if (imp.isApplyModalOpen) return applyModalHints.value;
   if (!imp.isDetail) return listHints.value;
   return imp.isSearchTab ? searchHints.value : infosHints.value;
 });
@@ -81,36 +97,82 @@ const draftFormatLabel = computed(() =>
   imp.selected?.format ? String(imp.selected.format).toUpperCase() : '—',
 );
 
-onMounted(async () => {
-  // Intent posé avant navigation (ex. BookDetail → Recherche API).
-  // Ne surtout pas closeDetail() systématiquement : c’était la régression #44.
-  const intent = imp.consumeEntryIntent();
-  const resumeFlow =
-    intent === IMPORT_FLOW.META_SEARCH || intent === IMPORT_FLOW.SHEET
-      ? intent
-      : null;
+const showSheetTabs = computed(
+  () =>
+    imp.isSearchTab &&
+    (route.name === ROUTE.IMPORT_ITEM_META ||
+      route.name === ROUTE.IMPORT_ITEM),
+);
 
-  await imp.loadProviders();
-  await imp.scan();
-
-  if (resumeFlow && imp.selected) {
-    imp.setFlow(resumeFlow, {
-      metaReturn: imp.metaReturn,
-      bookId: imp.metaReturnBookId,
-    });
-    ui.setImportFocusZone('fields');
-    ui.setImportFocus(
-      resumeFlow === IMPORT_FLOW.META_SEARCH
-        ? IMPORT_SEARCH_FIELDS.QUERY
-        : IMPORT_INFOS_FIELDS.TITLE,
-    );
-  } else {
+/**
+ * Aligne le store sur la route (source de vérité — pas d’entryIntent).
+ * Ne closeDetail() pas aveuglément : sync depuis l’URL.
+ */
+async function syncFromRoute() {
+  const name = route.name;
+  if (name === ROUTE.IMPORT) {
     imp.goToList();
     ui.setImportFocusZone('list');
     ui.setImportFocus(0);
+    return;
   }
+
+  if (name === ROUTE.IMPORT_ITEM || name === ROUTE.IMPORT_ITEM_META) {
+    const ok = imp.selectByItemKey(String(route.params.itemKey || ''));
+    if (!ok) {
+      router.replace({ name: ROUTE.IMPORT });
+      return;
+    }
+    const meta = name === ROUTE.IMPORT_ITEM_META;
+    await imp.loadDraftFromSelected({ keepResults: meta });
+    imp.setFlow(meta ? IMPORT_FLOW.META_SEARCH : IMPORT_FLOW.SHEET, {
+      metaReturn: meta ? 'sheet' : 'list',
+      bookId: null,
+    });
+    ui.setImportFocusZone('fields');
+    ui.setImportFocus(
+      meta ? IMPORT_SEARCH_FIELDS.QUERY : IMPORT_INFOS_FIELDS.TITLE,
+    );
+    return;
+  }
+
+  if (
+    name === ROUTE.IMPORT_BOOK_META ||
+    name === ROUTE.LIBRARY_BOOK_META
+  ) {
+    const bookId = route.params.id;
+    const ok = imp.selectByBookId(bookId);
+    if (!ok) {
+      const parent = resolveParentLocation(route);
+      if (parent) router.replace(parent);
+      else router.replace({ name: ROUTE.IMPORT });
+      return;
+    }
+    await imp.loadDraftFromSelected({ keepResults: true });
+    imp.setFlow(IMPORT_FLOW.META_SEARCH, {
+      metaReturn: 'book',
+      bookId,
+    });
+    ui.setImportFocusZone('fields');
+    ui.setImportFocus(IMPORT_SEARCH_FIELDS.QUERY);
+  }
+}
+
+onMounted(async () => {
+  await imp.loadProviders();
+  await imp.scan();
+  await syncFromRoute();
   nextTick(() => scheduleScrollFocusedIntoView('.import'));
 });
+
+watch(
+  () => [route.name, route.params.itemKey, route.params.id],
+  () => {
+    void syncFromRoute().then(() =>
+      nextTick(() => scheduleScrollFocusedIntoView('.import')),
+    );
+  },
+);
 
 watch(
   () => [
@@ -120,14 +182,11 @@ watch(
     imp.enrichResultCursor,
     ui.importFocusIndex,
     ui.importFocusZone,
+    imp.applyModalFocus,
   ],
   () => nextTick(() => scheduleScrollFocusedIntoView('.import')),
 );
 
-/**
- * Ouvre la fiche bibliothèque si déjà importé, sinon la fiche brouillon
- * (même look BookDetail) dans le flux import.
- */
 async function openDetailAt(index) {
   if (typeof index === 'number' && imp.items[index]) {
     imp.cursor = index;
@@ -135,58 +194,56 @@ async function openDetailAt(index) {
   const item = imp.selected;
   if (!item) return;
   if (item.existingBookId != null) {
-    imp.goToList();
-    router.push({
-      name: 'book',
-      params: { id: String(item.existingBookId) },
-      query: { from: 'import' },
-    });
+    router.push(bookDetailLocation(item.existingBookId, 'import'));
     return;
   }
-  const ok = await imp.openSheet(index);
-  if (!ok) return;
-  ui.setImportFocusZone('fields');
-  ui.setImportFocus(IMPORT_INFOS_FIELDS.TITLE);
-  nextTick(() => scheduleScrollFocusedIntoView('.import'));
+  router.push(importItemLocation(item.filePath));
 }
 
 function backToList() {
-  imp.goToList();
-  ui.setImportFocusZone('list');
-  ui.setImportFocus(0);
+  router.push({ name: ROUTE.IMPORT });
+}
+
+function goParent() {
+  if (imp.isApplyModalOpen) {
+    imp.cancelApplyEnrich();
+    return;
+  }
+  const parent = resolveParentLocation(route);
+  if (parent) {
+    router.push(parent);
+    return;
+  }
+  router.push({ name: ROUTE.LIBRARY });
 }
 
 function switchTab(tab) {
-  const next =
-    tab === IMPORT_DETAIL_TABS.SEARCH
-      ? IMPORT_FLOW.META_SEARCH
-      : IMPORT_FLOW.SHEET;
-  if (next === IMPORT_FLOW.META_SEARCH) {
-    imp.setFlow(IMPORT_FLOW.META_SEARCH, {
-      metaReturn:
-        imp.metaReturn === META_RETURN.BOOK
-          ? META_RETURN.BOOK
-          : META_RETURN.SHEET,
-      bookId: imp.metaReturnBookId,
-    });
-  } else {
-    imp.setFlow(IMPORT_FLOW.SHEET, {
-      metaReturn: imp.metaReturn,
-      bookId: imp.metaReturnBookId,
-    });
+  const item = imp.selected;
+  if (tab === IMPORT_DETAIL_TABS.SEARCH) {
+    if (
+      route.name === ROUTE.IMPORT_BOOK_META ||
+      route.name === ROUTE.LIBRARY_BOOK_META
+    ) {
+      return;
+    }
+    if (item?.filePath) {
+      router.push(importItemLocation(item.filePath, { meta: true }));
+      return;
+    }
+    return;
   }
-  ui.setImportFocusZone('fields');
-  ui.setImportFocus(
-    next === IMPORT_FLOW.META_SEARCH
-      ? IMPORT_SEARCH_FIELDS.QUERY
-      : IMPORT_INFOS_FIELDS.TITLE,
-  );
-  nextTick(() => scheduleScrollFocusedIntoView('.import'));
+  const parent = resolveParentLocation(route);
+  if (parent) {
+    router.push(parent);
+    return;
+  }
+  if (item?.filePath) {
+    router.push(importItemLocation(item.filePath));
+  }
 }
 
 async function doImportOne() {
   if (!imp.selected || imp.committing) return;
-  // Liste : X = toggle import / retirer ; fiche : toujours importer
   if (!imp.isDetail && imp.selected.alreadyInLibrary) {
     await imp.removeSelectedFromLibrary();
     return;
@@ -194,18 +251,12 @@ async function doImportOne() {
   const result = await imp.commitSelected({ copyToLibrary: true });
   const bookId = result?.book?.id ?? imp.selected?.existingBookId;
   if (bookId != null) {
-    imp.goToList();
-    router.push({
-      name: 'book',
-      params: { id: String(bookId) },
-      query: { from: 'import' },
-    });
+    router.push(bookDetailLocation(bookId, 'import'));
     return;
   }
   backToList();
 }
 
-/** Bouton header liste — tout importer (plus de binding Y). */
 async function doImportAll() {
   if (!imp.items.length || imp.committing) return;
   ui.setImportFocusZone('header');
@@ -213,28 +264,16 @@ async function doImportAll() {
   await imp.commitAll({ copyToLibrary: true });
 }
 
-/** Bouton / Y Infos → flow meta-search (Importer des méta). */
 async function openMetaSearch() {
-  const ok = await imp.openMetaSearch({
-    returnTo:
-      imp.metaReturn === META_RETURN.BOOK
-        ? META_RETURN.BOOK
-        : META_RETURN.SHEET,
-    bookId: imp.metaReturnBookId,
-    entryIntent: false,
-    keepResults: true,
-  });
-  if (!ok) {
+  const item = imp.selected;
+  if (!item?.filePath) {
     switchTab(IMPORT_DETAIL_TABS.SEARCH);
     return;
   }
-  ui.setImportFocusZone('fields');
-  ui.setImportFocus(IMPORT_SEARCH_FIELDS.QUERY);
-  nextTick(() => scheduleScrollFocusedIntoView('.import'));
+  router.push(importItemLocation(item.filePath, { meta: true }));
 }
 
 async function doSearch() {
-  // Sync depuis le champ DOM (clavier virtuel / Enter) avant l’IPC.
   const input = document.querySelector(
     '.import [data-import-field="query"] input',
   );
@@ -343,8 +382,37 @@ function onResultChoose(index) {
   imp.enrichResultCursor = index;
   ui.setImportFocusZone('results');
   ui.setImportFocus(index);
-  // applyEnrichCursor : même chemin que manette A (pas de double logique)
   imp.applyEnrichCursor(index);
+}
+
+function confirmApplyModal() {
+  const bookId =
+    route.name === ROUTE.IMPORT_BOOK_META ||
+    route.name === ROUTE.LIBRARY_BOOK_META
+      ? route.params.id
+      : (imp.metaReturnBookId ?? imp.selected?.existingBookId ?? null);
+  const ok = imp.confirmApplyEnrich({ bookId });
+  if (ok) {
+    nextTick(() => scheduleScrollFocusedIntoView('.import'));
+  }
+}
+
+function cancelApplyModal() {
+  imp.cancelApplyEnrich();
+}
+
+function toggleApplyField(fieldId) {
+  imp.toggleApplyField(fieldId);
+}
+
+function applyFieldFocused(index) {
+  return imp.isApplyModalOpen && imp.applyModalFocus === index;
+}
+
+function applyButtonFocused() {
+  return (
+    imp.isApplyModalOpen && imp.applyModalFocus === META_APPLY_FOCUS.APPLY
+  );
 }
 
 function rowTitle(item) {
@@ -385,15 +453,18 @@ function dotLabel(item) {
   return metaSourceLabel(item.metaSource);
 }
 
-// Exposé pour tests / manette (commit depuis fiche)
 defineExpose({
   doSearch,
   doImportOne,
   doImportAll,
   switchTab,
   backToList,
+  goParent,
   openMetaSearch,
   openDetailAt,
+  confirmApplyModal,
+  cancelApplyModal,
+  syncFromRoute,
 });
 </script>
 
@@ -489,7 +560,7 @@ defineExpose({
     <!-- FICHE DÉTAIL (brouillon non importé — même look que BookDetailView) -->
     <template v-else>
       <nav
-        v-if="imp.isSearchTab"
+        v-if="showSheetTabs"
         class="import__tabs"
         aria-label="Onglets fiche import"
       >
@@ -503,7 +574,8 @@ defineExpose({
         </button>
         <button
           type="button"
-          class="import__tab is-active"
+          class="import__tab"
+          :class="{ 'is-active': imp.isSearchTab }"
           @click="switchTab(IMPORT_DETAIL_TABS.SEARCH)"
         >
           Recherche
@@ -792,6 +864,63 @@ defineExpose({
       </div>
       <ControlHint class="import__hints" :items="hints" />
     </footer>
+
+    <!-- Modal apply méta sélectif -->
+    <div
+      v-if="imp.isApplyModalOpen"
+      class="import__apply-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Champs métadonnées à appliquer"
+    >
+      <div class="import__apply-dialog">
+        <h2 class="import__apply-title">Appliquer les métadonnées</h2>
+        <p class="import__apply-lead">
+          Choisis les champs à reprendre de
+          « {{ imp.pendingApplyResult?.title || 'ce résultat' }} ».
+        </p>
+        <ul class="import__apply-list" role="list">
+          <li
+            v-for="(field, index) in metaApplyFields"
+            :key="field.id"
+          >
+            <button
+              type="button"
+              class="import__apply-row"
+              :class="{ 'is-focused': applyFieldFocused(index) }"
+              :aria-pressed="Boolean(imp.applyFieldSelection[field.id])"
+              @click="imp.setApplyModalFocus(index); toggleApplyField(field.id)"
+            >
+              <span
+                class="import__apply-check"
+                :class="{
+                  'is-on': Boolean(imp.applyFieldSelection[field.id]),
+                }"
+                aria-hidden="true"
+              />
+              <span class="import__apply-label">{{ field.label }}</span>
+            </button>
+          </li>
+        </ul>
+        <div class="import__apply-actions">
+          <button
+            type="button"
+            class="import__apply-confirm"
+            :class="{ 'is-focused': applyButtonFocused() }"
+            @click="imp.setApplyModalFocus(META_APPLY_FOCUS.APPLY); confirmApplyModal()"
+          >
+            Appliquer
+          </button>
+          <button
+            type="button"
+            class="import__apply-cancel"
+            @click="cancelApplyModal"
+          >
+            Annuler
+          </button>
+        </div>
+      </div>
+    </div>
   </section>
 </template>
 
@@ -1344,13 +1473,13 @@ defineExpose({
 .field {
   border-radius: var(--radius-sm);
   padding: 0.15rem;
-  transition:
-    box-shadow 160ms var(--ease-soft),
-    background 160ms var(--ease-soft);
 }
 
+/* Anneau sur le contrôle uniquement — pas de halo sur le wrapper .field */
 .field.is-focused {
-  background: color-mix(in srgb, var(--brass) 6%, transparent);
+  outline: none;
+  box-shadow: none;
+  background: transparent;
 }
 
 .field.is-focused .import__sheet-headline,
@@ -1576,4 +1705,136 @@ defineExpose({
     transition: none;
   }
 }
+
+.import__apply-modal {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  background: color-mix(in srgb, var(--ink-950) 72%, transparent);
+  backdrop-filter: blur(8px);
+}
+
+.import__apply-dialog {
+  width: min(26rem, 100%);
+  max-height: min(85vh, 36rem);
+  overflow: auto;
+  padding: 1.15rem 1.25rem 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--ink-900, var(--ink-950));
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.4);
+}
+
+.import__apply-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--paper);
+}
+
+.import__apply-lead {
+  margin: 0.45rem 0 0.9rem;
+  font-size: 0.88rem;
+  color: var(--paper-dim);
+}
+
+.import__apply-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.import__apply-row {
+  appearance: none;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--paper);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.import__apply-row.is-focused,
+.import__apply-row:focus-visible {
+  outline: none;
+  border-color: var(--brass-bright);
+  box-shadow: 0 0 0 3px var(--focus-glow);
+}
+
+.import__apply-check {
+  flex-shrink: 0;
+  width: 1.15rem;
+  height: 1.15rem;
+  border: 1px solid var(--border);
+  border-radius: 0.25rem;
+  background: transparent;
+}
+
+.import__apply-check.is-on {
+  border-color: var(--brass);
+  background:
+    linear-gradient(135deg, var(--brass), var(--brass-deep, var(--brass)));
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--ink-950) 35%, transparent);
+}
+
+.import__apply-label {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.import__apply-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.import__apply-confirm,
+.import__apply-cancel {
+  appearance: none;
+  padding: 0.55rem 0.95rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font: inherit;
+  font-family: var(--font-display);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.import__apply-confirm {
+  color: var(--paper);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--brass) 28%, transparent),
+    color-mix(in srgb, var(--brass-deep, var(--brass)) 14%, transparent)
+  );
+  border-color: color-mix(in srgb, var(--brass) 55%, var(--border));
+}
+
+.import__apply-confirm.is-focused,
+.import__apply-confirm:focus-visible {
+  outline: none;
+  border-color: var(--brass-bright);
+  box-shadow: 0 0 0 3px var(--focus-glow);
+}
+
+.import__apply-cancel {
+  color: var(--paper-dim);
+  background: transparent;
+}
+
 </style>

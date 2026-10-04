@@ -10,6 +10,7 @@ import { useI18n } from '../composables/useI18n';
 import { useProfilesStore } from '../stores/profiles';
 import { clearProfileSelected } from '../router';
 import { scheduleScrollFocusedIntoView } from '../../../shared/focus-scroll.js';
+import { ROUTE } from '../../../shared/app-routes.js';
 
 const router = useRouter();
 const library = useLibraryStore();
@@ -37,7 +38,7 @@ const hints = computed(() => {
 function goImport() {
   const idx = library.headerNav.findIndex((n) => n.id === 'import');
   if (idx >= 0) library.focusNav(idx);
-  router.push({ name: 'import' });
+  router.push({ name: ROUTE.IMPORT });
 }
 
 const navItems = computed(() => [
@@ -82,21 +83,27 @@ function scrollFocusIntoView() {
 /** Fiche détail tome — pas de setSessionMode / resize fenêtre. */
 function openBook(book) {
   if (!book?.id) {
-    router.push({ name: 'import' });
+    router.push({ name: ROUTE.IMPORT });
     return;
   }
-  router.push({ name: 'book', params: { id: String(book.id) } });
+  router.push({
+    name: ROUTE.LIBRARY_BOOK,
+    params: { id: String(book.id) },
+  });
 }
 
 function openSeries(seriesId) {
   if (!seriesId) return;
-  router.push({ name: 'series', params: { seriesId: String(seriesId) } });
+  router.push({
+    name: ROUTE.LIBRARY_SERIES,
+    params: { seriesId: String(seriesId) },
+  });
 }
 
 /** Ouvre la cible résolue ({ type, seriesId|bookId }). */
 function openResolved(target) {
   if (!target) {
-    if (library.isEmpty) router.push({ name: 'import' });
+    if (library.isEmpty) router.push({ name: ROUTE.IMPORT });
     return;
   }
   if (target.type === 'series') {
@@ -123,7 +130,7 @@ function openSelected() {
   }
   const book = library.selected;
   if (!book) {
-    if (library.isEmpty) router.push({ name: 'import' });
+    if (library.isEmpty) router.push({ name: ROUTE.IMPORT });
     return;
   }
   openBook(book);
