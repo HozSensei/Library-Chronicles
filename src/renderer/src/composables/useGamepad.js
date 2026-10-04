@@ -240,16 +240,17 @@ function createLoop(ctx) {
       const naming = Boolean(document.querySelector('.profiles__create'));
 
       if (naming) {
-        if (action === 'cursor-left' || action === 'cursor-up') {
-          const input = document.querySelector('.profiles__create input');
-          void focusTextInputForEdit(input);
-          navVibe();
-          afterFocusMove();
-          return;
-        }
-        if (action === 'cursor-right' || action === 'cursor-down') {
-          const btn = document.querySelector('.profiles__create .btn-primary');
-          btn?.focus?.();
+        // Formulaire : 0=pseudo · 1=palette · 2=valider (via événement ProfilesView)
+        if (
+          action === 'cursor-left' ||
+          action === 'cursor-right' ||
+          action === 'cursor-up' ||
+          action === 'cursor-down'
+        ) {
+          const dir = action.replace('cursor-', '');
+          window.dispatchEvent(
+            new CustomEvent('vdr-profile-form-nav', { detail: { dir } }),
+          );
           navVibe();
           afterFocusMove();
           return;
@@ -257,11 +258,16 @@ function createLoop(ctx) {
         if (action === 'confirm' || action === 'open-book') {
           const input = document.querySelector('.profiles__create input');
           const btn = document.querySelector('.profiles__create .btn-primary');
+          const colorsFocused = document
+            .querySelector('.profiles__colors')
+            ?.classList.contains('is-focused');
           const onValidate =
             document.activeElement === btn ||
             (btn?.classList.contains('is-focused') &&
               !input?.classList.contains('is-focused') &&
-              !isTextInputFocused());
+              !colorsFocused &&
+              !isTextInputFocused()) ||
+            colorsFocused;
           if (onValidate) {
             document.querySelector('.profiles__create')?.requestSubmit?.();
             vibe('confirm');
