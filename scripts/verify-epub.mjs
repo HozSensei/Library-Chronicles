@@ -27,11 +27,13 @@ import {
 } from '../src/shared/reading-mode.js';
 import {
   EPUB_INK,
+  EPUB_PAD_X,
   EPUB_PAPER_BG,
   buildEpubThemeCss,
   clampScreenIndex,
   computeScreenCount,
   remapScreenIndex,
+  resolveEpubPageGeometry,
   resolveEpubPageStep,
   screenOffsetX,
   stickToEpubPageWhich,
@@ -131,11 +133,38 @@ assert.equal(isEpubZoomNoop('fit-width'), true);
 assert.equal(computeScreenCount(3240, 1080), 3);
 assert.equal(computeScreenCount(1080, 1080), 1);
 assert.equal(computeScreenCount(0, 1080), 1);
+// Sous-pixel / pad résiduel : ne pas inventer une page blanche.
+assert.equal(computeScreenCount(1080 + 0.5, 1080), 1);
+assert.equal(computeScreenCount(2160 + 12, 1080), 2);
 assert.equal(clampScreenIndex(5, 3), 2);
 assert.equal(clampScreenIndex(-1, 3), 0);
+assert.equal(clampScreenIndex(99, 1), 0);
+assert.equal(clampScreenIndex(2.9, 3), 2);
 assert.equal(screenOffsetX(2, 1080), 2160);
 assert.equal(remapScreenIndex(1, 4, 8), 2);
 assert.equal(remapScreenIndex(0, 1, 5), 0);
+
+// Colonne + gap = stride = largeur stage (viewport local pré-rotate).
+{
+  const geo = resolveEpubPageGeometry({
+    pageWidth: 1080,
+    pageHeight: 1920,
+  });
+  assert.equal(geo.pageWidth, 1080);
+  assert.equal(geo.pageHeight, 1920);
+  assert.equal(geo.padX, EPUB_PAD_X);
+  assert.equal(geo.colW + geo.columnGap, geo.pageWidth, 'colonne+gap = stage');
+  assert.equal(geo.stride, geo.pageWidth, 'stride = clientWidth local');
+  assert.equal(geo.columnGap, 2 * geo.padX);
+  // Portrait Ally local (plane 100vh×100vw avant +90°)
+  const ally = resolveEpubPageGeometry({ pageWidth: 1080, pageHeight: 1920 });
+  assert.equal(ally.stride, 1080);
+  assert.notEqual(ally.pageWidth, ally.pageHeight);
+  // Pas de confusion width/height : stride suit pageWidth, pas height.
+  const swapped = resolveEpubPageGeometry({ pageWidth: 1920, pageHeight: 1080 });
+  assert.equal(swapped.stride, 1920);
+  assert.equal(swapped.colW + swapped.columnGap, 1920);
+}
 
 {
   const mid = resolveEpubPageStep({
@@ -178,12 +207,17 @@ assert.equal(stickToEpubPageWhich(0.1, 0.1), null);
     pageWidth: 1080,
     pageHeight: 1920,
   });
+  const geo = resolveEpubPageGeometry({ pageWidth: 1080, pageHeight: 1920 });
   assert.match(css, new RegExp(`color:\\s*${EPUB_INK}`));
   assert.match(css, new RegExp(`background:\\s*${EPUB_PAPER_BG}`));
-  assert.match(css, /column-width:\s*1080px/);
+  assert.match(css, new RegExp(`column-width:\\s*${geo.colW}px`));
+  assert.match(css, new RegExp(`column-gap:\\s*${geo.columnGap}px`));
+  assert.match(css, /width:\s*auto/);
   assert.match(css, /font-size:\s*120%/);
   assert.doesNotMatch(css, /var\(--paper/);
   assert.doesNotMatch(css, /sepia|brightness\(|contrast\(/);
+  // Invariant rendu : une fenêtre = exactement le viewport local.
+  assert.equal(geo.colW + geo.columnGap, 1080);
 }
 
 {
@@ -217,7 +251,7 @@ assert.equal(stickToEpubPageWhich(0.1, 0.1), null);
   );
 }
 
-// Stage : pas de filter manga, pagination flag
+// Stage : pas de filter manga, pagination flag, géométrie locale
 {
   const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
   const stage = fs.readFileSync(
@@ -226,7 +260,10 @@ assert.equal(stickToEpubPageWhich(0.1, 0.1), null);
   );
   assert.match(stage, /data-epub-paginated/);
   assert.match(stage, /buildEpubThemeCss|epub-pagination/);
+  assert.match(stage, /resolveEpubPageGeometry/);
   assert.match(stage, /filter:\s*none/);
+  assert.match(stage, /clientWidth/);
+  assert.doesNotMatch(stage, /getBoundingClientRect/);
   assert.doesNotMatch(stage, /reader\.filterCss/);
   assert.doesNotMatch(stage, /color:\s*var\(--paper/);
 }
@@ -306,5 +343,5 @@ try {
 }
 
 console.log(
-  'OK  EPUB extracteur + pagination viewport + thème encre/papier (sans sépia)',
+  'OK  EPUB extracteur + pagination viewport (colonne=stage) + thème encre/papier',
 );
