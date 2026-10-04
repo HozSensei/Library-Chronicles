@@ -245,9 +245,18 @@ export function measureReaderZoomGeometry(root) {
   if (!doc) return null;
 
   const reader = doc.querySelector('.reader');
-  const stage = doc.querySelector('.reader__stage');
-  const pan = doc.querySelector('.reader__pan');
-  const page = doc.querySelector('.reader__page');
+  // Préférer le stage page (dual-path) — évite toute ambiguïté avec d’autres nœuds.
+  const stage =
+    doc.querySelector('.reader__stage[data-reader-path="page"]') ||
+    doc.querySelector('.reader__stage');
+  const pan =
+    (stage && typeof stage.querySelector === 'function'
+      ? stage.querySelector('.reader__pan')
+      : null) || doc.querySelector('.reader__pan');
+  const page =
+    (stage && typeof stage.querySelector === 'function'
+      ? stage.querySelector('.reader__page')
+      : null) || doc.querySelector('.reader__page');
   if (!stage || !page) return null;
 
   const rotate90 = reader?.getAttribute?.('data-css-rotate') === '1';
@@ -266,6 +275,17 @@ export function measureReaderZoomGeometry(root) {
   } else if (page.offsetParent === stage) {
     imgOffsetX = page.offsetLeft;
     imgOffsetY = page.offsetTop;
+  } else if (
+    pan &&
+    typeof pan.getBoundingClientRect === 'function' &&
+    typeof stage.getBoundingClientRect === 'function' &&
+    !rotate90
+  ) {
+    // Fallback hors rotate : deltas AABB (sous +90° les AABB ne sont plus locales).
+    const sr = stage.getBoundingClientRect();
+    const pr = pan.getBoundingClientRect();
+    imgOffsetX = pr.left - sr.left;
+    imgOffsetY = pr.top - sr.top;
   } else {
     imgOffsetX = (stageW - imgW) / 2;
     imgOffsetY = (stageH - imgH) / 2;

@@ -9,6 +9,12 @@ import {
   READING_MODE,
 } from '../../../shared/reading-mode.js';
 import { READER_STICK_SPEED } from '../../../shared/reader-stick.js';
+import {
+  clampPageScale,
+  nextPageTargetScale,
+  PAGE_ZOOM_ANIM_MS,
+  PAGE_ZOOMED_EPS,
+} from '../../../shared/reader-page-zoom.js';
 import { findAdjacentVolume } from '../../../shared/series.js';
 import {
   clampPanToPage,
@@ -21,15 +27,15 @@ import { useLibraryStore } from './library.js';
 
 const NIGHT_PRESET = { brightness: 0.78, contrast: 1.12, sepia: 0.35 };
 const RESET_FILTERS = { brightness: 1, contrast: 1, sepia: 0 };
-/** Durée d’interpolation zoom D-Pad / L3 (ms), ease-out. */
-const ZOOM_ANIM_MS = 200;
-/** Seuil « zoomé » pour pan stick. */
-const ZOOMED_EPS = 1.02;
+/** Durée d’interpolation zoom D-Pad / L3 (ms), ease-out — b7d1f81. */
+const ZOOM_ANIM_MS = PAGE_ZOOM_ANIM_MS;
+/** Seuil « zoomé » pour pan stick — b7d1f81. */
+const ZOOMED_EPS = PAGE_ZOOMED_EPS;
 /** Voisines gardées en cache ObjectURL (prefetch page ±N) — mode page. */
 const PAGE_CACHE_RADIUS = 2;
 
 function clampScale(value) {
-  return Math.min(4, Math.max(0.25, value));
+  return clampPageScale(value);
 }
 
 export const useReaderStore = defineStore('reader', {
@@ -85,6 +91,7 @@ export const useReaderStore = defineStore('reader', {
     renderEngine: null,
     _hudTimer: null,
     _zoomRaf: null,
+    _zoomFallbackTimer: null,
     _zoomTransitionTimer: null,
     /** Demande scrollIntoView après nav programmatique (pas scroll utilisateur). */
     stripScrollToken: 0,
@@ -526,6 +533,10 @@ export const useReaderStore = defineStore('reader', {
         cancelAnimationFrame(this._zoomRaf);
       }
       this._zoomRaf = null;
+      if (this._zoomFallbackTimer != null) {
+        clearTimeout(this._zoomFallbackTimer);
+        this._zoomFallbackTimer = null;
+      }
       if (this._zoomTransitionTimer) {
         clearTimeout(this._zoomTransitionTimer);
         this._zoomTransitionTimer = null;
@@ -578,6 +589,7 @@ export const useReaderStore = defineStore('reader', {
     /**
      * Interpole `scale` → `targetScale` en ~200 ms ease-out (rAF).
      * Chaque frame ancre le zoom au centre écran (pas de dérive / faux scroll).
+     * Pipeline = b7d1f81 ; secours timeout si rAF throttle (fenêtre arrière-plan).
      */
     animateScaleTo(target, { duration = ZOOM_ANIM_MS } = {}) {
       const to = clampScale(target);
@@ -587,6 +599,10 @@ export const useReaderStore = defineStore('reader', {
         return;
       }
       if (this._zoomRaf != null) cancelAnimationFrame(this._zoomRaf);
+      if (this._zoomFallbackTimer != null) {
+        clearTimeout(this._zoomFallbackTimer);
+        this._zoomFallbackTimer = null;
+      }
       const fromScale = this.scale;
       const fromPanX = this.panX;
       const fromPanY = this.panY;
@@ -605,6 +621,18 @@ export const useReaderStore = defineStore('reader', {
         this._zoomRaf = null;
         return;
       }
+      const finish = () => {
+        const finalPan = anchor(fromPanX, fromPanY, fromScale, to);
+        this.panX = finalPan.panX;
+        this.panY = finalPan.panY;
+        this.scale = to;
+        this._zoomRaf = null;
+        if (this._zoomFallbackTimer != null) {
+          clearTimeout(this._zoomFallbackTimer);
+          this._zoomFallbackTimer = null;
+        }
+        pinReaderOverflow();
+      };
       const t0 = performance.now();
       const step = (now) => {
         const t = Math.min(1, (now - t0) / duration);
@@ -618,15 +646,20 @@ export const useReaderStore = defineStore('reader', {
         if (t < 1) {
           this._zoomRaf = requestAnimationFrame(step);
         } else {
-          const finalPan = anchor(fromPanX, fromPanY, fromScale, to);
-          this.panX = finalPan.panX;
-          this.panY = finalPan.panY;
-          this.scale = to;
-          this._zoomRaf = null;
-          pinReaderOverflow();
+          finish();
         }
       };
       this._zoomRaf = requestAnimationFrame(step);
+      // Garantit scale → cible même si rAF est gelé (b7d1f81 + robustesse post-strip).
+      this._zoomFallbackTimer = setTimeout(() => {
+        this._zoomFallbackTimer = null;
+        if (Math.abs(this.scale - to) > 1e-4 || this._zoomRaf != null) {
+          if (this._zoomRaf != null && typeof cancelAnimationFrame === 'function') {
+            cancelAnimationFrame(this._zoomRaf);
+          }
+          finish();
+        }
+      }, duration + 80);
     },
     /** Transition CSS width/height pour reset / fit (L3, LB). */
     pulseZoomTransition(ms = ZOOM_ANIM_MS + 40) {
@@ -649,8 +682,10 @@ export const useReaderStore = defineStore('reader', {
      * si CSS rotate). Sous rotate(90deg) : local(+X)→bas écran, local(+Y)→gauche.
      * Clamp strict : pas de pan hors des bords de page.
      */
+    /**
+     * Pan page — b7d1f81 (speed 14, clamp bords). Strip = no-op (scroll dédié).
+     */
     pan(dx, dy, speed = READER_STICK_SPEED) {
-      // Pan CSS = chemin page uniquement (strip scrolle via applyStickToStripScroll).
       if (this.isStripMode) return;
       if (this.fitMode === 'fit-width') {
         this.panY += dy * speed * 1.4;
@@ -661,14 +696,17 @@ export const useReaderStore = defineStore('reader', {
       }
       this.clampPan();
     },
+    /**
+     * Zoom D-Pad page — b7d1f81 : ±ZOOM_STEP sur targetScale + animateScaleTo.
+     * Strip = no-op (pas de scale CSS).
+     */
     zoomBy(steps) {
-      // Zoom scale = chemin page uniquement (strip = no-op D-Pad).
       if (this.isStripMode) return;
-      this.animateScaleTo(this.targetScale + Number(steps) * ZOOM_STEP);
+      this.animateScaleTo(nextPageTargetScale(this.targetScale, steps));
     },
     /**
      * L3 / R3 — reset zoom unique : page entière (fit stage), pan recentré.
-     * Ne bascule PAS Fit Height ↔ Fit Width (fitMode stable).
+     * Ne bascule PAS Fit Height ↔ Fit Width (fitMode stable) — b7d1f81 / #39.
      * No-op en strip (pas de zoom CSS).
      */
     resetZoom() {
@@ -682,7 +720,7 @@ export const useReaderStore = defineStore('reader', {
     toggleZoom() {
       this.resetZoom();
     },
-    /** LB — Fit Width direct (mode page). No-op en strip. */
+    /** LB — Fit Width direct (mode page) — b7d1f81. No-op en strip. */
     setFitWidth() {
       if (this.isStripMode) return;
       this.pulseZoomTransition();
