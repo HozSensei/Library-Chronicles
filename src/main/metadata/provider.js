@@ -309,8 +309,8 @@ function publicMeta(p) {
     testOk,
     testedAt: status?.testedAt ?? null,
     testError: status?.error ?? null,
-    /** true si le provider peut être testé (tous sauf absence totale) */
-    canTest: true,
+    /** true si le provider peut être testé (tous sauf stub local) */
+    canTest: p.id !== 'stub',
   };
   meta.configuredOk = providerShowsOkBadge(meta);
   return meta;

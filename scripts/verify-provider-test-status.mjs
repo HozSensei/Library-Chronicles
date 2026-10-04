@@ -184,6 +184,9 @@ const settings = read('src/renderer/src/views/SettingsView.vue');
 assert.match(settings, /testSelectedProvider|testProvider/, 'Settings bouton Tester');
 assert.match(settings, /provider-ok|configuredOk/, 'Settings check vert');
 assert.match(settings, /toast\.providerTestOk/, 'toast succès');
+assert.match(settings, /data-provider-test/, 'Tester visible par provider');
+assert.match(settings, /provider-card__test/, 'Tester inline sur chaque carte');
+assert.match(settings, /providerCanTest/, 'filtre stub / canTest');
 
 const importView = read('src/renderer/src/views/ImportView.vue');
 assert.match(importView, /configuredOk/, 'Import configuredOk');
@@ -194,5 +197,8 @@ assert.match(i18n, /testProvider:\s*'Tester'/, 'i18n FR Tester');
 assert.match(i18n, /testProvider:\s*'Test'/, 'i18n EN Test');
 assert.match(i18n, /providerTestOk/, 'i18n toast OK');
 assert.match(i18n, /providerTestFail/, 'i18n toast fail');
+assert.match(i18n, /bouton Tester|Test button/, 'i18n hint mentionne Tester');
+
+assert.match(providerMain, /canTest:\s*p\.id\s*!==\s*'stub'/, 'canTest exclut stub');
 
 console.log('verify-provider-test-status: OK');

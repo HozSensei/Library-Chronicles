@@ -280,7 +280,7 @@ export const MESSAGES = Object.freeze({
       listening: 'Appuie sur une touche pour « {action} »…',
       resetBindings: 'Reset — rétablir les défauts lecture',
       apiHint:
-        'Choisis un provider pour l’enrichissement à l’import. Offline : stub + édition manuelle.',
+        'Choisis un provider pour l’enrichissement à l’import. Chaque source (sauf stub) a un bouton Tester à droite — ✓ vert après un test OK. Offline : stub + édition manuelle.',
       providersAria: 'Providers métadonnées',
       keySaved: 'Clé {label} enregistrée',
       keyMissing: 'Aucune clé {label}',
@@ -649,7 +649,7 @@ export const MESSAGES = Object.freeze({
       listening: 'Press a button for “{action}”…',
       resetBindings: 'Reset — restore reader defaults',
       apiHint:
-        'Pick a provider for import enrichment. Offline: stub + manual edit.',
+        'Pick a provider for import enrichment. Each source (except stub) has a Test button on the right — green ✓ after a successful test. Offline: stub + manual edit.',
       providersAria: 'Metadata providers',
       keySaved: '{label} key saved',
       keyMissing: 'No {label} key',

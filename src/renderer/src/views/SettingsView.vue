@@ -32,8 +32,15 @@ const newProfileName = ref('');
 const profileMsg = ref('');
 const providers = ref([]);
 const activeProvider = ref('stub');
-const testingProvider = ref(false);
+/** id du provider en cours de test (null si idle) — permet un état « Test… » par ligne */
+const testingProviderId = ref(null);
 const accents = ACCENTS;
+
+function providerCanTest(p) {
+  if (!p) return false;
+  if (typeof p.canTest === 'boolean') return p.canTest;
+  return p.id !== 'stub';
+}
 
 const sections = computed(() => [
   { id: 'general', label: t('settings.tabGeneral') },
@@ -200,9 +207,18 @@ async function clearApiKey() {
   await refreshProviders();
 }
 
-async function testSelectedProvider() {
-  const p = selectedProvider.value;
-  if (!p || testingProvider.value) return;
+async function testProvider(target) {
+  const p =
+    typeof target === 'string'
+      ? providers.value.find((x) => x.id === target)
+      : target || selectedProvider.value;
+  if (!p || !providerCanTest(p) || testingProviderId.value) return;
+
+  // Activer le provider testé pour aligner statut / champs clé.
+  if (p.id !== activeProvider.value) {
+    await selectProvider(p.id);
+  }
+
   if (p.requiresApiKey && !p.hasKey && !apiKeyInput.value.trim()) {
     toast.error(t('settings.testNeedKey', { label: p.label }));
     return;
@@ -212,7 +228,7 @@ async function testSelectedProvider() {
     await window.vdr.metadata.setApiKey(p.id, apiKeyInput.value);
     apiKeyInput.value = '';
   }
-  testingProvider.value = true;
+  testingProviderId.value = p.id;
   try {
     const result = await window.vdr.metadata.testProvider(p.id);
     if (result?.providers) providers.value = result.providers;
@@ -229,8 +245,13 @@ async function testSelectedProvider() {
       `${t('toast.providerTestFail', { label: p.label })} — ${err?.message || err}`,
     );
   } finally {
-    testingProvider.value = false;
+    testingProviderId.value = null;
   }
+}
+
+/** @deprecated alias focus A / anciens handlers */
+async function testSelectedProvider() {
+  await testProvider(selectedProvider.value);
 }
 
 async function openProviderHelp(provider) {
@@ -448,33 +469,53 @@ const listeningLabel = computed(() => {
         <p class="hint">{{ t('settings.apiHint') }}</p>
 
         <div class="provider-list" role="listbox" :aria-label="t('settings.providersAria')">
-          <button
+          <div
             v-for="p in providers"
             :key="p.id"
-            type="button"
             class="provider-card"
-            data-settings-item
             :class="{ 'is-active': p.id === activeProvider }"
-            role="option"
-            :aria-selected="p.id === activeProvider"
-            @click="selectProvider(p.id)"
           >
-            <span class="provider-card__label">
-              <span
-                v-if="p.configuredOk"
-                class="provider-ok"
-                :aria-label="t('settings.configuredOk')"
-                :title="t('settings.configuredOk')"
-              >✓</span>
-              {{ p.label }}
-            </span>
-            <span
-              class="provider-card__badge"
-              :class="p.requiresApiKey ? 'is-key' : 'is-free'"
+            <button
+              type="button"
+              class="provider-card__main"
+              data-settings-item
+              role="option"
+              :aria-selected="p.id === activeProvider"
+              @click="selectProvider(p.id)"
             >
-              {{ p.freeLabel }}
-            </span>
-          </button>
+              <span class="provider-card__label">
+                <span
+                  v-if="p.configuredOk"
+                  class="provider-ok"
+                  :aria-label="t('settings.configuredOk')"
+                  :title="t('settings.configuredOk')"
+                >✓</span>
+                {{ p.label }}
+              </span>
+              <span
+                class="provider-card__badge"
+                :class="p.requiresApiKey ? 'is-key' : 'is-free'"
+              >
+                {{ p.freeLabel }}
+              </span>
+            </button>
+            <button
+              v-if="providerCanTest(p)"
+              type="button"
+              class="provider-card__test btn-primary"
+              data-settings-item
+              data-provider-test
+              :disabled="testingProviderId === p.id"
+              :aria-label="t('settings.testProvider') + ' — ' + p.label"
+              @click="testProvider(p)"
+            >
+              {{
+                testingProviderId === p.id
+                  ? t('settings.testingProvider')
+                  : t('settings.testProvider')
+              }}
+            </button>
+          </div>
         </div>
 
         <p class="api-status" :class="{ 'is-ok': selectedProvider?.configuredOk }">{{ apiStatus }}</p>
@@ -511,19 +552,38 @@ const listeningLabel = computed(() => {
             <button type="button" class="ghost" data-settings-item @click="clearApiKey">
               {{ t('settings.clearKey') }}
             </button>
+            <button
+              v-if="providerCanTest(selectedProvider)"
+              type="button"
+              class="btn-primary"
+              data-settings-item
+              data-provider-test
+              :disabled="testingProviderId === selectedProvider.id"
+              @click="testSelectedProvider"
+            >
+              {{
+                testingProviderId === selectedProvider.id
+                  ? t('settings.testingProvider')
+                  : t('settings.testProvider')
+              }}
+            </button>
           </div>
         </template>
 
-        <div v-if="selectedProvider && selectedProvider.id !== 'stub'" class="row">
+        <div
+          v-else-if="providerCanTest(selectedProvider)"
+          class="row"
+        >
           <button
             type="button"
             class="btn-primary"
             data-settings-item
-            :disabled="testingProvider"
+            data-provider-test
+            :disabled="testingProviderId === selectedProvider.id"
             @click="testSelectedProvider"
           >
             {{
-              testingProvider
+              testingProviderId === selectedProvider.id
                 ? t('settings.testingProvider')
                 : t('settings.testProvider')
             }}
@@ -736,12 +796,26 @@ h1 {
 }
 
 .provider-card {
+  display: flex;
+  align-items: stretch;
+  gap: 0.45rem;
+  width: 100%;
+  min-width: 0;
+}
+
+.provider-card.is-active .provider-card__main {
+  border-color: var(--brass);
+  background: color-mix(in srgb, var(--brass) 10%, var(--surface));
+}
+
+.provider-card__main {
   appearance: none;
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 0.75rem;
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   text-align: left;
   padding: 0.7rem 0.85rem;
   border: 1px solid var(--border);
@@ -751,14 +825,23 @@ h1 {
   cursor: pointer;
 }
 
-.provider-card.is-active {
-  border-color: var(--brass);
-  background: color-mix(in srgb, var(--brass) 10%, var(--surface));
-}
-
-.provider-card.is-focused {
+.provider-card__main.is-focused {
   border-color: var(--brass-bright);
   box-shadow: 0 0 0 3px var(--focus-glow);
+}
+
+.provider-card__test {
+  flex-shrink: 0;
+  align-self: stretch;
+  min-width: 5.5rem;
+  padding: 0.55rem 0.75rem;
+  font-weight: 700;
+}
+
+.provider-card__test.is-focused {
+  border-color: var(--brass-bright);
+  box-shadow: 0 0 0 3px var(--focus-glow);
+  outline: none;
 }
 
 .provider-card__label {
