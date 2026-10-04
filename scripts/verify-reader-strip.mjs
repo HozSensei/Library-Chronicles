@@ -1,6 +1,8 @@
 /**
  * Strip vertical optionnel : fenêtre ~4–5 pages + prefetch, ouvert via
  * readingMode=strip (fiche « Lire en continu »). Mode page reste le défaut.
+ *
+ * Dual-path : StripReaderStage + reader-strip-controls (D-Pad no-op).
  */
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -23,6 +25,10 @@ import {
   READER_STICK_SPEED,
   applyStickToStripScroll,
 } from '../src/shared/reader-stick.js';
+import {
+  applyStripReaderAction,
+  isStripDpadNoop,
+} from '../src/shared/reader-strip-controls.js';
 import { visualPanToLocal } from '../src/shared/portrait-remap.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -59,6 +65,14 @@ assert.equal(supportsStripReading(null), false);
 
 const store = readFileSync(join(root, 'src/renderer/src/stores/reader.js'), 'utf8');
 const view = readFileSync(join(root, 'src/renderer/src/views/ReaderView.vue'), 'utf8');
+const pageStage = readFileSync(
+  join(root, 'src/renderer/src/components/PageReaderStage.vue'),
+  'utf8',
+);
+const stripStage = readFileSync(
+  join(root, 'src/renderer/src/components/StripReaderStage.vue'),
+  'utf8',
+);
 const book = readFileSync(
   join(root, 'src/renderer/src/views/BookDetailView.vue'),
   'utf8',
@@ -71,6 +85,14 @@ const i18n = readFileSync(join(root, 'src/shared/i18n.js'), 'utf8');
 const keys = readFileSync(join(root, 'src/shared/key-bindings.js'), 'utf8');
 const hud = readFileSync(
   join(root, 'src/renderer/src/components/ReaderHud.vue'),
+  'utf8',
+);
+const stripControls = readFileSync(
+  join(root, 'src/shared/reader-strip-controls.js'),
+  'utf8',
+);
+const pageControls = readFileSync(
+  join(root, 'src/shared/reader-page-controls.js'),
   'utf8',
 );
 
@@ -88,10 +110,18 @@ assert.doesNotMatch(gamepad, /toggle-webtoon/);
 assert.doesNotMatch(gamepad, /webtoonMode/);
 
 assert.match(view, /data-strip/);
-assert.match(view, /reader__strip/);
-assert.match(view, /setPageFromStripScroll/);
+assert.match(view, /data-reader-path/);
+assert.match(view, /StripReaderStage/);
+assert.match(view, /PageReaderStage/);
 assert.match(view, /normalizeReadingMode/);
 assert.match(view, /query\.mode/);
+assert.match(stripStage, /reader__strip/);
+assert.match(stripStage, /setPageFromStripScroll/);
+assert.match(stripStage, /data-reader-path="strip"/);
+assert.match(pageStage, /reader__stage/);
+assert.match(pageStage, /data-reader-path="page"/);
+assert.match(pageStage, /reader__pan/);
+assert.match(pageStage, /reader\.imageStyle/);
 
 assert.match(book, /BOOK_FOCUS\.READ_STRIP/);
 assert.match(book, /supportsStripReading/);
@@ -101,27 +131,24 @@ assert.match(i18n, /readStrip:/);
 assert.match(i18n, /readStripUnsupported:/);
 assert.match(i18n, /Lire en continu/);
 assert.match(i18n, /Read continuously/);
+assert.match(i18n, /hintStrip:/);
+assert.match(i18n, /D-Pad désactivé|D-Pad off/);
+assert.match(hud, /hintStrip/);
 
 assert.match(gamepad, /reader\.isStripMode/);
+assert.match(gamepad, /applyStripReaderAction/);
+assert.match(gamepad, /applyPageReaderAction/);
 assert.match(gamepad, /reader__strip/);
-assert.match(gamepad, /applyStickToStripScroll/);
-assert.match(
-  gamepad,
-  /isStripMode[\s\S]*zoom-in[\s\S]*stepPage\('prev'\)/,
-);
-// Mode page : zoom / L3 / pan toujours présents (branche else dédiée).
-assert.match(gamepad, /Mode page — contrôles identiques/);
-assert.match(gamepad, /reader\.resetZoom\(\)/);
-assert.match(gamepad, /reader\.zoomBy\(1\)/);
-assert.match(gamepad, /reader\.pan\(stickLocal\.x,\s*stickLocal\.y\)/);
-{
-  const m = view.match(
-    /const stripStyle = computed\(\(\) => \(\{([\s\S]*?)\}\)\)/,
-  );
-  assert.ok(m, 'stripStyle computed défini');
-  assert.match(m[1], /filter:\s*reader\.filterCss/);
-  assert.doesNotMatch(m[1], /panX|panY|translate3d/);
-}
+// Strip : D-Pad no-op (pas de stepPage sur zoom-in)
+assert.match(stripControls, /isStripDpadNoop/);
+assert.doesNotMatch(stripControls, /stepPage/);
+assert.ok(isStripDpadNoop('zoom-in'));
+assert.ok(isStripDpadNoop('page-next'));
+assert.equal(applyStripReaderAction({}, 'zoom-out'), true);
+// Mode page : zoom / L3 / pan dans module dédié
+assert.match(pageControls, /zoomBy\(1\)/);
+assert.match(pageControls, /resetZoom\(\)/);
+assert.match(pageControls, /reader\.pan\(/);
 assert.match(store, /READER_STICK_SPEED/);
 assert.match(
   store,
