@@ -50,13 +50,15 @@ assert(view.includes('selectedLocale'), 'état locale sélectionnée');
 assert(view.includes('cycleLocale'), 'cycle locale ←→');
 assert(view.includes('setLocaleFlag'), 'setLocaleFlag au clic');
 assert(
-  /formFocus\s*:\s*0\s*=\s*pseudo[\s\S]*2\s*=\s*drapeaux|Focus formulaire[\s\S]*2\s*=\s*drapeaux/.test(
+  /formFocus\s*:\s*0\s*=\s*pseudo[\s\S]*2\s*=\s*lang|Focus formulaire[\s\S]*2\s*=\s*lang|FORM_ZONE\.LANG/.test(
     view,
   ),
-  'formFocus documente drapeaux',
+  'formFocus / FORM_ZONE documente drapeaux (lang)',
 );
 assert(
-  /Math\.min\(3,\s*formFocus/.test(view) || /formFocus\.value = Math\.min\(3/.test(view),
+  /FORM_ZONE\.SUBMIT|Math\.min\(3,\s*formFocus|formFocus\.value = Math\.min\(3/.test(
+    view,
+  ),
   'focus formulaire max 3 (valider)',
 );
 assert(
@@ -67,6 +69,56 @@ assert(
   view.includes("ui.applyLanguage(selectedLocale.value)") ||
     view.includes('ui.applyLanguage(selectedLocale'),
   'preview locale au focus/sélection',
+);
+
+// Assets drapeau réels (pas CSS inventé / croix type Finlande)
+assert(
+  fs.existsSync(path.join(root, 'src/renderer/src/assets/flags/fr.svg')),
+  'asset fr.svg présent',
+);
+assert(
+  fs.existsSync(path.join(root, 'src/renderer/src/assets/flags/en.svg')),
+  'asset en.svg (Union Jack) présent',
+);
+assert(
+  view.includes("assets/flags/fr.svg") && view.includes("assets/flags/en.svg"),
+  'import SVG drapeaux FR/EN',
+);
+assert(view.includes('flagSrc'), 'helper flagSrc pour <img>');
+assert(
+  /<img[\s\S]*locale-flag__face|class="locale-flag__face"[\s\S]*:src="flagSrc/.test(
+    view,
+  ),
+  'drapeaux via <img> SVG',
+);
+assert(
+  !/locale-flag--en\s+\.locale-flag__face\s*\{[\s\S]*linear-gradient/.test(view),
+  'pas de faux Union Jack CSS (gradient)',
+);
+
+const enSvg = read('src/renderer/src/assets/flags/en.svg');
+assert(
+  /#012169|#C8102E|#c8102e/i.test(enSvg) && /stroke|#fff/i.test(enSvg),
+  'en.svg ressemble à un Union Jack (bleu + croix)',
+);
+assert(
+  !/^[^<]*$/.test(enSvg.trim()) && enSvg.includes('<svg'),
+  'en.svg est un SVG valide',
+);
+
+// Focus unique : is-active (sélection) ≠ is-focused (ring brass)
+assert(view.includes('FORM_ZONE'), 'zones FORM_ZONE pseudo|color|lang|submit');
+assert(
+  /formFocus === FORM_ZONE\.LANG && selectedLocale === loc/.test(view) ||
+    /FORM_ZONE\.LANG && selectedLocale/.test(view),
+  'is-focused drapeau seulement si zone lang',
+);
+assert(
+  /\.locale-flag\.is-active[\s\S]*?box-shadow:\s*none/.test(view) ||
+    !/\.locale-flag\.is-active\s+\.locale-flag__face\s*\{[^}]*brass-bright/.test(
+      view,
+    ),
+  'langue active sans ring brass (selected ≠ focus)',
 );
 
 // --- Store / IPC / DB ---

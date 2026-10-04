@@ -104,6 +104,26 @@ assert(
 assert(view.includes('vdr-profile-form-nav'), 'écoute nav manette formulaire');
 assert(view.includes('cycleColor'), 'cycle couleur API');
 
+// Focus unique : pastille active ≠ anneau brass (sauf zone color focusée)
+assert(
+  /formFocus === FORM_ZONE\.COLOR && selectedColor === c/.test(view) ||
+    /FORM_ZONE\.COLOR && selectedColor/.test(view),
+  'is-focused couleur seulement si zone color',
+);
+assert(
+  /\.color-swatch\.is-active\s*\{[\s\S]*?border-color:/.test(view),
+  'couleur active = bord selected (pas ring brass seul)',
+);
+assert(
+  !/\.profiles__colors\.is-focused|\.profiles__locales\.is-focused/.test(view),
+  'pas de ring focus sur conteneur palette/drapeaux',
+);
+assert(
+  /\.profiles__create input\.is-focused/.test(view) &&
+    /\.profiles__create input:focus-visible/.test(view),
+  'input :focus-visible neutralisé hors is-focused',
+);
+
 // --- gamepad naming ---
 const pad = read('src/renderer/src/composables/useGamepad.js');
 assert(
@@ -112,6 +132,16 @@ assert(
 );
 assert(pad.includes('profiles__colors'), 'manette gère focus palette');
 assert(pad.includes('profiles__locales'), 'manette gère focus drapeaux');
+assert(
+  pad.includes(".profiles__colors .is-focused") ||
+    pad.includes('.profiles__colors .is-focused'),
+  'manette lit focus pastille (pas conteneur)',
+);
+assert(
+  pad.includes(".profiles__locales .is-focused") ||
+    pad.includes('.profiles__locales .is-focused'),
+  'manette lit focus drapeau (pas conteneur)',
+);
 
 // --- DB update color ---
 const db = read('src/main/database/profiles.js');
