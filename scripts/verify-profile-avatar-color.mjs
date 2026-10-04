@@ -52,6 +52,16 @@ const view = read('src/renderer/src/views/ProfilesView.vue');
 
 assert(view.includes('avatar__halo'), 'halo scale hors overflow');
 assert(view.includes('profiles__colors'), 'rangée couleurs dans le formulaire');
+assert(
+  /v-if="!isNaming"[\s\S]*?profiles__grid|profiles__grid[\s\S]*?v-if="!isNaming"/.test(
+    view,
+  ) || /v-if="!isNaming"\s*\n\s*class="profiles__grid"/.test(view),
+  'grille pick masquée pendant naming (pas de + sous aperçu ?)',
+);
+assert(
+  /class="profiles__create"[\s\S]*?profiles__colors/.test(view),
+  'palette couleurs uniquement dans le formulaire create/edit',
+);
 assert(view.includes('selectedColor'), 'état couleur sélectionnée');
 assert(
   /color:\s*selectedColor\.value/.test(view) ||
@@ -61,6 +71,18 @@ assert(
 assert(
   /\.profiles__grid\s*\{[\s\S]*?overflow-x:\s*visible/.test(view),
   'grille overflow-x visible (pas de clip horizontal)',
+);
+assert(
+  /\.profiles__grid\s*\{[\s\S]*?flex-wrap:\s*nowrap/.test(view),
+  'grille en rangée horizontale (nowrap)',
+);
+assert(
+  !/\.profiles__grid\s*\{[\s\S]*?overflow-y:\s*auto/.test(view),
+  'grille sans overflow-y auto (pas de scroll parasite)',
+);
+assert(
+  !/\.profiles__grid\s*\{[\s\S]*?max-height:/.test(view),
+  'grille sans max-height forcé',
 );
 assert(
   /\.avatar__disk\s*\{[\s\S]*?border-radius:\s*50%/.test(view),
