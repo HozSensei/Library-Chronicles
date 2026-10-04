@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router';
 import ControlHint from '../components/ControlHint.vue';
 import { useImportStore } from '../stores/import';
 import { useUiStore } from '../stores/ui';
+import { useI18n } from '../composables/useI18n';
 import { scheduleScrollFocusedIntoView } from '../../../shared/focus-scroll.js';
 import {
   IMPORT_DETAIL_TABS,
@@ -29,21 +30,22 @@ const route = useRoute();
 const router = useRouter();
 const imp = useImportStore();
 const ui = useUiStore();
+const { t } = useI18n();
 
 const metaApplyFields = META_APPLY_FIELDS;
 
 const listHints = computed(() => {
   const imported = Boolean(imp.selected?.alreadyInLibrary);
   return [
-    { key: '↑↓', label: 'fichier / header' },
-    { key: 'A', label: 'ouvrir fiche' },
+    { key: '↑↓', label: t('import.hintFileHeader') },
+    { key: 'A', label: t('import.hintOpenSheet') },
     {
       key: 'X',
       label: imported
-        ? 'Retirer de la bibliothèque'
-        : 'Importer ce tome',
+        ? t('import.removeFromLibrary')
+        : t('import.importThis'),
     },
-    { key: 'B', label: 'retour biblio' },
+    { key: 'B', label: t('import.hintBackLibrary') },
   ];
 });
 
@@ -76,8 +78,8 @@ const hints = computed(() => {
 });
 
 const statusLabel = computed(() => {
-  if (imp.loading) return 'Scan…';
-  if (imp.committing) return 'Import en cours…';
+  if (imp.loading) return t('import.scanning');
+  if (imp.committing) return t('import.committing');
   if (imp.isDetail) {
     const name =
       imp.draft?.title ||
@@ -87,7 +89,7 @@ const statusLabel = computed(() => {
     if (imp.isSearchTab) return `Recherche méta · ${name}`;
     return `Fiche · ${name} · brouillon`;
   }
-  if (!imp.items.length) return 'Aucun fichier dans le dossier import';
+  if (!imp.items.length) return t('import.empty');
   return `${imp.items.length} fichier(s)`;
 });
 
@@ -475,7 +477,7 @@ defineExpose({
         <p class="import__brand">Library Chronicles</p>
         <div class="import__title-row">
           <h1 class="import__title">
-            {{ imp.isDetail ? (imp.isSearchTab ? 'Recherche méta' : 'Fiche') : 'Import' }}
+            {{ imp.isDetail ? (imp.isSearchTab ? t('import.searchMeta') : t('import.detail')) : t('import.title') }}
           </h1>
           <button
             v-if="!imp.isDetail"
@@ -483,11 +485,11 @@ defineExpose({
             class="import__import-all"
             :class="{ 'is-focused': headerFocused() }"
             :disabled="!imp.items.length || imp.committing"
-            aria-label="Tout importer"
+            :aria-label="t('import.importAll')"
             @focus="onImportAllFocus"
             @click="doImportAll"
           >
-            Tout importer
+            {{ t('import.importAll') }}
           </button>
         </div>
         <p class="import__status">{{ statusLabel }}</p>

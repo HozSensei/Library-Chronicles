@@ -3,10 +3,12 @@ import { computed, nextTick, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useReaderStore } from '../stores/reader';
 import { useUiStore } from '../stores/ui';
+import { useI18n } from '../composables/useI18n';
 
 const router = useRouter();
 const reader = useReaderStore();
 const ui = useUiStore();
+const { t } = useI18n();
 
 const focusIds = computed(() => {
   const ids = ['tab-main', 'tab-filters', 'tab-bookmarks'];
@@ -109,13 +111,13 @@ async function quitReading() {
     role="dialog"
     aria-modal="true"
     aria-labelledby="hud-pause-title"
-    aria-label="Menu pause lecture"
+    :aria-label="t('reader.pauseAria')"
   >
     <button
       type="button"
       class="hud__backdrop"
       tabindex="-1"
-      aria-label="Fermer le menu pause"
+      :aria-label="t('reader.closePause')"
       @click="closePause"
     />
 
@@ -146,7 +148,7 @@ async function quitReading() {
           :aria-selected="reader.hudPanel === 'main'"
           @click="reader.setHudPanel('main')"
         >
-          Lecture
+          {{ t('reader.tabMain') }}
         </button>
         <button
           type="button"
@@ -157,7 +159,7 @@ async function quitReading() {
           :aria-selected="reader.hudPanel === 'filters'"
           @click="reader.setHudPanel('filters')"
         >
-          Filtres
+          {{ t('reader.tabFilters') }}
         </button>
         <button
           type="button"
@@ -171,17 +173,17 @@ async function quitReading() {
           :aria-selected="reader.hudPanel === 'bookmarks'"
           @click="reader.setHudPanel('bookmarks')"
         >
-          Signets
+          {{ t('reader.tabBookmarks') }}
         </button>
       </div>
 
       <div class="hud__body">
         <div v-if="reader.hudPanel === 'main'" class="hud__panel" role="tabpanel">
-          <p id="hud-pause-title" class="hud__pause-title">Pause lecture</p>
+          <p id="hud-pause-title" class="hud__pause-title">{{ t('reader.pauseTitle') }}</p>
           <div class="hud__meta">
             <span>
               {{ reader.direction.toUpperCase() }}
-              · page par page
+              · {{ t('reader.pageByPage') }}
               · {{ reader.fitMode }}
               <template v-if="reader.currentChapter">
                 · {{ reader.currentChapter.name }}
@@ -200,7 +202,7 @@ async function quitReading() {
               :class="{ 'is-focused': isFocused('quit') }"
               @click="quitReading"
             >
-              Quitter la lecture
+              {{ t('reader.quit') }}
             </button>
             <button
               type="button"
@@ -209,7 +211,7 @@ async function quitReading() {
               :class="{ 'is-focused': isFocused('direction') }"
               @click="reader.toggleDirection()"
             >
-              Sens {{ reader.direction.toUpperCase() }}
+              {{ t('reader.direction', { dir: reader.direction.toUpperCase() }) }}
             </button>
             <button
               type="button"
@@ -218,7 +220,7 @@ async function quitReading() {
               :class="{ 'is-focused': isFocused('bookmark') }"
               @click="reader.addBookmark()"
             >
-              Signet (X)
+              {{ t('reader.bookmarkX') }}
             </button>
             <button
               v-if="reader.prevVolumeOffer"
@@ -228,7 +230,7 @@ async function quitReading() {
               :class="{ 'is-focused': isFocused('prev-volume') }"
               @click="openAdjacent(-1)"
             >
-              Tome précédent
+              {{ t('reader.prevVolume') }}
               <template v-if="reader.prevVolumeOffer.volume != null">
                 · T{{ reader.prevVolumeOffer.volume }}
               </template>
@@ -241,7 +243,7 @@ async function quitReading() {
               :class="{ 'is-focused': isFocused('next-volume') }"
               @click="openAdjacent(1)"
             >
-              Tome suivant
+              {{ t('reader.nextVolume') }}
               <template v-if="reader.nextVolumeOffer.volume != null">
                 · T{{ reader.nextVolumeOffer.volume }}
               </template>
@@ -251,7 +253,7 @@ async function quitReading() {
 
         <div v-else-if="reader.hudPanel === 'filters'" class="hud__panel" role="tabpanel">
           <label class="hud__slider">
-            <span>Luminosité {{ reader.brightness.toFixed(2) }}</span>
+<span>{{ t('reader.brightness', { v: reader.brightness.toFixed(2) }) }}</span>
             <input
               type="range"
               min="0.4"
@@ -283,7 +285,7 @@ async function quitReading() {
             </span>
           </label>
           <label class="hud__slider">
-            <span>Contraste {{ reader.contrast.toFixed(2) }}</span>
+<span>{{ t('reader.contrast', { v: reader.contrast.toFixed(2) }) }}</span>
             <input
               type="range"
               min="0.5"
@@ -315,7 +317,7 @@ async function quitReading() {
             </span>
           </label>
           <label class="hud__slider">
-            <span>Sépia {{ reader.sepia.toFixed(2) }}</span>
+<span>{{ t('reader.sepia', { v: reader.sepia.toFixed(2) }) }}</span>
             <input
               type="range"
               min="0"
@@ -354,7 +356,7 @@ async function quitReading() {
               :class="{ 'is-focused': isFocused('night') }"
               @click="reader.applyNightPreset()"
             >
-              Preset nuit
+              {{ t('reader.nightPreset') }}
             </button>
             <button
               type="button"
@@ -363,7 +365,7 @@ async function quitReading() {
               :class="{ 'is-focused': isFocused('reset-filters') }"
               @click="reader.resetFilters()"
             >
-              Reset
+              {{ t('reader.reset') }}
             </button>
           </div>
         </div>
@@ -393,7 +395,7 @@ async function quitReading() {
               </button>
             </li>
           </ul>
-          <p v-else class="hud__empty">Aucun signet — X pour en ajouter.</p>
+          <p v-else class="hud__empty">{{ t('reader.noBookmarks') }}</p>
           <button
             type="button"
             class="ghost"
@@ -401,15 +403,12 @@ async function quitReading() {
             :class="{ 'is-focused': isFocused('bm-add') }"
             @click="reader.addBookmark()"
           >
-            Ajouter ici
+            {{ t('reader.addHere') }}
           </button>
         </div>
       </div>
 
-      <p class="hud__hint">
-        A valider · B fermer · Select pause · ↑↓ focus
-        · Stick pan · ↑↓ zoom · L3 page entière · ←→ page
-      </p>
+<p class="hud__hint">{{ t('reader.hint') }}</p>
     </div>
   </aside>
 </template>

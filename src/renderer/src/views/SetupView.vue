@@ -5,6 +5,7 @@ import FocusButton from '../components/FocusButton.vue';
 import ControlHint from '../components/ControlHint.vue';
 import AppBrandLogo from '../components/AppBrandLogo.vue';
 import { useUiStore } from '../stores/ui';
+import { useI18n } from '../composables/useI18n';
 import { markSetupCompleted } from '../router';
 import {
   setupFocusRows,
@@ -23,6 +24,7 @@ import {
 
 const router = useRouter();
 const ui = useUiStore();
+const { t } = useI18n();
 
 const step = ref(0);
 const defaults = ref({ libraryRoot: '', importRoot: '' });
@@ -30,17 +32,23 @@ const accents = ACCENTS;
 const form = reactive({
   libraryRoot: '',
   importRoot: '',
-  language: 'fr',
   theme: DEFAULT_THEME,
   accent: DEFAULT_ACCENT,
 });
 
 /** Dossiers → préférences → prêt (pas d’écran welcome). */
-const steps = [
-  { id: 'folders', title: 'Dossiers' },
-  { id: 'prefs', title: 'Préférences' },
-  { id: 'done', title: 'Prêt' },
-];
+const steps = computed(() => [
+  { id: 'folders', title: t('setup.stepFolders') },
+  { id: 'prefs', title: t('setup.stepPrefs') },
+  { id: 'done', title: t('setup.stepDone') },
+]);
+
+const controlHints = computed(() => [
+  { key: '↑↓', label: t('common.row') },
+  { key: '←→', label: t('common.option') },
+  { key: 'A', label: t('common.confirm') },
+  { key: 'B', label: t('common.back').toLowerCase() },
+]);
 
 const focusRows = computed(() => setupFocusRows(step.value));
 const focusables = computed(() => setupFocusables(step.value));
@@ -66,20 +74,21 @@ onMounted(async () => {
   const prefs = active?.prefs;
   form.libraryRoot = prefs?.libraryRoot || paths.libraryRoot;
   form.importRoot = prefs?.importRoot || paths.importRoot;
-  form.language = prefs?.language || 'fr';
   form.theme = normalizeTheme(prefs?.theme);
   form.accent = normalizeAccent(prefs?.accent);
   ui.applyAppearance({ theme: form.theme, accent: form.accent });
+  // Langue = prefs profil (source de vérité) — pas de picker setup
+  if (prefs?.language) ui.applyLanguage(prefs.language);
   ui.setSetupFocus(0);
 });
 
 async function pickLibrary() {
-  const dir = await window.vdr.pickDirectory({ title: 'Dossier bibliothèque' });
+  const dir = await window.vdr.pickDirectory({ title: t('setup.pickLibraryTitle') });
   if (dir) form.libraryRoot = dir;
 }
 
 async function pickImport() {
-  const dir = await window.vdr.pickDirectory({ title: 'Dossier import' });
+  const dir = await window.vdr.pickDirectory({ title: t('setup.pickImportTitle') });
   if (dir) form.importRoot = dir;
 }
 
@@ -101,7 +110,7 @@ watch(focusedId, (id) => {
 });
 
 function next() {
-  if (step.value < steps.length - 1) {
+  if (step.value < steps.value.length - 1) {
     step.value += 1;
   }
 }
@@ -113,18 +122,19 @@ function back() {
 }
 
 async function finish() {
+  // Ne pas réécrire language — profil = source de vérité (drapeaux)
   await window.vdr.profiles.setPrefs({
     libraryRoot: form.libraryRoot,
     importRoot: form.importRoot,
-    language: form.language,
     theme: form.theme,
     accent: form.accent,
     setupCompleted: true,
   });
+  const prefs = await window.vdr.profiles.getPrefs();
   await window.vdr.setConfig({
     libraryRoot: form.libraryRoot,
     importRoot: form.importRoot,
-    language: form.language,
+    language: prefs?.language || ui.language || 'fr',
     theme: form.theme,
     accent: form.accent,
     orientation: 'landscape',
@@ -133,7 +143,7 @@ async function finish() {
   ui.setupCompleted = true;
   markSetupCompleted();
   ui.applyAppearance({ theme: form.theme, accent: form.accent });
-  ui.language = form.language;
+  if (prefs?.language) ui.applyLanguage(prefs.language);
   router.replace({ name: 'library' });
 }
 
@@ -151,7 +161,6 @@ function activateFocused() {
   else if (id === 'theme-dark') setTheme('dark');
   else if (id === 'theme-light') setTheme('light');
   else if (id?.startsWith('accent-')) setAccent(id.slice('accent-'.length));
-  else if (id === 'lang-fr') form.language = 'fr';
 }
 
 defineExpose({
@@ -166,7 +175,7 @@ defineExpose({
 </script>
 
 <template>
-  <section class="setup" :data-step="step" aria-label="Configuration initiale">
+  <section class="setup" :data-step="step" :aria-label="t('setup.aria')">
     <div class="setup__atmosphere" aria-hidden="true">
       <div
         class="setup__wash"
@@ -189,33 +198,31 @@ defineExpose({
 
       <div class="setup__body">
         <template v-if="step === 0">
-          <h1>Dossiers</h1>
-          <p class="lead">
-            Bibliothèque pour les tomes indexés · Import pour les fichiers à trier.
-          </p>
+          <h1>{{ t('setup.foldersTitle') }}</h1>
+          <p class="lead">{{ t('setup.foldersLead') }}</p>
           <div class="folder-stack">
             <div class="field-card">
-              <label>Bibliothèque</label>
+              <label>{{ t('setup.libraryLabel') }}</label>
               <code class="path">{{ form.libraryRoot }}</code>
               <FocusButton
                 compact
                 :focused="focusedId === 'library'"
-                subtitle="Choisir un autre dossier"
+                :subtitle="t('setup.browseLibrarySub')"
                 @select="pickLibrary"
               >
-                Parcourir
+                {{ t('setup.browse') }}
               </FocusButton>
             </div>
             <div class="field-card">
-              <label>Import</label>
+              <label>{{ t('setup.importLabel') }}</label>
               <code class="path">{{ form.importRoot }}</code>
               <FocusButton
                 compact
                 :focused="focusedId === 'import'"
-                subtitle="Inbox des nouveaux fichiers"
+                :subtitle="t('setup.browseImportSub')"
                 @select="pickImport"
               >
-                Parcourir
+                {{ t('setup.browse') }}
               </FocusButton>
             </div>
           </div>
@@ -226,42 +233,40 @@ defineExpose({
               :focused="focusedId === 'next'"
               @select="next"
             >
-              Continuer
+              {{ t('common.continue') }}
             </FocusButton>
           </div>
         </template>
 
         <template v-else-if="step === 1">
-          <h1>Préférences</h1>
-          <p class="lead">
-            Mode clair/sombre et couleur de contraste. Orientation automatique.
-          </p>
+          <h1>{{ t('setup.prefsTitle') }}</h1>
+          <p class="lead">{{ t('setup.prefsLead') }}</p>
 
           <div class="choice-group">
-            <p class="choice-group__label">Mode</p>
+            <p class="choice-group__label">{{ t('setup.mode') }}</p>
             <div class="choice-row">
               <FocusButton
                 compact
                 :focused="focusedId === 'theme-dark'"
-                :subtitle="form.theme === 'dark' ? 'Actif' : ''"
+                :subtitle="form.theme === 'dark' ? t('common.active') : ''"
                 @select="setTheme('dark')"
               >
-                Sombre
+                {{ t('setup.dark') }}
               </FocusButton>
               <FocusButton
                 compact
                 :focused="focusedId === 'theme-light'"
-                :subtitle="form.theme === 'light' ? 'Actif' : ''"
+                :subtitle="form.theme === 'light' ? t('common.active') : ''"
                 @select="setTheme('light')"
               >
-                Clair
+                {{ t('setup.light') }}
               </FocusButton>
             </div>
           </div>
 
           <div class="choice-group">
-            <p class="choice-group__label">Accent</p>
-            <div class="accent-row" role="listbox" aria-label="Couleur de contraste">
+            <p class="choice-group__label">{{ t('setup.accent') }}</p>
+            <div class="accent-row" role="listbox" :aria-label="t('setup.accentAria')">
               <button
                 v-for="a in accents"
                 :key="a.id"
@@ -273,26 +278,14 @@ defineExpose({
                   'is-focused': focusedId === `accent-${a.id}`,
                   'is-active': form.accent === a.id,
                 }"
-                :title="a.label"
-                :aria-label="a.label"
+                :title="accentLabel(a.id)"
+                :aria-label="accentLabel(a.id)"
                 @click="setAccent(a.id)"
               >
                 <span class="accent-swatch__dot" :style="{ background: a.swatch }" />
-                <span class="accent-swatch__label">{{ a.label }}</span>
+                <span class="accent-swatch__label">{{ accentLabel(a.id) }}</span>
               </button>
             </div>
-          </div>
-
-          <div class="choice-group">
-            <p class="choice-group__label">Langue</p>
-            <FocusButton
-              compact
-              :focused="focusedId === 'lang-fr'"
-              subtitle="Interface"
-              @select="form.language = 'fr'"
-            >
-              Français
-            </FocusButton>
           </div>
 
           <div class="setup-actions">
@@ -302,25 +295,26 @@ defineExpose({
               :focused="focusedId === 'next'"
               @select="next"
             >
-              Continuer
+              {{ t('common.continue') }}
             </FocusButton>
           </div>
         </template>
 
         <template v-else>
-          <h1>Tout est prêt</h1>
-          <p class="lead">
-            Importe tes tomes, parcours la grille, ouvre une fiche, lis en portrait.
-          </p>
+          <h1>{{ t('setup.doneTitle') }}</h1>
+          <p class="lead">{{ t('setup.doneLead') }}</p>
           <ul class="summary">
-            <li><strong>Bibliothèque</strong> — {{ form.libraryRoot }}</li>
-            <li><strong>Import</strong> — {{ form.importRoot }}</li>
+            <li><strong>{{ t('setup.libraryLabel') }}</strong> — {{ form.libraryRoot }}</li>
+            <li><strong>{{ t('setup.importLabel') }}</strong> — {{ form.importRoot }}</li>
             <li>
-              <strong>Thème</strong> —
-              {{ form.theme === 'light' ? 'Clair' : 'Sombre' }} ·
+              <strong>{{ t('setup.theme') }}</strong> —
+              {{ form.theme === 'light' ? t('setup.light') : t('setup.dark') }} ·
               {{ accentLabel(form.accent) }}
             </li>
-            <li><strong>Orientation</strong> — automatique</li>
+            <li>
+              <strong>{{ t('setup.orientation') }}</strong> —
+              {{ t('setup.orientationAuto') }}
+            </li>
           </ul>
           <div class="setup-actions">
             <FocusButton
@@ -329,22 +323,17 @@ defineExpose({
               :focused="focusedId === 'finish'"
               @select="finish"
             >
-              Terminer
+              {{ t('setup.finish') }}
             </FocusButton>
           </div>
         </template>
       </div>
 
       <footer class="setup__footer">
-        <button v-if="step > 0" type="button" class="ghost" @click="back">Retour</button>
-        <ControlHint
-          :items="[
-            { key: '↑↓', label: 'rangée' },
-            { key: '←→', label: 'option' },
-            { key: 'A', label: 'valider' },
-            { key: 'B', label: 'retour' },
-          ]"
-        />
+        <button v-if="step > 0" type="button" class="ghost" @click="back">
+          {{ t('common.back') }}
+        </button>
+        <ControlHint :items="controlHints" />
       </footer>
     </div>
   </section>

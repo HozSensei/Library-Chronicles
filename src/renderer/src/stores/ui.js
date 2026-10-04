@@ -7,11 +7,16 @@ import {
   normalizeTheme,
 } from '../../../shared/theme-accents.js';
 import { clampBookFocus } from '../../../shared/book-focus.js';
+import {
+  normalizeLocale,
+  setLocale,
+  t,
+} from '../../../shared/i18n.js';
 
 export const useUiStore = defineStore('ui', {
   state: () => ({
     routeName: 'boot',
-    gamepadLabel: 'Manette en attente…',
+    gamepadLabel: t('gamepad.waiting', null, 'fr'),
     gamepadConnected: false,
     bootFocusIndex: 0,
     reducedMotion: false,
@@ -162,7 +167,7 @@ export const useUiStore = defineStore('ui', {
     async loadConfig() {
       const config = await window.vdr.getConfig();
       this.setupCompleted = Boolean(config.setupCompleted);
-      this.language = config.language || 'fr';
+      this.applyLanguage(config.language || 'fr');
       // Menus = landscape TOUJOURS au load — portrait uniquement si déjà sur lecteur
       // (évite le bug : config.orientation portrait-ccw → menus remappés)
       const orientation =
@@ -177,12 +182,24 @@ export const useUiStore = defineStore('ui', {
       this.configLoaded = true;
       return config;
     },
+    applyLanguage(language) {
+      this.language = normalizeLocale(language);
+      setLocale(this.language);
+      if (!this.gamepadConnected) {
+        this.gamepadLabel = t('gamepad.waiting');
+      }
+      if (typeof document !== 'undefined') {
+        document.documentElement.setAttribute('lang', this.language);
+      }
+    },
     async persistAppearance(patch = {}) {
       if (patch.theme !== undefined) this.applyTheme(patch.theme);
       if (patch.accent !== undefined) this.applyAccent(patch.accent);
+      if (patch.language !== undefined) this.applyLanguage(patch.language);
       const payload = {};
       if (patch.theme !== undefined) payload.theme = this.theme;
       if (patch.accent !== undefined) payload.accent = this.accent;
+      if (patch.language !== undefined) payload.language = this.language;
       if (!Object.keys(payload).length) return;
       await window.vdr.setConfig(payload);
       try {
@@ -196,6 +213,9 @@ export const useUiStore = defineStore('ui', {
     },
     async setAccent(accent) {
       await this.persistAppearance({ accent });
+    },
+    async setLanguage(language) {
+      await this.persistAppearance({ language });
     },
     async persistKeyBindings(userBindings) {
       this.userKeyBindings = userBindings;

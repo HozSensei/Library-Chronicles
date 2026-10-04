@@ -6,6 +6,7 @@ import LazyCover from '../components/LazyCover.vue';
 import AppBrandLogo from '../components/AppBrandLogo.vue';
 import { useLibraryStore } from '../stores/library';
 import { useUiStore } from '../stores/ui';
+import { useI18n } from '../composables/useI18n';
 import { useProfilesStore } from '../stores/profiles';
 import { clearProfileSelected } from '../router';
 import { scheduleScrollFocusedIntoView } from '../../../shared/focus-scroll.js';
@@ -15,21 +16,22 @@ const router = useRouter();
 const library = useLibraryStore();
 const ui = useUiStore();
 const profiles = useProfilesStore();
+const { t } = useI18n();
 
 const hints = computed(() => {
   if (library.isEmpty) {
     return [
-      { key: 'A', label: 'importer' },
-      { key: 'X', label: 'import' },
-      { key: 'Start', label: 'réglages' },
+      { key: 'A', label: t('library.hintImport') },
+      { key: 'X', label: t('library.hintImportShort') },
+      { key: 'Start', label: t('library.hintSettings') },
     ];
   }
   return [
-    { key: 'A', label: 'ouvrir' },
-    { key: 'X', label: 'import' },
-    { key: 'LB/RB', label: 'onglets' },
-    { key: 'LT/RT', label: 'filtre' },
-    { key: 'Start', label: 'réglages' },
+    { key: 'A', label: t('library.hintOpen') },
+    { key: 'X', label: t('library.hintImportShort') },
+    { key: 'LB/RB', label: t('library.hintTabs') },
+    { key: 'LT/RT', label: t('library.hintFilter') },
+    { key: 'Start', label: t('library.hintSettings') },
   ];
 });
 
@@ -39,12 +41,12 @@ function goImport() {
   router.push({ name: ROUTE.IMPORT });
 }
 
-const navItems = [
-  { id: 'board', label: 'Bibliothèque' },
-  { id: 'all', label: 'Tous les livres' },
-  { id: 'recent', label: 'Récents' },
-  { id: 'series', label: 'Séries' },
-];
+const navItems = computed(() => [
+  { id: 'board', label: t('library.tabBoard') },
+  { id: 'all', label: t('library.tabAll') },
+  { id: 'recent', label: t('library.tabRecent') },
+  { id: 'series', label: t('library.tabSeries') },
+]);
 
 function navFocused(id) {
   if (library.focusZone !== 'nav') return false;
@@ -137,21 +139,21 @@ function openSelected() {
 function recentLabel(entry) {
   if (!entry) return '';
   if (entry.kind === 'series' && entry.series) return entry.series;
-  return entry.lastBook?.title || entry.series || 'Sans titre';
+  return entry.lastBook?.title || entry.series || t('common.untitled');
 }
 
 function recentMeta(entry) {
   if (!entry) return '';
   if (entry.kind === 'series') {
-    return `${entry.volumeCount} tomes · ${statusBadge(entry.status)}`;
+    return `${t('library.volumes', { n: entry.volumeCount })} · ${statusBadge(entry.status)}`;
   }
   return statusBadge(entry.status);
 }
 
 function statusBadge(status) {
-  if (status === 'reading') return 'En cours';
-  if (status === 'finished') return 'Terminé';
-  return 'Non lu';
+  if (status === 'reading') return t('library.statusReading');
+  if (status === 'finished') return t('library.statusFinished');
+  return t('library.statusUnread');
 }
 
 function switchProfile() {
@@ -173,7 +175,7 @@ function selectTab(tab) {
 </script>
 
 <template>
-  <section class="catalog relative h-full min-h-0 min-w-0 overflow-hidden overflow-x-hidden" aria-label="Catalogue Library Chronicles">
+  <section class="catalog relative h-full min-h-0 min-w-0 overflow-hidden overflow-x-hidden" :aria-label="t('library.aria')">
     <div class="catalog__bg pointer-events-none absolute inset-0" aria-hidden="true" />
 
     <div class="relative z-10 flex h-full min-h-0 min-w-0 flex-col overflow-x-hidden">
@@ -181,14 +183,14 @@ function selectTab(tab) {
       <header
         class="catalog__chrome"
         :class="{ 'catalog__chrome--empty': library.isEmpty }"
-        aria-label="Navigation catalogue"
+        :aria-label="t('library.navAria')"
       >
         <div class="catalog__bar">
           <div class="catalog__brand">
             <AppBrandLogo size="straddle" class="catalog__logo" />
           </div>
 
-          <nav v-if="!library.isEmpty" class="catalog__nav" aria-label="Sections">
+          <nav v-if="!library.isEmpty" class="catalog__nav" :aria-label="t('library.sectionsAria')">
             <button
               v-for="item in navItems"
               :key="item.id"
@@ -212,7 +214,7 @@ function selectTab(tab) {
               :class="{ 'is-focused': navFocused('scan') }"
               @click="library.focusNav(library.headerNav.findIndex((n) => n.id === 'scan')); library.scan()"
             >
-              Scanner
+              {{ t('library.scan') }}
             </button>
             <button
               type="button"
@@ -220,14 +222,14 @@ function selectTab(tab) {
               :class="{ 'is-focused': navFocused('import') }"
               @click="goImport()"
             >
-              Import
+              {{ t('library.import') }}
             </button>
             <button
               type="button"
               class="catalog__settings"
               :class="{ 'is-focused': navFocused('settings') }"
-              title="Paramètres (Start)"
-              aria-label="Paramètres"
+              :title="t('library.settingsTitle')"
+              :aria-label="t('library.settingsAria')"
               @click="library.focusNav(library.headerNav.findIndex((n) => n.id === 'settings')); router.push({ name: 'settings' })"
             >
               <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="currentColor">
@@ -240,7 +242,7 @@ function selectTab(tab) {
               type="button"
               class="catalog__profile"
               :class="{ 'is-focused': navFocused('profile') }"
-              :title="library.profileName || 'Profil'"
+              :title="library.profileName || t('library.profile')"
               @click="library.focusNav(library.headerNav.findIndex((n) => n.id === 'profile')); switchProfile()"
             >
               <span
@@ -249,7 +251,7 @@ function selectTab(tab) {
               >
                 {{ (library.profileName || '?').slice(0, 1).toUpperCase() }}
               </span>
-              <span class="catalog__profile-name">{{ library.profileName || 'Profil' }}</span>
+              <span class="catalog__profile-name">{{ library.profileName || t('library.profile') }}</span>
             </button>
           </div>
         </div>
@@ -262,17 +264,15 @@ function selectTab(tab) {
           v-if="library.isEmpty && !library.loading"
           class="catalog__empty catalog__empty--solo"
         >
-          <p class="catalog__empty-title">Bibliothèque vide</p>
-          <p class="catalog__empty-lead">
-            Importez vos premiers livres pour remplir le catalogue.
-          </p>
+          <p class="catalog__empty-title">{{ t('library.emptyTitle') }}</p>
+          <p class="catalog__empty-lead">{{ t('library.emptyLead') }}</p>
           <button
             type="button"
             class="catalog__cta"
             :class="{ 'is-focused': navFocused('import') }"
             @click="goImport()"
           >
-            Importer
+            {{ t('library.emptyCta') }}
           </button>
         </div>
 
@@ -280,9 +280,9 @@ function selectTab(tab) {
         <!-- BOARD -->
         <template v-if="library.catalogTab === 'board'">
           <!-- Continuer : liste / grille des tomes en cours -->
-          <section class="continue-section" aria-label="Continuer">
+          <section class="continue-section" :aria-label="t('library.continue')">
             <div class="rail-head">
-              <h2>Continuer</h2>
+              <h2>{{ t('library.continue') }}</h2>
             </div>
             <div v-if="!library.readingBooks.length" class="continue-empty">
               Aucune lecture en cours.
@@ -322,7 +322,7 @@ function selectTab(tab) {
 
           <!-- Filtres pills -->
           <section class="filters" aria-label="Filtres">
-            <h2 class="section-label">Filtrer</h2>
+            <h2 class="section-label">{{ t('library.filter') }}</h2>
             <div class="filters__row">
               <button
                 v-for="(f, index) in library.filters"
@@ -344,7 +344,7 @@ function selectTab(tab) {
           <!-- Trending rail -->
             <section class="rail-section" aria-label="Tendances">
               <div class="rail-head">
-                <h2>Tendances</h2>
+                <h2>{{ t('library.trending') }}</h2>
                 <div class="rail-arrows">
                   <button type="button" class="rail-arrow" aria-label="Précédent" @click="scrollRail('.rail--trending', -1)">‹</button>
                   <button type="button" class="rail-arrow" aria-label="Suivant" @click="scrollRail('.rail--trending', 1)">›</button>

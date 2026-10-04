@@ -4,11 +4,13 @@ import { useRoute, useRouter } from 'vue-router';
 import ReaderHud from '../components/ReaderHud.vue';
 import { useReaderStore } from '../stores/reader';
 import { useUiStore } from '../stores/ui';
+import { useI18n } from '../composables/useI18n';
 
 const router = useRouter();
 const route = useRoute();
 const reader = useReaderStore();
 const ui = useUiStore();
+const { t } = useI18n();
 
 /**
  * Ouverture fichier uniquement.
@@ -67,7 +69,7 @@ function endFocusId(id) {
 <template>
   <section
     class="reader"
-    aria-label="Lecteur"
+    :aria-label="t('reader.aria')"
     :data-css-rotate="ui.readerCssRotate ? '1' : '0'"
   >
     <!--
@@ -98,25 +100,25 @@ function endFocusId(id) {
           </div>
           <div v-else class="reader__placeholder">
             <p class="reader__brand">Library Chronicles</p>
-            <p v-if="reader.loading">Chargement…</p>
+            <p v-if="reader.loading">{{ t('reader.loading') }}</p>
             <p v-else-if="reader.error">{{ reader.error }}</p>
             <template v-else>
-              <p>Aucun livre chargé</p>
-              <p class="dim">Ouvre un tome depuis la bibliothèque ou l’import.</p>
+              <p>{{ t('reader.empty') }}</p>
+              <p class="dim">{{ t('reader.emptyLead') }}</p>
             </template>
-            <button type="button" class="ghost" @click="leave">Retour</button>
+            <button type="button" class="ghost" @click="leave">{{ t('reader.back') }}</button>
           </div>
         </div>
 
         <div v-else class="reader__placeholder">
           <p class="reader__brand">Library Chronicles</p>
-          <p v-if="reader.loading">Chargement…</p>
+          <p v-if="reader.loading">{{ t('reader.loading') }}</p>
           <p v-else-if="reader.error">{{ reader.error }}</p>
           <template v-else>
-            <p>Aucun livre chargé</p>
-            <p class="dim">Ouvre un tome depuis la bibliothèque ou l’import.</p>
+            <p>{{ t('reader.empty') }}</p>
+            <p class="dim">{{ t('reader.emptyLead') }}</p>
           </template>
-          <button type="button" class="ghost" @click="leave">Retour</button>
+          <button type="button" class="ghost" @click="leave">{{ t('reader.back') }}</button>
         </div>
       </div>
 
@@ -126,7 +128,7 @@ function endFocusId(id) {
         role="dialog"
         aria-label="Fin de tome — navigation série"
       >
-        <p class="reader__next-label">Tome terminé</p>
+        <p class="reader__next-label">{{ t('reader.tomeDone') }}</p>
         <p v-if="reader.series" class="reader__next-series">
           {{ reader.series }}
           <template v-if="reader.volume != null"> · T{{ reader.volume }}</template>
@@ -155,7 +157,7 @@ function endFocusId(id) {
             <span class="reader__next-title">{{ reader.nextVolumeOffer.title }}</span>
           </button>
         </div>
-        <p class="reader__next-hint">A ouvrir · ↑↓ focus · Select pause · B quitter</p>
+        <p class="reader__next-hint">{{ t('reader.nextHint') }}</p>
       </div>
 
       <ReaderHud />

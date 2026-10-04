@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router';
 import ControlHint from '../components/ControlHint.vue';
 import FocusButton from '../components/FocusButton.vue';
 import { useUiStore } from '../stores/ui';
+import { useI18n } from '../composables/useI18n';
 import { useProfilesStore } from '../stores/profiles';
 import {
   BINDABLE_ACTIONS,
@@ -20,6 +21,7 @@ import {
 const router = useRouter();
 const ui = useUiStore();
 const profiles = useProfilesStore();
+const { t } = useI18n();
 
 const section = ref('general'); // general | profiles | bindings | api
 const apiKeyInput = ref('');
@@ -30,16 +32,21 @@ const providers = ref([]);
 const activeProvider = ref('stub');
 const accents = ACCENTS;
 
-const sections = [
-  { id: 'general', label: 'Général' },
-  { id: 'profiles', label: 'Profils' },
-  { id: 'bindings', label: 'Manette' },
-  { id: 'api', label: 'API métadonnées' },
-];
+const sections = computed(() => [
+  { id: 'general', label: t('settings.tabGeneral') },
+  { id: 'profiles', label: t('settings.tabProfiles') },
+  { id: 'bindings', label: t('settings.tabBindings') },
+  { id: 'api', label: t('settings.tabApi') },
+]);
 
 /** Remap UI = lecture uniquement. */
 const context = REMAP_UI_CONTEXT;
-const actions = computed(() => BINDABLE_ACTIONS[context] || []);
+const actions = computed(() =>
+  (BINDABLE_ACTIONS[context] || []).map((a) => {
+    const translated = t(`bind.${a.id}`);
+    return { ...a, label: translated === `bind.${a.id}` ? a.label : translated };
+  }),
+);
 
 const selectedProvider = computed(
   () => providers.value.find((p) => p.id === activeProvider.value) || null,
@@ -70,8 +77,8 @@ function syncApiStatus() {
     return;
   }
   apiStatus.value = p.hasKey
-    ? `Clé ${p.label} enregistrée`
-    : `Aucune clé ${p.label}`;
+    ? t('settings.keySaved', { label: p.label })
+    : t('settings.keyMissing', { label: p.label });
 }
 
 function syncSettingsFocusClass() {
@@ -143,10 +150,17 @@ function generalFocusIndex(kind, id) {
 }
 
 const hapticsSubtitle = computed(() => {
-  if (!ui.hapticsEnabled) return 'Désactivé';
-  if (!ui.hapticsAvailable) return 'Activé · matériel non détecté (no-op)';
-  return 'Activé · rumble Ally / gamepad';
+  if (!ui.hapticsEnabled) return t('settings.hapticsOff');
+  if (!ui.hapticsAvailable) return t('settings.hapticsOnNoHw');
+  return t('settings.hapticsOn');
 });
+
+const controlHints = computed(() => [
+  { key: '↑↓←→', label: t('settings.hintNav') },
+  { key: 'LT/RT', label: t('settings.hintSection') },
+  { key: 'A', label: t('settings.hintConfirm') },
+  { key: 'B', label: t('settings.hintBack') },
+]);
 
 async function selectProvider(id) {
   await window.vdr.metadata.setProvider(id);
@@ -187,20 +201,20 @@ async function resetReaderBindings() {
 }
 
 async function createProfile() {
-  const name = newProfileName.value.trim() || `Lecteur ${profiles.profiles.length + 1}`;
+  const name = newProfileName.value.trim() || t('settings.defaultProfileName', { n: profiles.profiles.length + 1 });
   await profiles.create(name);
   newProfileName.value = '';
-  profileMsg.value = 'Profil créé';
+  profileMsg.value = t('settings.profileCreated');
 }
 
 async function activateProfile(id) {
   await profiles.select(id);
-  profileMsg.value = 'Profil actif mis à jour';
+  profileMsg.value = t('settings.profileActive');
 }
 
 async function removeProfile(id) {
   const result = await profiles.remove(id);
-  profileMsg.value = result.ok ? 'Profil supprimé' : result.error || 'Échec';
+  profileMsg.value = result.ok ? t('settings.profileDeleted') : result.error || t('settings.profileFail')
 }
 
 function openProfilePicker() {
@@ -210,7 +224,9 @@ function openProfilePicker() {
 
 const listeningLabel = computed(() => {
   if (!ui.listeningForBind) return null;
-  return `Appuie sur une touche pour « ${ui.listeningForBind.actionId} »…`;
+  const actionId = ui.listeningForBind.actionId;
+  const label = t(`bind.${actionId}`);
+  return t('settings.listening', { action: label === `bind.${actionId}` ? actionId : label });
 });
 </script>
 
@@ -218,14 +234,11 @@ const listeningLabel = computed(() => {
   <section class="settings">
     <header>
       <p class="brand">Library Chronicles</p>
-      <h1>Paramètres</h1>
-      <p class="lead">
-        Apparence (mode + accent), profils, haptics, remapping lecture, providers.
-        Orientation automatique : paysage (menus) → portrait (lecture).
-      </p>
+      <h1>{{ t('settings.title') }}</h1>
+      <p class="lead">{{ t('settings.lead') }}</p>
     </header>
 
-    <nav class="tabs" aria-label="Sections">
+    <nav class="tabs" :aria-label="t('settings.sectionsAria')">
       <button
         v-for="s in sections"
         :key="s.id"
@@ -241,40 +254,37 @@ const listeningLabel = computed(() => {
     <div class="body shell-scroll">
       <div class="body-inner">
       <template v-if="section === 'general'">
-        <p class="hint">
-          Mode clair/sombre + accent de contraste (profil actif).
-          Orientation : <strong>automatique</strong>.
-        </p>
+        <p class="hint">{{ t('settings.generalHint') }}</p>
 
         <div class="choice-group">
-          <p class="choice-group__label">Mode</p>
+          <p class="choice-group__label">{{ t('settings.mode') }}</p>
           <div class="choice-row">
             <FocusButton
               data-settings-item
               data-focus-row="theme"
               :focused="ui.settingsFocusIndex === generalFocusIndex('theme-dark')"
-              :subtitle="ui.theme === 'dark' ? 'Actif' : ''"
+              :subtitle="ui.theme === 'dark' ? t('common.active') : ''"
               @select="setTheme('dark')"
             >
-              Sombre
+              {{ t('settings.dark') }}
             </FocusButton>
             <FocusButton
               data-settings-item
               data-focus-row="theme"
               :focused="ui.settingsFocusIndex === generalFocusIndex('theme-light')"
-              :subtitle="ui.theme === 'light' ? 'Actif' : ''"
+              :subtitle="ui.theme === 'light' ? t('common.active') : ''"
               @select="setTheme('light')"
             >
-              Clair
+              {{ t('settings.light') }}
             </FocusButton>
           </div>
         </div>
 
         <div class="choice-group">
           <p class="choice-group__label">
-            Accent · {{ accentLabel(ui.accent) }}
+            {{ t('settings.accent') }} · {{ accentLabel(ui.accent) }}
           </p>
-          <div class="accent-row" role="listbox" aria-label="Accent">
+          <div class="accent-row" role="listbox" :aria-label="t('settings.accent')">
             <button
               v-for="a in accents"
               :key="a.id"
@@ -288,12 +298,12 @@ const listeningLabel = computed(() => {
                 'is-focused': ui.settingsFocusIndex === generalFocusIndex('accent', a.id),
                 'is-active': ui.accent === a.id,
               }"
-              :title="a.label"
-              :aria-label="a.label"
+              :title="accentLabel(a.id)"
+              :aria-label="accentLabel(a.id)"
               @click="setAccent(a.id)"
             >
               <span class="accent-swatch__dot" :style="{ background: a.swatch }" />
-              <span class="accent-swatch__label">{{ a.label }}</span>
+              <span class="accent-swatch__label">{{ accentLabel(a.id) }}</span>
             </button>
           </div>
         </div>
@@ -304,16 +314,13 @@ const listeningLabel = computed(() => {
           :subtitle="hapticsSubtitle"
           @select="toggleHaptics"
         >
-          Vibrations manette
+          {{ t('settings.haptics') }}
         </FocusButton>
       </template>
 
       <template v-else-if="section === 'profiles'">
-        <p class="hint">
-          Actif :
-          <strong>{{ profiles.activeProfile?.name || '—' }}</strong>
-          — progression / signets / filtres sont locaux à ce profil.
-        </p>
+        <p class="hint">{{ t('settings.profilesHint', { name: profiles.activeProfile?.name || '—' }) }}</p>
+        <p class="hint">{{ t('settings.languageOnProfile') }}</p>
         <p v-if="profileMsg" class="api-status">{{ profileMsg }}</p>
         <ul class="profile-list">
           <li v-for="p in profiles.profiles" :key="p.id">
@@ -326,20 +333,20 @@ const listeningLabel = computed(() => {
               data-settings-item
               @click="activateProfile(p.id)"
             >
-              Activer
+              {{ t('settings.activate') }}
             </button>
             <button type="button" class="ghost" data-settings-item @click="removeProfile(p.id)">
-              Suppr.
+              {{ t('settings.delete') }}
             </button>
           </li>
         </ul>
         <div class="field">
-          <label>Nouveau profil</label>
+          <label>{{ t('settings.newProfile') }}</label>
           <input
             v-model="newProfileName"
             type="text"
             maxlength="32"
-            placeholder="Nom"
+            :placeholder="t('settings.namePlaceholder')"
             inputmode="text"
             autocomplete="off"
             data-settings-item
@@ -347,19 +354,16 @@ const listeningLabel = computed(() => {
         </div>
         <div class="row">
           <button type="button" class="btn-primary" data-settings-item @click="createProfile">
-            Créer
+            {{ t('settings.create') }}
           </button>
           <button type="button" class="ghost" data-settings-item @click="openProfilePicker">
-            Écran choix
+            {{ t('settings.picker') }}
           </button>
         </div>
       </template>
 
       <template v-else-if="section === 'bindings'">
-        <p class="hint">
-          Remap des touches <strong>lecture</strong> uniquement.
-          La navigation des menus (bibliothèque, setup…) reste fixe.
-        </p>
+        <p class="hint">{{ t('settings.bindingsHint') }}</p>
         <p v-if="listeningLabel" class="listen">{{ listeningLabel }}</p>
         <div class="bind-list">
           <button
@@ -387,16 +391,14 @@ const listeningLabel = computed(() => {
           data-settings-item
           @click="resetReaderBindings"
         >
-          Reset — rétablir les défauts lecture
+          {{ t('settings.resetBindings') }}
         </button>
       </template>
 
       <template v-else>
-        <p class="hint">
-          Choisis un provider pour l’enrichissement à l’import. Offline : stub + édition manuelle.
-        </p>
+        <p class="hint">{{ t('settings.apiHint') }}</p>
 
-        <div class="provider-list" role="listbox" aria-label="Providers métadonnées">
+        <div class="provider-list" role="listbox" :aria-label="t('settings.providersAria')">
           <button
             v-for="p in providers"
             :key="p.id"
@@ -429,49 +431,40 @@ const listeningLabel = computed(() => {
             data-settings-item
             @click="openProviderHelp(selectedProvider)"
           >
-            {{ selectedProvider.helpLinkLabel || 'Documentation' }}
+            {{ selectedProvider.helpLinkLabel || t('settings.docs') }}
           </button>
         </template>
 
         <template v-if="selectedProvider?.requiresApiKey">
           <div class="field">
-            <label>Clé {{ selectedProvider.label }}</label>
+            <label>{{ t('settings.keyLabel', { label: selectedProvider.label }) }}</label>
             <input
               v-model="apiKeyInput"
               type="password"
               autocomplete="off"
               inputmode="text"
-              placeholder="Stockée localement (userData)"
+              :placeholder="t('settings.keyPlaceholder')"
               data-settings-item
             />
           </div>
           <div class="row">
             <button type="button" class="btn-primary" data-settings-item @click="saveApiKey">
-              Enregistrer
+              {{ t('settings.saveKey') }}
             </button>
             <button type="button" class="ghost" data-settings-item @click="clearApiKey">
-              Effacer
+              {{ t('settings.clearKey') }}
             </button>
           </div>
         </template>
 
-        <p class="hint">
-          Les secrets restent dans <code>userData/vdr-secrets.json</code> — jamais commités.
-        </p>
+        <p class="hint">{{ t('settings.secretsHint') }}</p>
       </template>
       </div>
     </div>
 
     <footer>
-      <button type="button" class="ghost" @click="router.push({ name: 'library' })">Retour</button>
-      <ControlHint
-        :items="[
-          { key: '↑↓←→', label: 'naviguer' },
-          { key: 'LT/RT', label: 'section' },
-          { key: 'A', label: 'valider' },
-          { key: 'B', label: 'retour' },
-        ]"
-      />
+      <button type="button" class="ghost" @click="router.push({ name: 'library' })">{{ t('common.back') }}</button>
+      <ControlHint :items="controlHints" />
     </footer>
   </section>
 </template>

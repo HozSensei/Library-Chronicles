@@ -20,6 +20,7 @@ import {
   AVATAR_COLORS,
   normalizeAvatarColor,
 } from '../../shared/avatar-colors.js';
+import { normalizeLocale } from '../../shared/i18n.js';
 
 export { AVATAR_COLORS, normalizeAvatarColor };
 
@@ -65,7 +66,7 @@ function mapPrefs(row) {
     importRoot: row.import_root || null,
     theme: normalizeTheme(row.theme),
     accent: normalizeAccent(row.accent),
-    language: row.language || 'fr',
+    language: normalizeLocale(row.language || 'fr'),
     setupCompleted: Boolean(row.setup_completed),
   };
 }
@@ -91,11 +92,12 @@ export function getProfile(id) {
   return mapProfile(getJsonStore().profiles.find((p) => p.id === id));
 }
 
-export function createProfile({ name, color, avatarPath } = {}) {
+export function createProfile({ name, color, avatarPath, language } = {}) {
   const trimmed = String(name || '').trim() || 'Lecteur';
   const col = normalizeAvatarColor(
     color || AVATAR_COLORS[listProfiles().length % AVATAR_COLORS.length],
   );
+  const lang = normalizeLocale(language);
   const mode = getDbMode();
   if (mode === 'sqlite') {
     const db = getDb();
@@ -109,8 +111,8 @@ export function createProfile({ name, color, avatarPath } = {}) {
     db.prepare(
       `INSERT OR IGNORE INTO profile_prefs (
         profile_id, library_root, import_root, theme, accent, language, setup_completed
-      ) VALUES (?, ?, ?, 'dark', 'amber', 'fr', 0)`,
-    ).run(id, defaults.libraryRoot, defaults.importRoot);
+      ) VALUES (?, ?, ?, 'dark', 'amber', ?, 0)`,
+    ).run(id, defaults.libraryRoot, defaults.importRoot, lang);
     return getProfile(id);
   }
   const store = getJsonStore();
@@ -129,6 +131,7 @@ export function createProfile({ name, color, avatarPath } = {}) {
     ...defaultPrefsRow(id),
     library_root: defaults.libraryRoot,
     import_root: defaults.importRoot,
+    language: lang,
   };
   persistJsonStore();
   return mapProfile(row);
@@ -380,7 +383,10 @@ export function setProfilePrefs(patch = {}, profileId = null) {
       patch.accent !== undefined
         ? normalizeAccent(patch.accent)
         : current.accent,
-    language: patch.language !== undefined ? patch.language : current.language,
+    language:
+      patch.language !== undefined
+        ? normalizeLocale(patch.language)
+        : current.language,
     setupCompleted:
       patch.setupCompleted !== undefined
         ? Boolean(patch.setupCompleted)

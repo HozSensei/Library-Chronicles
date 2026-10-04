@@ -27,6 +27,7 @@ import { normalizeMetadataQuery } from '../../../shared/metadata-query.js';
 import { pathFromItemKey } from '../../../shared/app-routes.js';
 import { useLibraryStore } from './library.js';
 import { useToastStore } from './toast.js';
+import { t } from '../../../shared/i18n.js';
 
 function draftFromItem(item) {
   if (item?.selectedMeta) {
@@ -387,10 +388,10 @@ export const useImportStore = defineStore('import', {
           'Livre';
         item.alreadyInLibrary = false;
         item.existingBookId = null;
-        toast.success(`Retiré de la bibliothèque · ${label}`);
+        toast.success(t('toast.removed', { label }));
         return result;
       } catch (err) {
-        toast.error(err?.message || 'Échec du retrait');
+        toast.error(err?.message || t('toast.removeFail'));
         throw err;
       } finally {
         this.committing = false;
@@ -718,10 +719,10 @@ export const useImportStore = defineStore('import', {
         }
         const label =
           result.book?.title || meta?.title || item.name || 'Livre';
-        toast.success(`Importé · ${label}`);
+        toast.success(t('toast.imported', { label }));
         return result;
       } catch (err) {
-        toast.error(err?.message || 'Échec de l’import');
+        toast.error(err?.message || t('toast.importFail'));
         throw err;
       } finally {
         this.committing = false;
@@ -774,12 +775,12 @@ export const useImportStore = defineStore('import', {
           }
           toast.success(
             results.length === 1
-              ? `Importé · ${results[0].book?.title || 'Livre'}`
-              : `${results.length} livres importés`,
+              ? t('toast.imported', { label: results[0].book?.title || t('common.book') })
+              : t('toast.importedMany', { n: results.length }),
           );
         }
       } catch (err) {
-        toast.error(err?.message || 'Échec de l’import');
+        toast.error(err?.message || t('toast.importFail'));
         throw err;
       } finally {
         this.committing = false;
@@ -826,12 +827,12 @@ export const useImportStore = defineStore('import', {
           }
           toast.success(
             results.length === 1
-              ? `Importé · ${results[0].book?.title || 'Livre'}`
-              : `${results.length} livres importés`,
+              ? t('toast.imported', { label: results[0].book?.title || t('common.book') })
+              : t('toast.importedMany', { n: results.length }),
           );
         }
       } catch (err) {
-        toast.error(err?.message || 'Échec de l’import');
+        toast.error(err?.message || t('toast.importFail'));
         throw err;
       } finally {
         this.committing = false;

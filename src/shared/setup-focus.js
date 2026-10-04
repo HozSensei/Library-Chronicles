@@ -22,7 +22,6 @@ export function setupFocusRows(step) {
     return [
       ['theme-dark', 'theme-light'],
       accentFocusIds(),
-      ['lang-fr'],
       ['next'],
     ];
   }

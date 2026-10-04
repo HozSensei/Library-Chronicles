@@ -5,6 +5,7 @@ import {
   listRecentSeries,
 } from '../../../shared/series.js';
 import { useToastStore } from './toast.js';
+import { t } from '../../../shared/i18n.js';
 
 const RECENT_LIMIT = 14;
 const CONTINUE_LIMIT = 18;
@@ -111,21 +112,21 @@ export const useLibraryStore = defineStore('library', {
     headerNav() {
       if (!this.books.length) {
         return [
-          { id: 'import', kind: 'action', action: 'import', label: 'Import' },
-          { id: 'scan', kind: 'action', action: 'scan', label: 'Scanner' },
-          { id: 'settings', kind: 'action', action: 'settings', label: 'Paramètres' },
-          { id: 'profile', kind: 'action', action: 'profile', label: 'Profil' },
+          { id: 'import', kind: 'action', action: 'import', label: t('library.import') },
+          { id: 'scan', kind: 'action', action: 'scan', label: t('library.scan') },
+          { id: 'settings', kind: 'action', action: 'settings', label: t('common.settings') },
+          { id: 'profile', kind: 'action', action: 'profile', label: t('library.profile') },
         ];
       }
       return [
-        { id: 'tab-board', kind: 'tab', tab: 'board', label: 'Bibliothèque' },
-        { id: 'tab-all', kind: 'tab', tab: 'all', label: 'Tous les livres' },
-        { id: 'tab-recent', kind: 'tab', tab: 'recent', label: 'Récents' },
-        { id: 'tab-series', kind: 'tab', tab: 'series', label: 'Séries' },
-        { id: 'scan', kind: 'action', action: 'scan', label: 'Scanner' },
-        { id: 'import', kind: 'action', action: 'import', label: 'Import' },
-        { id: 'settings', kind: 'action', action: 'settings', label: 'Paramètres' },
-        { id: 'profile', kind: 'action', action: 'profile', label: 'Profil' },
+        { id: 'tab-board', kind: 'tab', tab: 'board', label: t('library.tabBoard') },
+        { id: 'tab-all', kind: 'tab', tab: 'all', label: t('library.tabAll') },
+        { id: 'tab-recent', kind: 'tab', tab: 'recent', label: t('library.tabRecent') },
+        { id: 'tab-series', kind: 'tab', tab: 'series', label: t('library.tabSeries') },
+        { id: 'scan', kind: 'action', action: 'scan', label: t('library.scan') },
+        { id: 'import', kind: 'action', action: 'import', label: t('library.import') },
+        { id: 'settings', kind: 'action', action: 'settings', label: t('common.settings') },
+        { id: 'profile', kind: 'action', action: 'profile', label: t('library.profile') },
       ];
     },
     selectedHeaderNav() {
@@ -175,10 +176,10 @@ export const useLibraryStore = defineStore('library', {
     },
     filters() {
       return [
-        { id: 'all', label: 'Tous' },
-        { id: 'reading', label: 'En cours' },
-        { id: 'unread', label: 'Non lus' },
-        { id: 'finished', label: 'Terminés' },
+        { id: 'all', label: t('library.filterAll') },
+        { id: 'reading', label: t('library.filterReading') },
+        { id: 'unread', label: t('library.filterUnread') },
+        { id: 'finished', label: t('library.filterFinished') },
       ];
     },
   },
@@ -329,9 +330,9 @@ export const useLibraryStore = defineStore('library', {
         await window.vdr.library.scan({ force });
         this.invalidate();
         await this.refresh({ force: true });
-        toast.success(force ? 'Bibliothèque scannée' : 'Bibliothèque à jour');
+        toast.success(force ? t('toast.libraryScanned') : t('toast.libraryUpToDate'));
       } catch (err) {
-        toast.error(err?.message || 'Échec du scan');
+        toast.error(err?.message || t('toast.scanFail'));
         throw err;
       } finally {
         this.loading = false;
@@ -420,10 +421,10 @@ export const useLibraryStore = defineStore('library', {
           /* ignore — liste books déjà à jour */
         }
         this._refreshedAt = Date.now();
-        if (!opts.silent) toast.success('Fiche enregistrée');
+        if (!opts.silent) toast.success(t('toast.sheetSaved'));
         return updated;
       } catch (err) {
-        if (!opts.silent) toast.error(err?.message || 'Échec de l’enregistrement');
+        if (!opts.silent) toast.error(err?.message || t('toast.sheetSaveFail'));
         throw err;
       }
     },

@@ -5,6 +5,7 @@ import ControlHint from '../components/ControlHint.vue';
 import LazyCover from '../components/LazyCover.vue';
 import { useLibraryStore } from '../stores/library';
 import { useUiStore } from '../stores/ui';
+import { useI18n } from '../composables/useI18n';
 import {
   clampSeriesFocus,
   seriesFocusKind,
@@ -15,6 +16,7 @@ const route = useRoute();
 const router = useRouter();
 const library = useLibraryStore();
 const ui = useUiStore();
+const { t } = useI18n();
 
 const loading = ref(true);
 
@@ -85,9 +87,9 @@ const openTarget = computed(() => {
 });
 
 const hints = [
-  { key: '↑↓', label: 'tome' },
-  { key: 'A', label: 'ouvrir' },
-  { key: 'B', label: 'retour' },
+  { key: '↑↓', label: t('seriesDetail.hintVolume') },
+  { key: 'A', label: t('seriesDetail.hintOpen') },
+  { key: 'B', label: t('seriesDetail.hintBack') },
 ];
 
 function syncFocus() {
@@ -174,7 +176,7 @@ function backFocused() {
 </script>
 
 <template>
-  <section class="series-detail" aria-label="Fiche série">
+  <section class="series-detail" :aria-label="t('seriesDetail.aria')">
     <div class="series-detail__atmosphere" aria-hidden="true" />
 
     <header class="series-detail__head">
@@ -190,14 +192,14 @@ function backFocused() {
     <div v-if="loading" class="series-detail__state">Chargement…</div>
 
     <div v-else-if="!group" class="series-detail__state series-detail__state--stack">
-      <p class="series-detail__empty-title">Série introuvable</p>
+      <p class="series-detail__empty-title">{{ t('seriesDetail.missing') }}</p>
       <button
         type="button"
         class="series-detail__action is-primary"
         :class="{ 'is-focused': true }"
         @click="back"
       >
-        <span class="series-detail__action-label">Retour bibliothèque</span>
+        <span class="series-detail__action-label">{{ t('seriesDetail.backLibrary') }}</span>
       </button>
     </div>
 

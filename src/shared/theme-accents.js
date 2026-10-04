@@ -1,7 +1,10 @@
 /**
  * Thème clair/sombre + accent de contraste (hors palette Steam Deck).
  * Persistance : prefs profil + miroir config `theme` / `accent`.
+ * Labels UI via i18n (`accent.*`).
  */
+
+import { accentLabelI18n, getLocale } from './i18n.js';
 
 /** @typedef {'blue'|'orange'|'green'|'amber'|'rose'|'violet'} AccentId */
 
@@ -41,12 +44,11 @@ export function normalizeTheme(value) {
 
 /**
  * @param {AccentId|string} id
+ * @param {import('./i18n.js').Locale|string} [locale]
  */
-export function accentLabel(id) {
-  return (
-    ACCENTS.find((a) => a.id === id)?.label ||
-    ACCENTS.find((a) => a.id === DEFAULT_ACCENT).label
-  );
+export function accentLabel(id, locale = getLocale()) {
+  const aid = normalizeAccent(id);
+  return accentLabelI18n(aid, locale);
 }
 
 /** Ids focus setup pour la rangée d’accents. */
