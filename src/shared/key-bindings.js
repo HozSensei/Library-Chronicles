@@ -99,8 +99,8 @@ export const BINDABLE_ACTIONS = Object.freeze({
     { id: 'cursor-down', label: 'Curseur ↓' },
     { id: 'cursor-left', label: 'Curseur ←' },
     { id: 'cursor-right', label: 'Curseur →' },
-    { id: 'tab-prev', label: 'Section précédente' },
-    { id: 'tab-next', label: 'Section suivante' },
+    { id: 'tab-prev', label: 'Section précédente (LB)' },
+    { id: 'tab-next', label: 'Section suivante (RB)' },
     { id: 'confirm', label: 'modifier / écouter' },
     { id: 'back', label: 'Retour' },
   ],
@@ -217,9 +217,9 @@ export const DEFAULT_KEY_BINDINGS = Object.freeze({
   settings: {
     [`button:${GamepadButtons.A}`]: 'confirm',
     [`button:${GamepadButtons.B}`]: 'back',
-    /** LT / RT = changer de section Paramètres */
-    [`button:${GamepadButtons.LT}`]: 'tab-prev',
-    [`button:${GamepadButtons.RT}`]: 'tab-next',
+    /** LB / RB = changer de section Paramètres (comme catalogue / import) */
+    [`button:${GamepadButtons.LB}`]: 'tab-prev',
+    [`button:${GamepadButtons.RB}`]: 'tab-next',
     /** D-Pad / stick = focus dans la section (providers, champs, liens…) */
     'dpad:up': 'cursor-up',
     'dpad:down': 'cursor-down',
@@ -242,6 +242,17 @@ export function resolveKeyBindings(user) {
     // Ancien id remap « toggle-zoom » → reset zoom page entière.
     for (const [key, action] of Object.entries(merged)) {
       if (action === 'toggle-zoom') merged[key] = 'reset-zoom';
+    }
+    // Ancien Paramètres LT/RT sections → LB/RB (aligné catalogue / import).
+    if (ctx === 'settings') {
+      if (merged[`button:${GamepadButtons.LT}`] === 'tab-prev') {
+        delete merged[`button:${GamepadButtons.LT}`];
+        merged[`button:${GamepadButtons.LB}`] = 'tab-prev';
+      }
+      if (merged[`button:${GamepadButtons.RT}`] === 'tab-next') {
+        delete merged[`button:${GamepadButtons.RT}`];
+        merged[`button:${GamepadButtons.RB}`] = 'tab-next';
+      }
     }
     out[ctx] = merged;
   }

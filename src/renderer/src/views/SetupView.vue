@@ -102,11 +102,20 @@ function setAccent(accent) {
   ui.applyAccent(form.accent);
 }
 
-/** Accent appliqué dès le focus (←→), comme la couleur profil — A optionnel. */
-watch(focusedId, (id) => {
+/** Accent au focus (←→). Thème idem, sans écraser à l’entrée de l’étape prefs. */
+watch(focusedId, (id, prev) => {
   if (id?.startsWith('accent-')) {
     setAccent(id.slice('accent-'.length));
+    return;
   }
+  if (id !== 'theme-dark' && id !== 'theme-light') return;
+  const fromAppearance =
+    prev === 'theme-dark' ||
+    prev === 'theme-light' ||
+    (typeof prev === 'string' && prev.startsWith('accent-'));
+  if (!fromAppearance) return;
+  if (id === 'theme-dark') setTheme('dark');
+  else setTheme('light');
 });
 
 function next() {

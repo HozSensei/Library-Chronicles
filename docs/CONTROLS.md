@@ -214,7 +214,7 @@ Footer compact (pas d’overflow boutons). Scroll `.shell-scroll`.
 | Contrôle | Action |
 |----------|--------|
 | ↑↓←→ / stick | Focus dans la section (providers, champs, liens, remap…) |
-| LT / RT | Section précédente / suivante |
+| LB / RB | Section précédente / suivante |
 | A | Valider / écouter (remap) / focus champ |
 | B | Retour bibliothèque |
 

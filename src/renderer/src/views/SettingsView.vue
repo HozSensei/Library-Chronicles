@@ -128,16 +128,25 @@ async function setAccent(accent) {
   await ui.setAccent(accent);
 }
 
-/** Accent appliqué dès le focus (←→), comme la couleur profil — A optionnel. */
+/** Accent au focus (←→). Thème idem, sans écraser au reset focus (onglet / mount). */
 watch(
   () => [ui.settingsFocusIndex, section.value],
-  () => {
+  (curr, prev) => {
     if (section.value !== 'general') return;
-    const accentOffset = ui.settingsFocusIndex - 2;
-    if (accentOffset < 0 || accentOffset >= accents.length) return;
-    const id = accents[accentOffset].id;
-    if (id === ui.accent) return;
-    void setAccent(id);
+    const idx = ui.settingsFocusIndex;
+    const accentOffset = idx - 2;
+    if (accentOffset >= 0 && accentOffset < accents.length) {
+      const id = accents[accentOffset].id;
+      if (id !== ui.accent) void setAccent(id);
+      return;
+    }
+    if (idx !== 0 && idx !== 1) return;
+    // Mount ou changement d’onglet (focus forcé à 0) : ne pas écraser le thème.
+    if (!prev) return;
+    const [prevIdx, prevSec] = prev;
+    if (prevSec !== 'general' || prevIdx === idx) return;
+    if (idx === 0 && ui.theme !== 'dark') void setTheme('dark');
+    if (idx === 1 && ui.theme !== 'light') void setTheme('light');
   },
 );
 
@@ -164,7 +173,7 @@ const hapticsSubtitle = computed(() => {
 
 const controlHints = computed(() => [
   { key: '↑↓←→', label: t('settings.hintNav') },
-  { key: 'LT/RT', label: t('settings.hintSection') },
+  { key: 'LB/RB', label: t('settings.hintSection') },
   { key: 'A', label: t('settings.hintConfirm') },
   { key: 'B', label: t('settings.hintBack') },
 ]);

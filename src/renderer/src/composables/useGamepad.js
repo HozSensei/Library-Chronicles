@@ -1073,7 +1073,7 @@ function createLoop(ctx) {
         navVibe();
         afterFocusMove();
       }
-      /** LT / RT uniquement → sections Paramètres */
+      /** LB / RB → sections Paramètres (comme catalogue / import) */
       if (action === 'tab-prev') {
         const tabs = [...document.querySelectorAll('.settings .tab')];
         const active = tabs.findIndex((t) => t.classList.contains('is-active'));
