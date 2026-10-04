@@ -19,6 +19,11 @@ import {
   bookRouteContext,
   resolveParentLocation,
 } from '../../../shared/app-routes.js';
+import {
+  READING_MODE,
+  normalizeReadingMode,
+  supportsStripReading,
+} from '../../../shared/reading-mode.js';
 
 const route = useRoute();
 const router = useRouter();
@@ -74,6 +79,19 @@ const providerLabel = computed(() => {
 const formatLabel = computed(() =>
   book.value?.format ? String(book.value.format).toUpperCase() : '—',
 );
+
+/** Strip continu : CBZ/CBR/PDF (page-images). EPUB/texte futur → disabled. */
+const stripSupported = computed(() => supportsStripReading(book.value?.format));
+
+const stripDisabled = computed(
+  () => !book.value?.filePath || !stripSupported.value,
+);
+
+const stripHint = computed(() => {
+  if (!book.value?.filePath) return t('book.readStripSub');
+  if (!stripSupported.value) return t('book.readStripUnsupported');
+  return t('book.readStripSub');
+});
 
 const statusHint = computed(() => {
   if (!book.value) return 'Fiche';
@@ -215,11 +233,20 @@ watch(
   () => nextTick(() => scheduleScrollFocusedIntoView('.book-detail')),
 );
 
-function read() {
+function read(mode = READING_MODE.PAGE) {
   void saveDraft().then(() => {
     if (!book.value?.filePath) return;
-    router.push({ name: 'reader', query: { path: book.value.filePath } });
+    const query = { path: book.value.filePath };
+    if (normalizeReadingMode(mode) === READING_MODE.STRIP) {
+      if (!supportsStripReading(book.value.format)) return;
+      query.mode = READING_MODE.STRIP;
+    }
+    router.push({ name: 'reader', query });
   });
+}
+
+function readStrip() {
+  read(READING_MODE.STRIP);
 }
 
 function back() {
@@ -334,7 +361,11 @@ function footerFocused(index) {
 
 function activateFooter(index) {
   ui.setBookFocus(index);
-  if (index === BOOK_FOCUS.READ) return read();
+  if (index === BOOK_FOCUS.READ) return read(READING_MODE.PAGE);
+  if (index === BOOK_FOCUS.READ_STRIP) {
+    if (stripDisabled.value) return;
+    return readStrip();
+  }
   if (index === BOOK_FOCUS.META) return goImportMeta();
 }
 
@@ -626,7 +657,7 @@ function onEditableKeydown(ev) {
       </div>
 
       <footer class="book-detail__foot">
-        <div class="book-detail__actions" role="toolbar" aria-label="Actions fiche">
+        <div class="book-detail__actions" role="toolbar" :aria-label="t('book.actionsAria')">
           <button
             type="button"
             class="book-detail__action is-primary"
@@ -636,7 +667,19 @@ function onEditableKeydown(ev) {
             @click="activateFooter(BOOK_FOCUS.READ)"
           >
             <span class="book-detail__action-label">{{ t('book.read') }}</span>
-            <span class="book-detail__action-sub">Ouvrir le lecteur</span>
+            <span class="book-detail__action-sub">{{ t('book.readSub') }}</span>
+          </button>
+          <button
+            type="button"
+            class="book-detail__action is-primary book-detail__action--strip"
+            :data-book-action="BOOK_FOCUS.READ_STRIP"
+            :class="{ 'is-focused': footerFocused(BOOK_FOCUS.READ_STRIP) }"
+            :disabled="stripDisabled"
+            :title="stripHint"
+            @click="activateFooter(BOOK_FOCUS.READ_STRIP)"
+          >
+            <span class="book-detail__action-label">{{ t('book.readStrip') }}</span>
+            <span class="book-detail__action-sub">{{ stripHint }}</span>
           </button>
           <button
             type="button"
@@ -646,7 +689,7 @@ function onEditableKeydown(ev) {
             @click="activateFooter(BOOK_FOCUS.META)"
           >
             <span class="book-detail__action-label">{{ t('book.importMeta') }}</span>
-            <span class="book-detail__action-sub">Recherche API</span>
+            <span class="book-detail__action-sub">{{ t('book.importMetaSub') }}</span>
           </button>
         </div>
       </footer>

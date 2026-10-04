@@ -56,7 +56,9 @@ async function openAdjacent(delta) {
   const ok =
     delta < 0 ? await reader.openPrevVolume() : await reader.openNextVolume();
   if (!ok) return;
-  router.replace({ name: 'reader', query: { path: reader.filePath } });
+  const query = { path: reader.filePath };
+  if (reader.isStripMode) query.mode = 'strip';
+  router.replace({ name: 'reader', query });
 }
 
 function isFocused(id) {

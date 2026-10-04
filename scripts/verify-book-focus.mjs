@@ -34,19 +34,21 @@ assert(BOOK_FOCUS.PAGES === 6, 'PAGES = 6');
 assert(BOOK_FOCUS.PROVIDER === 7, 'PROVIDER = 7');
 assert(BOOK_FOCUS.SYNOPSIS === 8, 'SYNOPSIS = 8');
 assert(BOOK_FOCUS.READ === 9, 'READ = 9');
-assert(BOOK_FOCUS.META === 10, 'META = 10');
-assert(BOOK_FOCUS.MAX === 10, 'MAX = 10');
+assert(BOOK_FOCUS.READ_STRIP === 10, 'READ_STRIP = 10');
+assert(BOOK_FOCUS.META === 11, 'META = 11');
+assert(BOOK_FOCUS.MAX === 11, 'MAX = 11');
 assert(BOOK_FOCUS.BACK === undefined, 'pas de BACK footer (B manette)');
 assert(BOOK_FOCUS.OPTIONS === undefined, 'OPTIONS renommé META');
 
 assert(clampBookFocus(-1) === 0, 'clamp bas');
-assert(clampBookFocus(99) === 10, 'clamp haut');
+assert(clampBookFocus(99) === 11, 'clamp haut');
 assert(clampBookFocus(2.9) === 2, 'clamp trunc');
 assert(clampBookFocus(NaN) === BOOK_FOCUS.READ, 'clamp NaN → READ');
 
 assert(!isBookActionFocus(BOOK_FOCUS.SYNOPSIS), 'synopsis = contenu');
 assert(!isBookActionFocus(BOOK_FOCUS.TITLE), 'titre = contenu');
 assert(isBookActionFocus(BOOK_FOCUS.READ), 'lire = action');
+assert(isBookActionFocus(BOOK_FOCUS.READ_STRIP), 'lire continu = action');
 assert(isBookActionFocus(BOOK_FOCUS.META), 'méta = action');
 assert(isBookEditableFocus(BOOK_FOCUS.TITLE), 'titre éditable');
 assert(isBookEditableFocus(BOOK_FOCUS.SYNOPSIS), 'synopsis éditable');
@@ -58,6 +60,10 @@ assert(
 assert(
   resolveBookConfirmAction(BOOK_FOCUS.READ) === 'activate-action',
   'A lire → activate-action',
+);
+assert(
+  resolveBookConfirmAction(BOOK_FOCUS.READ_STRIP) === 'activate-action',
+  'A lire continu → activate-action',
 );
 assert(
   resolveBookConfirmAction(BOOK_FOCUS.META) === 'activate-action',
@@ -94,8 +100,11 @@ assert(
 );
 assert(view.includes('book-detail__meta'), 'méta labels + valeurs');
 assert(view.includes('grid-template-columns'), 'layout grid (pas absolute croisé)');
-assert(view.includes('Importer des méta'), 'CTA Importer des méta');
+assert(view.includes("t('book.importMeta')"), 'CTA Importer des méta');
 assert(view.includes('goImportMeta'), 'handler recherche API');
+assert(view.includes('BOOK_FOCUS.READ_STRIP'), 'CTA Lire en continu focus');
+assert(view.includes('supportsStripReading'), 'guard format strip');
+assert(view.includes("t('book.readStrip')"), 'libellé i18n strip');
 assert(view.includes('bookMetaLocation'), 'goImportMeta → route …/meta');
 assert(view.includes('resolveParentLocation'), 'B = route parent');
 assert(!view.includes('entryIntent'), 'plus entryIntent');
