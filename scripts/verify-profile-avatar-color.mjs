@@ -124,6 +124,23 @@ assert(
   'input :focus-visible neutralisé hors is-focused',
 );
 
+// Créer / Annuler : même gabarit FocusButton compact
+assert(view.includes('FocusButton'), 'FocusButton importé');
+assert(
+  /profiles__actions[\s\S]*?tone="primary"[\s\S]*?compact|profiles__actions[\s\S]*?compact[\s\S]*?tone="primary"/.test(
+    view,
+  ),
+  'Créer = FocusButton compact primary',
+);
+assert(
+  /profiles__cancel[\s\S]*?compact|compact[\s\S]*?profiles__cancel/.test(view),
+  'Annuler = FocusButton compact (secondary)',
+);
+assert(
+  /profiles__actions[\s\S]*?focus-btn--compact/.test(view),
+  'actions partagent gabarit compact (hauteur/padding/radius)',
+);
+
 // --- gamepad naming ---
 const pad = read('src/renderer/src/composables/useGamepad.js');
 assert(
@@ -141,6 +158,14 @@ assert(
   pad.includes(".profiles__locales .is-focused") ||
     pad.includes('.profiles__locales .is-focused'),
   'manette lit focus drapeau (pas conteneur)',
+);
+assert(
+  pad.includes('.profiles__create .focus-btn--primary'),
+  'manette cible FocusButton Créer (pas .btn-primary)',
+);
+assert(
+  pad.includes('.profiles__create .profiles__cancel'),
+  'manette B cible FocusButton Annuler (pas .ghost)',
 );
 
 // --- DB update color ---

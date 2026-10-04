@@ -121,6 +121,18 @@ assert(
   'langue active sans ring brass (selected ≠ focus)',
 );
 
+// Boutons Créer / Annuler alignés (FocusButton compact)
+assert(
+  view.includes('FocusButton') && view.includes('profiles__actions'),
+  'actions Créer/Annuler via FocusButton',
+);
+assert(view.includes('profiles__cancel'), 'Annuler = FocusButton classée');
+assert(
+  !/<button[^>]*class="btn-primary"/.test(view) &&
+    !/<button[^>]*class="ghost"/.test(view),
+  'plus de btn-primary/ghost natifs sur ProfilesView',
+);
+
 // --- Store / IPC / DB ---
 const store = read('src/renderer/src/stores/profiles.js');
 assert(store.includes('applyPrefsToUi'), 'select applique prefs UI');
