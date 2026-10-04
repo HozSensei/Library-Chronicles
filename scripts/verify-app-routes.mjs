@@ -155,6 +155,11 @@ assert(!bookView.includes('entryIntent'), 'plus entryIntent');
 const importView = readFileSync(join(root, 'src/renderer/src/views/ImportView.vue'), 'utf8');
 assert(importView.includes('syncFromRoute'), 'ImportView sync route');
 assert(importView.includes('applyFlowFromRoute'), 'ImportView flow avant await');
+assert(importView.includes('hydrateDraftFromSelected'), 'ImportView hydrate avant flow');
+assert(
+  /hydrateDraftFromSelected[\s\S]*?applyFlowFromRoute/.test(importView),
+  'ImportView ordre hydrate → applyFlow (anti double méta)',
+);
 assert(importView.includes('navigateTo'), 'ImportView nav idempotente');
 assert(importView.includes('resolveParentLocation'), 'ImportView B parent');
 assert(!importView.includes("from: 'import'"), 'ImportView sans from=import');

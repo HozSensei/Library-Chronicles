@@ -487,6 +487,18 @@ assert(view.includes('import__sheet-headline'), 'titre formulaire');
 assert(view.includes('import__sheet-actions'), 'footer actions fiche');
 assert(view.includes('openMetaSearch'), 'ouvrir recherche méta');
 assert(view.includes('syncFromRoute'), 'reprise flow depuis la route');
+assert(view.includes('hydrateDraftFromSelected'), 'hydrate draft sync avant flow');
+assert(view.includes('loadCoverForSelected'), 'cover async après hydrate');
+assert(view.includes('draftReady'), 'garde fiche sans draft vide');
+assert(view.includes('reloadDraft: false'), 'scan mount sans double loadDraft');
+assert(
+  /hydrateDraftFromSelected[\s\S]*?applyFlowFromRoute/.test(view),
+  'ordre anti-flash : hydrate puis applyFlow',
+);
+assert(store.includes('hydrateDraftFromSelected'), 'store hydrateDraftFromSelected');
+assert(store.includes('loadCoverForSelected'), 'store loadCoverForSelected');
+assert(store.includes('reloadDraft'), 'store scan({ reloadDraft })');
+assert(store.includes('_draftItemPath'), 'store track draft item path');
 assert(view.includes('existingBookId'), 'route vers BookDetail si importé');
 assert(view.includes('bookDetailLocation'), 'fiche import via bookDetailLocation');
 assert(!view.includes("from: 'import'"), 'plus query from=import');

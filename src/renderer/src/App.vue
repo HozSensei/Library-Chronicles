@@ -112,12 +112,16 @@ onMounted(async () => {
             ui.routeName === 'library-book-meta'
           ) {
             const prev = imp.selected?.filePath;
-            await imp.scan();
+            // reloadDraft:false — un seul hydrate après restore du cursor
+            // (évite draft rempli par scan puis ré-écrasé).
+            await imp.scan({ reloadDraft: false });
             if (prev) {
               const idx = imp.items.findIndex((i) => i.filePath === prev);
               if (idx >= 0) {
                 imp.cursor = idx;
-                await imp.loadDraftFromSelected();
+                if (imp.viewMode === 'detail') {
+                  await imp.loadDraftFromSelected({ keepResults: true });
+                }
               }
             }
           }
