@@ -138,11 +138,16 @@ const epubStage = readFileSync(
 );
 assert.match(epubStage, /data-reader-path="epub"/);
 assert.match(epubStage, /reader__epub/);
+assert.match(epubStage, /data-epub-paginated/);
+assert.match(epubStage, /epub-pagination|buildEpubThemeCss/);
+assert.doesNotMatch(epubStage, /reader\.filterCss/);
 assert.match(store, /isEpubMode/);
 assert.match(store, /adjustFontSize/);
+assert.match(store, /epubScreenIndex|setEpubScreens/);
 assert.match(store, /resolveReadingMode/);
 assert.match(gamepad, /applyEpubReaderAction/);
 assert.match(i18n, /hintEpub:/);
+assert.match(i18n, /epubScreenOf:/);
 
 assert.match(book, /BOOK_FOCUS\.READ_STRIP/);
 assert.match(book, /BOOK_FOCUS\.READ_EPUB/);

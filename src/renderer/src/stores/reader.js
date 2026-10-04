@@ -26,6 +26,10 @@ import {
   zoomForFitWidth,
   zoomStep,
 } from '../../../shared/page-view-transform.js';
+import {
+  clampScreenIndex,
+  resolveEpubPageStep,
+} from '../../../shared/epub-pagination.js';
 import { findAdjacentVolume } from '../../../shared/series.js';
 import { t as i18nT } from '../../../shared/i18n.js';
 import { useLibraryStore } from './library.js';
@@ -65,6 +69,14 @@ export const useReaderStore = defineStore('reader', {
     readingMode: READING_MODE.PAGE,
     /** Taille police EPUB (% de la base document). */
     fontSize: EPUB_FONT_DEFAULT,
+    /**
+     * Pagination liseuse EPUB : index / total des pages-écran du chapitre.
+     * Mesuré par EpubReaderStage (colonnes CSS) ; indépendant du spine.
+     */
+    epubScreenIndex: 0,
+    epubScreenCount: 1,
+    /** À l’ouverture d’un chapitre : atterrir début ou fin (page-prev). */
+    epubLandOn: 'start',
     /** Facteur de zoom ∈ [1, 4] — 1 = page entière (fitScale). */
     zoom: 1,
     /** Offset de pan en px stage locaux (centré = 0). */
@@ -117,14 +129,20 @@ export const useReaderStore = defineStore('reader', {
   }),
   getters: {
     /**
-     * Compteur HUD : pages images (CBZ/PDF) ou chapitres spine (EPUB).
-     * EPUB pageCount = items spine, pas pagination visuelle.
+     * Compteur HUD : pages images (CBZ/PDF) ou écrans EPUB (+ chapitre spine).
      */
     pageLabel(s) {
       const cur = s.pageCount ? s.pageIndex + 1 : 0;
       const total = s.pageCount;
       if (s.readingMode === READING_MODE.EPUB || isEpubFormat(s.format)) {
-        return i18nT('reader.chapterOf', { cur, total });
+        const screenCur = (s.epubScreenIndex || 0) + 1;
+        const screenTotal = Math.max(1, s.epubScreenCount || 1);
+        return i18nT('reader.epubScreenOf', {
+          cur: screenCur,
+          total: screenTotal,
+          ch: cur,
+          chTotal: total,
+        });
       }
       return `${cur} / ${total}`;
     },
@@ -286,6 +304,9 @@ export const useReaderStore = defineStore('reader', {
         if (this.isEpubMode) {
           this.fontSize = EPUB_FONT_DEFAULT;
           this.fitMode = 'reflow';
+          this.epubScreenIndex = 0;
+          this.epubScreenCount = 1;
+          this.epubLandOn = 'start';
         } else if (this.isStripMode) {
           this.fitMode = 'fit-width';
         }
@@ -597,6 +618,9 @@ export const useReaderStore = defineStore('reader', {
       this.readingMode = READING_MODE.PAGE;
       this.format = null;
       this.fontSize = EPUB_FONT_DEFAULT;
+      this.epubScreenIndex = 0;
+      this.epubScreenCount = 1;
+      this.epubLandOn = 'start';
       await window.vdr.reader.close();
       this.filePath = null;
       this.bookId = null;
@@ -804,6 +828,18 @@ export const useReaderStore = defineStore('reader', {
       this.fontSize = EPUB_FONT_DEFAULT;
       this.flashHud(900);
     },
+    /**
+     * Mesure EpubReaderStage → pages-écran du chapitre courant.
+     * @param {number} count
+     * @param {number} index
+     */
+    setEpubScreens(count, index) {
+      if (!this.isEpubMode) return;
+      const n = Math.max(1, Math.floor(Number(count) || 1));
+      this.epubScreenCount = n;
+      this.epubScreenIndex = clampScreenIndex(index, n);
+      this.epubLandOn = '';
+    },
     toggleDirection() {
       this.direction = this.direction === 'ltr' ? 'rtl' : 'ltr';
       this.persistPrefs({ readingDirection: this.direction });
@@ -881,6 +917,38 @@ export const useReaderStore = defineStore('reader', {
       this.flashHud(900);
     },
     async stepPage(which) {
+      // EPUB : d’abord page-écran dans le chapitre, puis spine ±1.
+      if (this.isEpubMode) {
+        const step = resolveEpubPageStep({
+          screenIndex: this.epubScreenIndex,
+          screenCount: this.epubScreenCount,
+          which: which === 'prev' ? 'prev' : 'next',
+          rtl: this.direction === 'rtl',
+        });
+        if (step.type === 'screen') {
+          this.epubScreenIndex = step.index;
+          this.flashHud(900);
+          return true;
+        }
+        if (step.type === 'chapter') {
+          const dir = step.which === 'next' ? 1 : -1;
+          const next = this.pageIndex + dir;
+          if (next < 0 || next >= this.pageCount) {
+            if (step.which === 'next' && this.isFinished) {
+              await this.checkAdjacentVolumes();
+            }
+            return false;
+          }
+          this.epubLandOn = step.landOn;
+          this.pageIndex = next;
+          this.epubScreenIndex = step.landOn === 'end' ? Math.max(0, this.epubScreenCount - 1) : 0;
+          await this.loadCurrentPage({ scrollToCurrent: false });
+          this.flashHud(900);
+          return true;
+        }
+        return false;
+      }
+
       const dir = this.direction === 'rtl' ? -1 : 1;
       const delta = which === 'next' ? dir : -dir;
       const next = this.pageIndex + delta;
@@ -895,6 +963,9 @@ export const useReaderStore = defineStore('reader', {
       return true;
     },
     async stepChapter(dir) {
+      if (this.isEpubMode) {
+        this.epubLandOn = dir < 0 ? 'end' : 'start';
+      }
       if (!this.chapters.length) {
         const next = Math.min(
           this.pageCount - 1,
@@ -903,6 +974,9 @@ export const useReaderStore = defineStore('reader', {
         if (next === this.pageIndex) return false;
         this.pageIndex = next;
         this.resetTransform();
+        if (this.isEpubMode) {
+          this.epubScreenIndex = dir < 0 ? Math.max(0, this.epubScreenCount - 1) : 0;
+        }
         await this.loadCurrentPage({ scrollToCurrent: this.isStripMode });
         this.flashHud(900);
         return true;
@@ -912,6 +986,9 @@ export const useReaderStore = defineStore('reader', {
       this.chapterIndex = nextIdx;
       this.pageIndex = this.chapters[nextIdx].startIndex;
       this.resetTransform();
+      if (this.isEpubMode) {
+        this.epubScreenIndex = dir < 0 ? Math.max(0, this.epubScreenCount - 1) : 0;
+      }
       await this.loadCurrentPage({ scrollToCurrent: this.isStripMode });
       this.flashHud(900);
       return true;

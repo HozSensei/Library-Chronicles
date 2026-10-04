@@ -406,9 +406,10 @@ export const MESSAGES = Object.freeze({
       pauseTitle: 'Pause lecture',
       pageByPage: 'page par page',
       continuous: 'continu',
-      epubReflow: 'EPUB reflow',
-      /** Spine EPUB = chapitres, pas pages images. */
+      epubReflow: 'EPUB paginé',
+      /** Spine EPUB = chapitres ; écrans = pages viewport reflow. */
       chapterOf: 'Chapitre {cur} / {total}',
+      epubScreenOf: 'Écran {cur}/{total} · Ch. {ch}/{chTotal}',
       fontSize: 'Police {v}',
       quit: 'Quitter la lecture',
       direction: 'Sens {dir}',
@@ -426,7 +427,7 @@ export const MESSAGES = Object.freeze({
       hintStrip:
         'A valider · B fermer · Select pause · ↑↓ focus · Stick scroll · LT/RT chapitre · D-Pad désactivé',
       hintEpub:
-        'A valider · B fermer · Select pause · Stick scroll · ↑↓ police · L3 police défaut · ←→ chapitre · LT/RT chapitre',
+        'A valider · B fermer · Select pause · Stick/←→ page écran · ↑↓ police · L3 police défaut · LT/RT chapitre',
       fullscreen: 'Plein écran',
       fullscreenExit: 'Quitter plein écran',
     },
@@ -788,9 +789,10 @@ export const MESSAGES = Object.freeze({
       pauseTitle: 'Reading paused',
       pageByPage: 'page by page',
       continuous: 'continuous',
-      epubReflow: 'EPUB reflow',
-      /** EPUB spine items = chapters, not image pages. */
+      epubReflow: 'EPUB paginated',
+      /** EPUB spine items = chapters; screens = viewport reflow pages. */
       chapterOf: 'Chapter {cur} / {total}',
+      epubScreenOf: 'Screen {cur}/{total} · Ch. {ch}/{chTotal}',
       fontSize: 'Font {v}',
       quit: 'Quit reading',
       direction: 'Direction {dir}',
@@ -808,7 +810,7 @@ export const MESSAGES = Object.freeze({
       hintStrip:
         'A confirm · B close · Select pause · ↑↓ focus · Stick scroll · LT/RT chapter · D-Pad off',
       hintEpub:
-        'A confirm · B close · Select pause · Stick scroll · ↑↓ font · L3 default font · ←→ chapter · LT/RT chapter',
+        'A confirm · B close · Select pause · Stick/←→ screen page · ↑↓ font · L3 default font · LT/RT chapter',
       fullscreen: 'Fullscreen',
       fullscreenExit: 'Exit fullscreen',
     },
