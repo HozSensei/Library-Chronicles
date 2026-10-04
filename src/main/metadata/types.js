@@ -60,20 +60,8 @@ export function stripHtml(html) {
     .slice(0, 600) || null;
 }
 
-/**
- * Retire les suffixes tome/volume pour les recherches API.
- * « Solo Leveling Tome 1 » → « Solo Leveling » (AniList/MangaDex matchent mieux).
- * @param {string} query
- * @returns {string}
- */
-export function normalizeMetadataQuery(query) {
-  const raw = String(query || '').trim();
-  if (!raw) return '';
-  const stripped = raw
-    .replace(/\b(?:tome|tomes|vol\.?|volume)\s*\d{1,4}\b/gi, ' ')
-    .replace(/\b[tT]\d{1,3}\b/g, ' ')
-    .replace(/[-_]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-  return stripped || raw;
-}
+// Réexports : logique query partagée (préfill vs query manuelle).
+export {
+  normalizeMetadataQuery,
+  prepareMetadataSearchQuery,
+} from '../../shared/metadata-query.js';

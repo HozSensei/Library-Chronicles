@@ -6,6 +6,7 @@ import {
   normalizeImportMetadata,
   resolveItemMetadata,
 } from '../../../shared/import-meta.js';
+import { normalizeMetadataQuery } from '../../../shared/metadata-query.js';
 import { useLibraryStore } from './library.js';
 
 function draftFromItem(item) {
@@ -212,7 +213,11 @@ export const useImportStore = defineStore('import', {
         coverUrl: d.coverUrl || null,
         source: d.source || null,
       };
-      this.searchQuery = String(d.series || d.title || item.name || '').trim();
+      // Préremplissage auto depuis draft/fichier : strip « Tome N » / « Vol. N »
+      // pour matcher la série. La saisie manuelle (setSearchQuery / enrich) ne
+      // strippe pas — voir prepareMetadataSearchQuery côté main.
+      const prefillRaw = String(d.series || d.title || item.name || '').trim();
+      this.searchQuery = normalizeMetadataQuery(prefillRaw) || prefillRaw;
       if (!keepResults) {
         this.enrichResults = [];
         this.enrichResultCursor = 0;

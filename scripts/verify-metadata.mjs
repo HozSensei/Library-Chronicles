@@ -9,6 +9,7 @@ import {
   slug,
   stripHtml,
   normalizeMetadataQuery,
+  prepareMetadataSearchQuery,
   METADATA_SEARCH_LIMIT,
 } from '../src/main/metadata/types.js';
 import { stubProvider } from '../src/main/metadata/providers/stub.js';
@@ -26,6 +27,7 @@ assert.equal(extractYear('2019-05-01'), 2019);
 assert.equal(extractYear(1998), 1998);
 assert.equal(slug('One Piece!!'), 'one-piece');
 assert.equal(stripHtml('<p>Hello <b>world</b></p>'), 'Hello world');
+// Préremplissage auto : strip tome/vol (filename → série)
 assert.equal(
   normalizeMetadataQuery('Solo Leveling Tome 1'),
   'Solo Leveling',
@@ -33,6 +35,21 @@ assert.equal(
 assert.equal(normalizeMetadataQuery('One Piece - Vol. 03'), 'One Piece');
 assert.equal(normalizeMetadataQuery('Naruto T01'), 'Naruto');
 assert.equal(normalizeMetadataQuery('Akira'), 'Akira');
+assert.equal(
+  normalizeMetadataQuery('Solo Leveling Tome 44'),
+  'Solo Leveling',
+);
+
+// Query manuelle : conserve « Tome N » (intent utilisateur)
+assert.equal(
+  prepareMetadataSearchQuery('Solo Leveling Tome 44'),
+  'Solo Leveling Tome 44',
+);
+assert.equal(
+  prepareMetadataSearchQuery('  Solo Leveling   Tome 1  '),
+  'Solo Leveling Tome 1',
+);
+assert.equal(prepareMetadataSearchQuery('One Piece Vol. 03'), 'One Piece Vol. 03');
 assert.equal(METADATA_SEARCH_LIMIT, 16);
 
 const parsed = detectFromFilename('/lib/One Piece - Tome 03 (2019).cbz');
@@ -193,6 +210,13 @@ try {
   assert.equal(al[0].author, 'Eiichiro Oda');
   assert.equal(al[0].year, 1997);
   assert.equal(seen.anilist.search, 'One Piece');
+  assert.equal(seen.anilist.perPage, METADATA_SEARCH_LIMIT);
+
+  // Query manuelle « Tome 44 » : l’API reçoit encore le tome (pas de strip)
+  const typed = prepareMetadataSearchQuery('Solo Leveling Tome 44');
+  assert.equal(typed, 'Solo Leveling Tome 44');
+  await anilistProvider.search(typed);
+  assert.equal(seen.anilist.search, 'Solo Leveling Tome 44');
   assert.equal(seen.anilist.perPage, METADATA_SEARCH_LIMIT);
 
   const md = await mangadexProvider.search('Fullmetal');
