@@ -186,6 +186,22 @@ assert(
   'stick → nav focus quand modal ouverte',
 );
 assert(
+  gamepad.includes('uiActionForLogicalDpad') &&
+    gamepad.includes('pauseMenuFocusDelta'),
+  'modal pause : dirs écran → cursor / focus delta (pas zoom inversé)',
+);
+assert(
+  /hudVisible[\s\S]*?uiActionForLogicalDpad\(logical\)/.test(gamepad),
+  'emitLogicalDpad : modal → uiActionForLogicalDpad (bypass bindings zoom/page)',
+);
+assert(
+  /action === 'zoom-in'[\s\S]*?focusDelta = pauseMenuFocusDelta\(\s*'up'/.test(
+    gamepad,
+  ) ||
+    /zoom-in'[\s\S]{0,120}'up'/.test(gamepad),
+  'filet zoom-in (↑ logique) → focus up (−1), plus bas (+1)',
+);
+assert(
   /function tick\(\)[\s\S]*?const\s*\{\s*ui\s*,\s*reader\s*\}\s*=\s*handlers/.test(
     gamepad,
   ) ||
@@ -198,6 +214,23 @@ assert(
 const uiStore = readFileSync(
   join(root, 'src/renderer/src/stores/ui.js'),
   'utf8',
+);
+assert(
+  /setReaderCssRotate\(\s*next === 'reader'\s*\)/.test(uiStore),
+  'setSessionMode : cssRotate forcé en reader (menu + stage +90°)',
+);
+const appVue = readFileSync(
+  join(root, 'src/renderer/src/App.vue'),
+  'utf8',
+);
+assert(
+  /setReaderCssRotate\(\s*safe === 'portrait-ccw'\s*\)/.test(appVue),
+  'orientation sync : cssRotate lié au portrait lecteur',
+);
+assert(
+  orientationCss.includes('data-reader-rotate') &&
+    orientationCss.includes('.hud'),
+  'orientation.css : HUD sous data-reader-rotate (pas counter-rotate)',
 );
 const preload = readFileSync(join(root, 'src/preload/index.js'), 'utf8');
 const mainIndex = readFileSync(join(root, 'src/main/index.js'), 'utf8');

@@ -172,9 +172,9 @@ export const useUiStore = defineStore('ui', {
       const orientation =
         result?.orientation || (next === 'reader' ? 'portrait-ccw' : 'landscape');
       this.applyOrientation(orientation);
-      this.setReaderCssRotate(
-        next === 'reader' ? Boolean(result?.cssRotate) : false,
-      );
+      // Lecteur = toujours +90° CSS (stratégie B). Ne pas dépendre seul de
+      // result.cssRotate (omission IPC → menu pause restait en layout paysage).
+      this.setReaderCssRotate(next === 'reader');
       this.inputContext = next === 'reader' ? 'reader' : 'ui';
       return result;
     },

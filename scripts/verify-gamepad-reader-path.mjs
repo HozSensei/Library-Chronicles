@@ -87,6 +87,17 @@ assert(
   'tick() lit reader.hudVisible (modal pause stick)',
 );
 assert(
+  gamepad.includes('uiActionForLogicalDpad') &&
+    gamepad.includes('pauseMenuFocusDelta'),
+  'modal pause : remap écran + focus delta (rotation cohérente plan +90°)',
+);
+assert(
+  /routeName === 'reader' && reader\.hudVisible[\s\S]*?uiActionForLogicalDpad/.test(
+    gamepad,
+  ),
+  'D-Pad modal pause bypass bindings lecture (évite ↑=zoom focus inversé)',
+);
+assert(
   gamepad.includes("route === 'reader'") && gamepad.includes('toggle-pause'),
   'dispatch reader gère toggle-pause (Select modal)',
 );

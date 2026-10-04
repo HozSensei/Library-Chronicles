@@ -509,7 +509,7 @@ async function quitReading() {
   transition: none;
 }
 
-/* —— Modal pause (plein plan lecteur, déjà +90° via .reader__plane) —— */
+/* —— Modal pause (plein plan lecteur, +90° via .reader__plane / data-css-rotate) —— */
 .hud {
   position: absolute;
   inset: 0;

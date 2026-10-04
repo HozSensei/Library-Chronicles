@@ -165,11 +165,15 @@ il n’est pas mis à l’échelle.
 La préférence profil `defaultFitMode` n’est appliquée à l’ouverture que si elle
 vaut explicitement `fit-width` ; sinon le lecteur ouvre sur la page entière.
 
-### Menu pause ouvert *(même plan tourné que le stage)*
+### Menu pause ouvert *(même plan tourné +90° que le stage)*
+
+Overlay dans `.reader__plane` (`rotate(90deg)`). Stick / D-Pad = **remap portrait
+CCW** → directions écran (pas l’identité landscape des menus hors lecteur, pas
+`visualPanToLocal` réservé au pan contenu).
 
 | Contrôle | Action |
 |----------|--------|
-| D-Pad / stick | Focus dans la modal |
+| D-Pad / stick | Focus dans la modal (↑/← précédent · ↓/→ suivant) |
 | **A** | Valider (élément focalisé) |
 | **B** / Select / Y | Fermer la modal (pas la lecture) |
 
@@ -182,7 +186,7 @@ Hors route `reader`, le stick gauche se comporte comme le D-Pad :
 3. Premier franchissement → pas immédiat ; maintien → délai ~320 ms puis repeat ~120 ms
 4. Action via bindings `dpad:*` → `cursor-*` (+ `scrollIntoView` déjà en place)
 
-En **lecteur**, le stick reste en **pan** analogique (remap portrait) — sauf modal pause (nav focus).
+En **lecteur**, le stick reste en **pan** analogique (axes physiques + `visualPanToLocal` sous +90°) — sauf modal pause (nav focus via remap portrait).
 
 ## Mode Bibliothèque (landscape)
 

@@ -6,10 +6,13 @@ import {
   remapDpad,
   remapStick,
   readingActionForLogicalDpad,
+  pauseMenuFocusDelta,
+  pauseMenuFocusDeltaFromPhysical,
   sessionOrientationForRoute,
   sessionModeForRoute,
   visualPanToLocal,
   pageSlideFromVisualPan,
+  uiActionForLogicalDpad,
 } from '../src/shared/portrait-remap.js';
 import {
   resolveKeyBindings,
@@ -70,6 +73,30 @@ assert(
   remapStick(o, 0, -1).x === -1 && remapStick(o, 0, -1).y === 0,
   'remapStick portrait inchangé (nav, pas pan CSS)',
 );
+
+// Modal pause (+90° plan) : focus suit dirs écran après remap portrait
+assert(pauseMenuFocusDelta('up') === -1, 'pause ↑ écran → focus −1');
+assert(pauseMenuFocusDelta('down') === 1, 'pause ↓ écran → focus +1');
+assert(pauseMenuFocusDelta('left') === -1, 'pause ← écran → focus −1');
+assert(pauseMenuFocusDelta('right') === 1, 'pause → écran → focus +1');
+assert(
+  pauseMenuFocusDeltaFromPhysical(o, 'right') === -1,
+  'physique → (haut écran Ally) → focus −1',
+);
+assert(
+  pauseMenuFocusDeltaFromPhysical(o, 'left') === 1,
+  'physique ← (bas écran Ally) → focus +1',
+);
+assert(
+  pauseMenuFocusDeltaFromPhysical(o, 'up') === -1,
+  'physique ↑ → logique ← → focus −1',
+);
+assert(
+  pauseMenuFocusDeltaFromPhysical(DeviceOrientation.LANDSCAPE, 'up') === -1,
+  'landscape pause ↑ → focus −1 (identité)',
+);
+assert(uiActionForLogicalDpad('up') === 'cursor-up', 'UI ↑ = cursor-up');
+assert(uiActionForLogicalDpad('down') === 'cursor-down', 'UI ↓ = cursor-down');
 
 const landStick = remapStick(DeviceOrientation.LANDSCAPE, 0.5, -0.7);
 assert(
