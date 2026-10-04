@@ -1,5 +1,9 @@
 /**
  * Mapper Google Books : volume API brut → NormalizedMeta.
+ *
+ * Raw typique : `{ id, volumeInfo: { title, authors, publishedDate,
+ * description, seriesInfo, imageLinks } }`.
+ * Doc : docs/metadata/googlebooks.md — fixture googlebooks-solo-leveling-vol9.json
  */
 
 import { parseVolume, extractYear } from '../types.js';

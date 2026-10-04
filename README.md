@@ -76,7 +76,8 @@ Override du dossier userData : `VDR_USER_DATA=/chemin npm run reset:library`.
 | [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) | Main / preload / renderer |
 | [`docs/CONTROLS.md`](./docs/CONTROLS.md) | Mapping manette + remap |
 | [`docs/UX.md`](./docs/UX.md) | Principes UX Steam OS |
-| [`docs/METADATA.md`](./docs/METADATA.md) | Providers méta |
+| [`docs/METADATA.md`](./docs/METADATA.md) | Providers méta (UI / secrets) |
+| [`docs/metadata/README.md`](./docs/metadata/README.md) | Contrat NormalizedMeta + docs réponses API |
 | [`docs/NATIVE.md`](./docs/NATIVE.md) | better-sqlite3 / PDF / rebuild |
 | [`docs/PACKAGING.md`](./docs/PACKAGING.md) | Build Windows |
 

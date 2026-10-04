@@ -21,12 +21,12 @@ import { comicvineProvider } from '../src/main/metadata/providers/comicvine.js';
 import { openLibraryProvider } from '../src/main/metadata/providers/openlibrary.js';
 import { anilistProvider } from '../src/main/metadata/providers/anilist.js';
 import { mangadexProvider } from '../src/main/metadata/providers/mangadex.js';
+import { googleBooksProvider } from '../src/main/metadata/providers/googlebooks.js';
 import {
-  googleBooksProvider,
+  mapGoogleBooksItem,
   parseGoogleBookTitle,
   upgradeGoogleCover,
-  mapGoogleBooksItem,
-} from '../src/main/metadata/providers/googlebooks.js';
+} from '../src/main/metadata/mappers/index.js';
 
 // --- helpers ---
 {

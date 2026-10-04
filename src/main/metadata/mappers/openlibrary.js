@@ -1,5 +1,9 @@
 /**
  * Mapper Open Library : doc search.json brut → NormalizedMeta.
+ *
+ * Raw typique : `{ key, title, author_name, first_publish_year, cover_i, series, subtitle }`.
+ * Cover : covers.openlibrary.org/b/id/{cover_i}-L.jpg
+ * Doc : docs/metadata/openlibrary.md — fixture openlibrary-akira.json
  */
 
 import { extractYear } from '../types.js';

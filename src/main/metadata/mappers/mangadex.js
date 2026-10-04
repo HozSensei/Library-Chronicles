@@ -1,5 +1,9 @@
 /**
  * Mapper MangaDex : manga API v5 brut → NormalizedMeta.
+ *
+ * Raw typique : `{ id, attributes: { title, year, description }, relationships }`.
+ * Cover : uploads.mangadex.org/covers/{id}/{fileName}.512.jpg
+ * Doc : docs/metadata/mangadex.md — fixture mangadex-solo-leveling.json
  */
 
 import { extractYear } from '../types.js';

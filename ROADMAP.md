@@ -189,7 +189,7 @@ Setup (1ʳᵉ fois)
 | EPUB | epub.js (viewport) + JSZip/OPF méta-spine |
 | DB | better-sqlite3 (fallback JSON) |
 | Rendu zoom/pan/filtres | CSS transform + filter GPU |
-| Métadonnées | stub, Open Library, AniList, MangaDex (sans clé) ; ComicVine, Google Books (clé userData) — voir [`docs/METADATA.md`](./docs/METADATA.md) |
+| Métadonnées | stub, Open Library, AniList, MangaDex (sans clé) ; ComicVine, Google Books (clé userData) — [`docs/METADATA.md`](./docs/METADATA.md) · contrat/mappers [`docs/metadata/`](./docs/metadata/README.md) |
 | Packaging | electron-builder (win nsis + portable) |
 
 ---

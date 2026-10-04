@@ -1,6 +1,9 @@
 /**
  * Contrat strict NormalizedMeta — sortie garantie de chaque mapper provider.
  *
+ * Schéma JSON : docs/metadata/normalized-meta.schema.json
+ * Index providers : docs/metadata/README.md
+ *
  * coverUrl : https absolu ou null (jamais http, jamais relatif, jamais data:).
  * authors  : tableau (éventuellement vide) — `author` = premier élément (compat UI/DB).
  * synopsis : texte long — `description` alias (compat UI/DB).
