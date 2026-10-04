@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import { useToastStore } from './toast.js';
+import { useUiStore } from './ui.js';
 import { t } from '../../../shared/i18n.js';
 
 export const useProfilesStore = defineStore('profiles', {
@@ -24,6 +25,15 @@ export const useProfilesStore = defineStore('profiles', {
     },
   },
   actions: {
+    applyPrefsToUi(prefs) {
+      if (!prefs) return;
+      const ui = useUiStore();
+      ui.applyAppearance({
+        theme: prefs.theme,
+        accent: prefs.accent,
+      });
+      if (prefs.language) ui.applyLanguage(prefs.language);
+    },
     async refresh() {
       this.loading = true;
       try {
@@ -48,24 +58,43 @@ export const useProfilesStore = defineStore('profiles', {
       if (result.ok) {
         this.activeProfileId = id;
         this.profileSelected = true;
+        this.prefs = result.prefs || this.prefs;
+        this.applyPrefsToUi(result.prefs);
         await this.refresh();
       }
       return result;
     },
-    async create(name, color) {
+    async create(name, color, language) {
       const toast = useToastStore();
       try {
-        const profile = await window.vdr.profiles.create({ name, color });
+        const profile = await window.vdr.profiles.create({
+          name,
+          color,
+          language,
+        });
         await this.refresh();
-        toast.success(t('toast.profileCreated', { name: profile?.name || name || t('common.profile') }));
+        toast.success(
+          t('toast.profileCreated', {
+            name: profile?.name || name || t('common.profile'),
+          }),
+        );
         return profile;
       } catch (err) {
         toast.error(err?.message || t('toast.profileCreateFail'));
         throw err;
       }
     },
-    async update(id, patch) {
-      await window.vdr.profiles.update(id, patch);
+    async update(id, patch = {}) {
+      const { language, ...rest } = patch;
+      if (Object.keys(rest).length) {
+        await window.vdr.profiles.update(id, rest);
+      }
+      if (language !== undefined) {
+        await window.vdr.profiles.setPrefs({ language }, id);
+        if (id === this.activeProfileId) {
+          this.applyPrefsToUi({ language });
+        }
+      }
       await this.refresh();
     },
     async remove(id) {

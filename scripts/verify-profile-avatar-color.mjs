@@ -52,6 +52,7 @@ const view = read('src/renderer/src/views/ProfilesView.vue');
 
 assert(view.includes('avatar__halo'), 'halo scale hors overflow');
 assert(view.includes('profiles__colors'), 'rangée couleurs dans le formulaire');
+assert(view.includes('profiles__locales'), 'rangée drapeaux dans le formulaire');
 assert(
   /v-if="!isNaming"[\s\S]*?profiles__grid|profiles__grid[\s\S]*?v-if="!isNaming"/.test(
     view,
@@ -61,6 +62,10 @@ assert(
 assert(
   /class="profiles__create"[\s\S]*?profiles__colors/.test(view),
   'palette couleurs uniquement dans le formulaire create/edit',
+);
+assert(
+  /class="profiles__create"[\s\S]*?profiles__locales/.test(view),
+  'drapeaux uniquement dans le formulaire create/edit',
 );
 assert(view.includes('selectedColor'), 'état couleur sélectionnée');
 assert(
@@ -106,6 +111,7 @@ assert(
   'manette dispatch nav formulaire profil',
 );
 assert(pad.includes('profiles__colors'), 'manette gère focus palette');
+assert(pad.includes('profiles__locales'), 'manette gère focus drapeaux');
 
 // --- DB update color ---
 const db = read('src/main/database/profiles.js');

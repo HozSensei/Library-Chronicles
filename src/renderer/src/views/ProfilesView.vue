@@ -13,6 +13,7 @@ import {
 } from '../router';
 import { scheduleScrollFocusedIntoView } from '../../../shared/focus-scroll.js';
 import { focusTextInputForEdit } from '../../../shared/virtual-keyboard.js';
+import { LOCALES, normalizeLocale } from '../../../shared/i18n.js';
 
 const router = useRouter();
 const profiles = useProfilesStore();
@@ -27,11 +28,16 @@ const phase = ref('pick');
 const editingId = ref(null);
 const nameInput = ref(null);
 /**
- * Focus formulaire : 0 = pseudo, 1 = palette couleur, 2 = valider.
+ * Focus formulaire : 0 = pseudo, 1 = palette couleur, 2 = drapeaux langue, 3 = valider.
  */
 const formFocus = ref(0);
 /** Couleur d’icône choisie (création / édition). */
 const selectedColor = ref('#c4a35a');
+/** Locale profil (création / édition) — source de vérité i18n. */
+const selectedLocale = ref('fr');
+/** Locale UI avant édition (restauration à l’annulation). */
+const localeBeforeEdit = ref('fr');
+const localeOptions = LOCALES;
 
 /** Focus : 0..n-1 = profils, n = bouton + */
 const totalSlots = computed(() => profiles.profiles.length + 1);
@@ -71,10 +77,28 @@ const hints = computed(() => {
         { key: 'B', label: t('profiles.hintCancel') },
       ];
     }
+    if (formFocus.value === 2) {
+      return [
+        { key: '←→', label: t('profiles.hintLang') },
+        { key: '↑↓', label: t('profiles.hintFieldValidate') },
+        { key: 'A', label: t('profiles.hintValidate') },
+        { key: 'B', label: t('profiles.hintCancel') },
+      ];
+    }
     return [
       { key: '↑↓', label: t('profiles.hintNav') },
-      { key: '←→', label: formFocus.value === 0 ? t('profiles.hintColor') : t('profiles.hintField') },
-      { key: 'A', label: formFocus.value === 2 ? t('profiles.hintValidate') : t('profiles.hintKeyboard') },
+      {
+        key: '←→',
+        label:
+          formFocus.value === 0 ? t('profiles.hintColor') : t('profiles.hintField'),
+      },
+      {
+        key: 'A',
+        label:
+          formFocus.value === 3
+            ? t('profiles.hintValidate')
+            : t('profiles.hintKeyboard'),
+      },
       { key: 'B', label: t('profiles.hintCancel') },
     ];
   }
@@ -148,6 +172,9 @@ function openCreate() {
   editingId.value = null;
   newName.value = '';
   selectedColor.value = defaultCreateColor();
+  localeBeforeEdit.value = normalizeLocale(ui.language);
+  selectedLocale.value = 'fr';
+  ui.applyLanguage(selectedLocale.value);
   phase.value = 'naming';
   formFocus.value = 0;
   profiles.setFocus(profiles.profiles.length);
@@ -159,12 +186,16 @@ function openRename(index) {
   editingId.value = p.id;
   newName.value = p.name || '';
   selectedColor.value = p.color || defaultCreateColor();
+  localeBeforeEdit.value = normalizeLocale(ui.language);
+  selectedLocale.value = normalizeLocale(p.language || ui.language || 'fr');
+  ui.applyLanguage(selectedLocale.value);
   phase.value = 'naming';
   formFocus.value = 0;
   profiles.setFocus(index);
 }
 
 function cancelNaming() {
+  ui.applyLanguage(localeBeforeEdit.value);
   phase.value = 'pick';
   editingId.value = null;
   newName.value = '';
@@ -183,12 +214,6 @@ async function choose(index) {
   const p = profiles.profiles[index];
   if (!p) return;
   await profiles.select(p.id);
-  const prefs = await window.vdr.profiles.getPrefs(p.id);
-  ui.applyAppearance({
-    theme: prefs?.theme,
-    accent: prefs?.accent,
-  });
-  if (prefs?.language) ui.applyLanguage(prefs.language);
   await afterSelect();
 }
 
@@ -208,6 +233,23 @@ function cycleColor(delta) {
   formFocus.value = 1;
 }
 
+function setLocaleFlag(locale) {
+  selectedLocale.value = normalizeLocale(locale);
+  formFocus.value = 2;
+  ui.applyLanguage(selectedLocale.value);
+}
+
+function cycleLocale(delta) {
+  const list = localeOptions;
+  if (!list.length) return;
+  const cur = list.indexOf(normalizeLocale(selectedLocale.value));
+  const idx = cur >= 0 ? cur : 0;
+  const next = (idx + delta + list.length) % list.length;
+  selectedLocale.value = list[next];
+  formFocus.value = 2;
+  ui.applyLanguage(selectedLocale.value);
+}
+
 async function submitName() {
   creating.value = true;
   try {
@@ -217,11 +259,13 @@ async function submitName() {
         ? profiles.profiles.find((p) => p.id === editingId.value)?.name
         : null) ||
       t('profiles.defaultName', { n: profiles.profiles.length + 1 });
+    const language = normalizeLocale(selectedLocale.value);
 
     if (editingId.value != null) {
       await profiles.update(editingId.value, {
         name,
         color: selectedColor.value,
+        language,
       });
       phase.value = 'pick';
       editingId.value = null;
@@ -229,7 +273,11 @@ async function submitName() {
       return;
     }
 
-    const created = await profiles.create(name, selectedColor.value);
+    const created = await profiles.create(
+      name,
+      selectedColor.value,
+      language,
+    );
     newName.value = '';
     phase.value = 'pick';
     await profiles.select(created.id);
@@ -243,12 +291,12 @@ function onAddClick() {
   openCreate();
 }
 
-/** API manette / tests — focus formulaire 0|1|2 */
+/** API manette / tests — focus formulaire 0|1|2|3 */
 function moveFormFocus(delta) {
   if (delta < 0) {
     formFocus.value = Math.max(0, formFocus.value - 1);
   } else {
-    formFocus.value = Math.min(2, formFocus.value + 1);
+    formFocus.value = Math.min(3, formFocus.value + 1);
   }
   void syncFormDomFocus();
 }
@@ -257,7 +305,7 @@ async function syncFormDomFocus() {
   await nextTick();
   if (formFocus.value === 0) {
     await focusTextInputForEdit(nameInput.value);
-  } else if (formFocus.value === 2) {
+  } else if (formFocus.value === 3) {
     document.querySelector('.profiles__create .btn-primary')?.focus?.();
   } else {
     /** @type {HTMLElement} */ (document.activeElement)?.blur?.();
@@ -266,7 +314,8 @@ async function syncFormDomFocus() {
 
 /**
  * Navigation formulaire naming (manette).
- * ↑↓ = champ ↔ couleur ↔ valider ; ←→ = cycle couleurs si focus palette.
+ * ↑↓ = champ ↔ couleur ↔ langue ↔ valider ;
+ * ←→ = cycle couleurs / drapeaux (sélection auto au focus).
  */
 function handleFormNav(dir) {
   if (!isNaming.value) return;
@@ -276,7 +325,11 @@ function handleFormNav(dir) {
       return;
     }
     if (formFocus.value === 2) {
-      formFocus.value = 1;
+      cycleLocale(-1);
+      return;
+    }
+    if (formFocus.value === 3) {
+      formFocus.value = 2;
       void syncFormDomFocus();
       return;
     }
@@ -286,6 +339,10 @@ function handleFormNav(dir) {
   if (dir === 'right') {
     if (formFocus.value === 1) {
       cycleColor(1);
+      return;
+    }
+    if (formFocus.value === 2) {
+      cycleLocale(1);
       return;
     }
     if (formFocus.value === 0) {
@@ -311,8 +368,8 @@ async function activateFocused() {
       await focusTextInputForEdit(nameInput.value);
       return;
     }
-    if (formFocus.value === 1) {
-      // Sur la palette, A valide directement (couleur déjà choisie)
+    // Sur palette / drapeaux / valider : A soumet (choix déjà appliqué)
+    if (formFocus.value === 1 || formFocus.value === 2 || formFocus.value === 3) {
       await submitName();
       return;
     }
@@ -342,9 +399,12 @@ defineExpose({
   handleFormNav,
   cycleColor,
   setColor,
+  cycleLocale,
+  setLocaleFlag,
   phase,
   formFocus,
   selectedColor,
+  selectedLocale,
 });
 </script>
 
@@ -460,12 +520,38 @@ defineExpose({
           />
         </div>
 
+        <div
+          class="profiles__locales"
+          role="listbox"
+          :aria-label="t('profiles.langAria')"
+          :class="{ 'is-focused': formFocus === 2 }"
+        >
+          <button
+            v-for="loc in localeOptions"
+            :key="loc"
+            type="button"
+            class="locale-flag"
+            role="option"
+            :aria-selected="selectedLocale === loc"
+            :class="[
+              `locale-flag--${loc}`,
+              { 'is-active': selectedLocale === loc },
+            ]"
+            :aria-label="t(`lang.${loc}`)"
+            :title="t(`lang.${loc}`)"
+            @click="setLocaleFlag(loc)"
+          >
+            <span class="locale-flag__face" aria-hidden="true" />
+            <span class="locale-flag__code">{{ loc.toUpperCase() }}</span>
+          </button>
+        </div>
+
         <button
           type="submit"
           class="btn-primary"
-          :class="{ 'is-focused': formFocus === 2 }"
+          :class="{ 'is-focused': formFocus === 3 }"
           :disabled="creating"
-          @focus="formFocus = 2"
+          @focus="formFocus = 3"
         >
           {{ submitLabel }}
         </button>
@@ -708,7 +794,8 @@ footer {
   box-shadow: 0 0 0 3px var(--focus-glow);
 }
 
-.profiles__colors {
+.profiles__colors,
+.profiles__locales {
   flex: 0 0 100%;
   display: flex;
   flex-wrap: wrap;
@@ -719,7 +806,8 @@ footer {
   border: 1px solid transparent;
 }
 
-.profiles__colors.is-focused {
+.profiles__colors.is-focused,
+.profiles__locales.is-focused {
   border-color: var(--brass-bright);
   box-shadow: 0 0 0 3px var(--focus-glow);
 }
@@ -743,6 +831,64 @@ footer {
   transform: scale(1.08);
 }
 
+.locale-flag {
+  appearance: none;
+  display: grid;
+  justify-items: center;
+  gap: 0.2rem;
+  padding: 0.2rem 0.35rem;
+  border: none;
+  background: transparent;
+  color: var(--paper-dim);
+  cursor: pointer;
+  transition:
+    transform 140ms var(--ease-soft),
+    color 140ms var(--ease-soft);
+}
+
+.locale-flag__face {
+  display: block;
+  width: 1.85rem;
+  height: 1.2rem;
+  border-radius: 2px;
+  border: 1px solid color-mix(in srgb, var(--paper) 28%, transparent);
+  box-sizing: border-box;
+}
+
+.locale-flag--fr .locale-flag__face {
+  background: linear-gradient(
+    90deg,
+    #002395 0 33.33%,
+    #ffffff 33.33% 66.66%,
+    #ed2939 66.66% 100%
+  );
+}
+
+.locale-flag--en .locale-flag__face {
+  background:
+    linear-gradient(90deg, transparent 44%, #fff 44% 56%, transparent 56%),
+    linear-gradient(0deg, transparent 38%, #fff 38% 62%, transparent 62%),
+    linear-gradient(90deg, transparent 46%, #c8102e 46% 54%, transparent 54%),
+    linear-gradient(0deg, transparent 42%, #c8102e 42% 58%, transparent 58%),
+    #012169;
+}
+
+.locale-flag__code {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  line-height: 1;
+}
+
+.locale-flag.is-active {
+  color: var(--paper);
+  transform: scale(1.08);
+}
+
+.locale-flag.is-active .locale-flag__face {
+  box-shadow: 0 0 0 2px var(--ink-950), 0 0 0 4px var(--brass-bright);
+}
+
 .profiles__create .btn-primary.is-focused {
   box-shadow: 0 0 0 3px var(--focus-glow);
   border-color: var(--brass-bright);
@@ -759,6 +905,7 @@ footer {
   .avatar,
   .avatar.is-focused .avatar__halo,
   .color-swatch,
+  .locale-flag,
   .profiles__preview-disk {
     transition: none;
   }

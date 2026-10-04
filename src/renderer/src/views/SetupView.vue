@@ -21,7 +21,6 @@ import {
   normalizeAccent,
   normalizeTheme,
 } from '../../../shared/theme-accents.js';
-import { normalizeLocale } from '../../../shared/i18n.js';
 
 const router = useRouter();
 const ui = useUiStore();
@@ -33,7 +32,6 @@ const accents = ACCENTS;
 const form = reactive({
   libraryRoot: '',
   importRoot: '',
-  language: 'fr',
   theme: DEFAULT_THEME,
   accent: DEFAULT_ACCENT,
 });
@@ -67,13 +65,6 @@ watch(
   () => nextTick(() => scheduleScrollFocusedIntoView('.setup')),
 );
 
-watch(
-  () => form.language,
-  (lang) => {
-    ui.applyLanguage(lang);
-  },
-);
-
 onMounted(async () => {
   const paths =
     (await window.vdr.profiles.defaultPaths?.()) ||
@@ -83,11 +74,11 @@ onMounted(async () => {
   const prefs = active?.prefs;
   form.libraryRoot = prefs?.libraryRoot || paths.libraryRoot;
   form.importRoot = prefs?.importRoot || paths.importRoot;
-  form.language = normalizeLocale(prefs?.language || 'fr');
   form.theme = normalizeTheme(prefs?.theme);
   form.accent = normalizeAccent(prefs?.accent);
   ui.applyAppearance({ theme: form.theme, accent: form.accent });
-  ui.applyLanguage(form.language);
+  // Langue = prefs profil (source de vérité) — pas de picker setup
+  if (prefs?.language) ui.applyLanguage(prefs.language);
   ui.setSetupFocus(0);
 });
 
@@ -111,10 +102,6 @@ function setAccent(accent) {
   ui.applyAccent(form.accent);
 }
 
-function setLanguage(language) {
-  form.language = normalizeLocale(language);
-}
-
 function next() {
   if (step.value < steps.value.length - 1) {
     step.value += 1;
@@ -128,18 +115,19 @@ function back() {
 }
 
 async function finish() {
+  // Ne pas réécrire language — profil = source de vérité (drapeaux)
   await window.vdr.profiles.setPrefs({
     libraryRoot: form.libraryRoot,
     importRoot: form.importRoot,
-    language: form.language,
     theme: form.theme,
     accent: form.accent,
     setupCompleted: true,
   });
+  const prefs = await window.vdr.profiles.getPrefs();
   await window.vdr.setConfig({
     libraryRoot: form.libraryRoot,
     importRoot: form.importRoot,
-    language: form.language,
+    language: prefs?.language || ui.language || 'fr',
     theme: form.theme,
     accent: form.accent,
     orientation: 'landscape',
@@ -148,7 +136,7 @@ async function finish() {
   ui.setupCompleted = true;
   markSetupCompleted();
   ui.applyAppearance({ theme: form.theme, accent: form.accent });
-  ui.applyLanguage(form.language);
+  if (prefs?.language) ui.applyLanguage(prefs.language);
   router.replace({ name: 'library' });
 }
 
@@ -166,8 +154,6 @@ function activateFocused() {
   else if (id === 'theme-dark') setTheme('dark');
   else if (id === 'theme-light') setTheme('light');
   else if (id?.startsWith('accent-')) setAccent(id.slice('accent-'.length));
-  else if (id === 'lang-fr') setLanguage('fr');
-  else if (id === 'lang-en') setLanguage('en');
 }
 
 defineExpose({
@@ -295,28 +281,6 @@ defineExpose({
             </div>
           </div>
 
-          <div class="choice-group">
-            <p class="choice-group__label">{{ t('lang.label') }}</p>
-            <div class="choice-row">
-              <FocusButton
-                compact
-                :focused="focusedId === 'lang-fr'"
-                :subtitle="form.language === 'fr' ? t('common.active') : t('lang.interface')"
-                @select="setLanguage('fr')"
-              >
-                {{ t('lang.fr') }}
-              </FocusButton>
-              <FocusButton
-                compact
-                :focused="focusedId === 'lang-en'"
-                :subtitle="form.language === 'en' ? t('common.active') : t('lang.interface')"
-                @select="setLanguage('en')"
-              >
-                {{ t('lang.en') }}
-              </FocusButton>
-            </div>
-          </div>
-
           <div class="setup-actions">
             <FocusButton
               compact
@@ -339,10 +303,6 @@ defineExpose({
               <strong>{{ t('setup.theme') }}</strong> —
               {{ form.theme === 'light' ? t('setup.light') : t('setup.dark') }} ·
               {{ accentLabel(form.accent) }}
-            </li>
-            <li>
-              <strong>{{ t('lang.label') }}</strong> —
-              {{ form.language === 'en' ? t('lang.en') : t('lang.fr') }}
             </li>
             <li>
               <strong>{{ t('setup.orientation') }}</strong> —

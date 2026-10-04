@@ -132,9 +132,7 @@ function generalFocusIndex(kind, id) {
     const i = accents.findIndex((a) => a.id === id);
     return i >= 0 ? 2 + i : 2;
   }
-  if (kind === 'lang-fr') return 2 + accents.length;
-  if (kind === 'lang-en') return 2 + accents.length + 1;
-  if (kind === 'haptics') return 2 + accents.length + 2;
+  if (kind === 'haptics') return 2 + accents.length;
   return 0;
 }
 
@@ -143,10 +141,6 @@ const hapticsSubtitle = computed(() => {
   if (!ui.hapticsAvailable) return t('settings.hapticsOnNoHw');
   return t('settings.hapticsOn');
 });
-
-async function setLanguage(language) {
-  await ui.setLanguage(language);
-}
 
 const controlHints = computed(() => [
   { key: '↑↓←→', label: t('settings.hintNav') },
@@ -301,30 +295,6 @@ const listeningLabel = computed(() => {
           </div>
         </div>
 
-        <div class="choice-group">
-          <p class="choice-group__label">{{ t('lang.label') }}</p>
-          <div class="choice-row">
-            <FocusButton
-              data-settings-item
-              data-focus-row="lang"
-              :focused="ui.settingsFocusIndex === generalFocusIndex('lang-fr')"
-              :subtitle="ui.language === 'fr' ? t('common.active') : t('lang.interface')"
-              @select="setLanguage('fr')"
-            >
-              {{ t('lang.fr') }}
-            </FocusButton>
-            <FocusButton
-              data-settings-item
-              data-focus-row="lang"
-              :focused="ui.settingsFocusIndex === generalFocusIndex('lang-en')"
-              :subtitle="ui.language === 'en' ? t('common.active') : t('lang.interface')"
-              @select="setLanguage('en')"
-            >
-              {{ t('lang.en') }}
-            </FocusButton>
-          </div>
-        </div>
-
         <FocusButton
           data-settings-item
           :focused="ui.settingsFocusIndex === generalFocusIndex('haptics')"
@@ -337,6 +307,7 @@ const listeningLabel = computed(() => {
 
       <template v-else-if="section === 'profiles'">
         <p class="hint">{{ t('settings.profilesHint', { name: profiles.activeProfile?.name || '—' }) }}</p>
+        <p class="hint">{{ t('settings.languageOnProfile') }}</p>
         <p v-if="profileMsg" class="api-status">{{ profileMsg }}</p>
         <ul class="profile-list">
           <li v-for="p in profiles.profiles" :key="p.id">

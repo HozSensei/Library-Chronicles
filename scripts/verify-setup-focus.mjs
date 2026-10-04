@@ -52,10 +52,13 @@ assert(setupFocusables(0)[idx] === 'next', '↓ : import → next');
 idx = moveSetupFocus(folders, idx, 'up');
 assert(setupFocusables(0)[idx] === 'import', '↑ : next → import');
 
-// Préférences = step 1
+// Préférences = step 1 (langue = écran profil, pas setup)
 const prefs = setupFocusRows(1);
-assert(prefs.length === 4, 'prefs : 4 rangées (mode, accents, langue, next)');
-assert(prefs[2].join(',') === 'lang-fr,lang-en', 'langue FR+EN côte à côte');
+assert(prefs.length === 3, 'prefs : 3 rangées (mode, accents, next)');
+assert(
+  !setupFocusables(1).some((id) => String(id).startsWith('lang-')),
+  'pas de choix langue dans le focus setup',
+);
 idx = 0;
 idx = moveSetupFocus(prefs, idx, 'right');
 assert(setupFocusables(1)[idx] === 'theme-light', 'thème → light');
@@ -65,6 +68,8 @@ idx = moveSetupFocus(prefs, idx, 'down');
 assert(String(setupFocusables(1)[idx]).startsWith('accent-'), '↓ → rangée accents');
 idx = moveSetupFocus(prefs, idx, 'right');
 assert(String(setupFocusables(1)[idx]).startsWith('accent-'), '←→ dans accents');
+idx = moveSetupFocus(prefs, idx, 'down');
+assert(setupFocusables(1)[idx] === 'next', '↓ accents → next');
 
 assert(setupFocusRows(2).flat().join(',') === 'finish', 'step 2 = prêt / finish');
 

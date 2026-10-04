@@ -252,7 +252,7 @@ function createLoop(ctx) {
       const naming = Boolean(document.querySelector('.profiles__create'));
 
       if (naming) {
-        // Formulaire : 0=pseudo · 1=palette · 2=valider (via événement ProfilesView)
+        // Formulaire : 0=pseudo · 1=palette · 2=drapeaux · 3=valider
         if (
           action === 'cursor-left' ||
           action === 'cursor-right' ||
@@ -273,13 +273,18 @@ function createLoop(ctx) {
           const colorsFocused = document
             .querySelector('.profiles__colors')
             ?.classList.contains('is-focused');
+          const localesFocused = document
+            .querySelector('.profiles__locales')
+            ?.classList.contains('is-focused');
           const onValidate =
             document.activeElement === btn ||
             (btn?.classList.contains('is-focused') &&
               !input?.classList.contains('is-focused') &&
               !colorsFocused &&
+              !localesFocused &&
               !isTextInputFocused()) ||
-            colorsFocused;
+            colorsFocused ||
+            localesFocused;
           if (onValidate) {
             document.querySelector('.profiles__create')?.requestSubmit?.();
             vibe('confirm');
