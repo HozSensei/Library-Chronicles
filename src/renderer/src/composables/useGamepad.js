@@ -520,17 +520,9 @@ function createLoop(ctx) {
         }
         if (library.focusZone === 'recent') {
           const target = library.resolveRecentOpen();
-          if (target?.type === 'series' && target.seriesId) {
-            vibe('confirm');
-            router.push({
-              name: ROUTE.LIBRARY_SERIES,
-              params: { seriesId: String(target.seriesId) },
-            });
-            return;
-          }
           if (target?.type === 'book' && target.bookId != null) {
             vibe('confirm');
-            router.push({ name: 'book', params: { id: String(target.bookId) } });
+            router.push(bookDetailLocation(target.bookId, 'library'));
           }
           return;
         }

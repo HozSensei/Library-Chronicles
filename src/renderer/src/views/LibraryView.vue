@@ -116,7 +116,12 @@ function openResolved(target) {
 }
 
 function openRecentEntry(entry) {
-  openResolved(library.resolveRecentOpen(entry));
+  const target = library.resolveRecentOpen(entry);
+  if (target?.type === 'book') {
+    openBook({ id: target.bookId });
+    return;
+  }
+  if (library.isEmpty) router.push({ name: ROUTE.IMPORT });
 }
 
 function openSelected() {
@@ -142,18 +147,46 @@ function recentLabel(entry) {
   return entry.lastBook?.title || entry.series || t('common.untitled');
 }
 
-function recentMeta(entry) {
-  if (!entry) return '';
-  if (entry.kind === 'series') {
-    return `${t('library.volumes', { n: entry.volumeCount })} · ${statusBadge(entry.status)}`;
-  }
-  return statusBadge(entry.status);
-}
-
 function statusBadge(status) {
   if (status === 'reading') return t('library.statusReading');
   if (status === 'finished') return t('library.statusFinished');
   return t('library.statusUnread');
+}
+
+/** Fenêtre « Nouveau » : ajouts récents (14 jours). */
+const NEW_BOOK_MS = 14 * 24 * 60 * 60 * 1000;
+
+function isNewBook(book) {
+  if (!book?.createdAt) return false;
+  const ts = Date.parse(book.createdAt);
+  if (!Number.isFinite(ts)) return false;
+  return Date.now() - ts <= NEW_BOOK_MS;
+}
+
+/**
+ * Tags overlay sur jaquette (coin) — remplace les labels sous cover.
+ * @param {object|null|undefined} book
+ * @param {{ forceNew?: boolean }} [opts]
+ */
+function coverTags(book, { forceNew = false } = {}) {
+  if (!book) return [];
+  const tags = [];
+  if (forceNew || isNewBook(book)) {
+    tags.push({ id: 'new', label: t('library.statusNew') });
+  }
+  if (book.status === 'unread') {
+    tags.push({ id: 'unread', label: t('library.statusUnread') });
+  }
+  return tags;
+}
+
+function recentCoverBook(entry) {
+  return entry?.lastBook || null;
+}
+
+function continueProgress(book) {
+  if (!book?.pageTotal) return '';
+  return `p. ${book.pageCurrent + 1}/${book.pageTotal}`;
 }
 
 function switchProfile() {
@@ -307,15 +340,19 @@ function selectTab(tab) {
               >
                 <div class="poster__art">
                   <LazyCover :book-id="book.id" :alt="book.title" :format="book.format" />
+                  <span v-if="coverTags(book).length" class="poster__tags" aria-hidden="true">
+                    <span
+                      v-for="tag in coverTags(book)"
+                      :key="tag.id"
+                      class="poster__tag"
+                      :class="'poster__tag--' + tag.id"
+                    >{{ tag.label }}</span>
+                  </span>
+                  <span v-if="continueProgress(book)" class="poster__progress">
+                    {{ continueProgress(book) }}
+                  </span>
                 </div>
                 <span class="poster__title">{{ book.title }}</span>
-                <span class="poster__meta">
-                  <template v-if="book.pageTotal">
-                    p. {{ book.pageCurrent + 1 }}/{{ book.pageTotal }}
-                  </template>
-                  <template v-else>{{ statusBadge(book.status) }}</template>
-                  <template v-if="book.series"> · {{ book.series }}</template>
-                </span>
               </button>
             </div>
           </section>
@@ -365,20 +402,24 @@ function selectTab(tab) {
                 >
                   <div class="poster__art">
                     <LazyCover :book-id="book.id" :alt="book.title" :format="book.format" />
+                    <span v-if="coverTags(book).length" class="poster__tags" aria-hidden="true">
+                      <span
+                        v-for="tag in coverTags(book)"
+                        :key="tag.id"
+                        class="poster__tag"
+                        :class="'poster__tag--' + tag.id"
+                      >{{ tag.label }}</span>
+                    </span>
                   </div>
                   <span class="poster__title">{{ book.title }}</span>
-                  <span class="poster__meta">
-                    {{ statusBadge(book.status) }}
-                    <template v-if="book.series"> · {{ book.series }}</template>
-                  </span>
                 </button>
               </div>
             </section>
 
-            <!-- New / Récents rail — une entrée par série -->
+            <!-- New / Récents rail — une entrée par série ; clic → fiche livre -->
             <section v-if="library.recentSeries.length" class="rail-section" aria-label="Nouveautés">
               <div class="rail-head">
-                <h2>Nouveautés</h2>
+                <h2>{{ t('library.nouveautes') }}</h2>
                 <div class="rail-arrows">
                   <button type="button" class="rail-arrow" aria-label="Précédent" @click="scrollRail('.rail--recent', -1)">‹</button>
                   <button type="button" class="rail-arrow" aria-label="Suivant" @click="scrollRail('.rail--recent', 1)">›</button>
@@ -404,9 +445,20 @@ function selectTab(tab) {
                       :alt="recentLabel(entry)"
                       :format="entry.lastBook?.format"
                     />
+                    <span
+                      v-if="coverTags(recentCoverBook(entry), { forceNew: true }).length"
+                      class="poster__tags"
+                      aria-hidden="true"
+                    >
+                      <span
+                        v-for="tag in coverTags(recentCoverBook(entry), { forceNew: true })"
+                        :key="tag.id"
+                        class="poster__tag"
+                        :class="'poster__tag--' + tag.id"
+                      >{{ tag.label }}</span>
+                    </span>
                   </div>
                   <span class="poster__title">{{ recentLabel(entry) }}</span>
-                  <span class="poster__meta">{{ recentMeta(entry) }}</span>
                 </button>
               </div>
             </section>
@@ -457,12 +509,16 @@ function selectTab(tab) {
               >
                 <div class="poster__art">
                   <LazyCover :book-id="book.id" :alt="book.title" :format="book.format" />
+                  <span v-if="coverTags(book).length" class="poster__tags" aria-hidden="true">
+                    <span
+                      v-for="tag in coverTags(book)"
+                      :key="tag.id"
+                      class="poster__tag"
+                      :class="'poster__tag--' + tag.id"
+                    >{{ tag.label }}</span>
+                  </span>
                 </div>
                 <span class="poster__title">{{ book.title }}</span>
-                <span class="poster__meta">
-                  {{ statusBadge(book.status) }}
-                  <template v-if="book.series"> · {{ book.series }}</template>
-                </span>
               </button>
             </div>
           </section>
@@ -496,9 +552,20 @@ function selectTab(tab) {
                     :alt="recentLabel(entry)"
                     :format="entry.lastBook?.format"
                   />
+                  <span
+                    v-if="coverTags(recentCoverBook(entry)).length"
+                    class="poster__tags"
+                    aria-hidden="true"
+                  >
+                    <span
+                      v-for="tag in coverTags(recentCoverBook(entry))"
+                      :key="tag.id"
+                      class="poster__tag"
+                      :class="'poster__tag--' + tag.id"
+                    >{{ tag.label }}</span>
+                  </span>
                 </div>
                 <span class="poster__title">{{ recentLabel(entry) }}</span>
-                <span class="poster__meta">{{ recentMeta(entry) }}</span>
               </button>
             </div>
           </section>
@@ -863,6 +930,8 @@ function selectTab(tab) {
   width: 100%;
   max-width: none;
   min-width: 0;
+  /* Grille : hauteur auto, titre toujours 2 lignes (min/max-height) */
+  height: auto;
 }
 
 .poster {
@@ -871,6 +940,8 @@ function selectTab(tab) {
   width: 140px;
   max-width: 140px;
   min-width: 0;
+  /* Hauteur de carte fixe : art 2/3 + titre 2 lignes */
+  height: calc(140px * 3 / 2 + 0.55rem + 2.5em);
   box-sizing: border-box;
   appearance: none;
   border: none;
@@ -881,6 +952,9 @@ function selectTab(tab) {
   cursor: pointer;
   font: inherit;
   scroll-snap-align: start;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
 }
 
 .poster__art {
@@ -889,6 +963,7 @@ function selectTab(tab) {
   max-width: 100%;
   aspect-ratio: 2 / 3;
   height: auto;
+  flex: 0 0 auto;
   border-radius: 14px;
   overflow: hidden;
   background: var(--ink-800);
@@ -913,24 +988,84 @@ function selectTab(tab) {
   border-color: var(--brass-bright);
 }
 
-.poster__title {
-  display: block;
-  margin-top: 0.55rem;
-  width: 100%;
+.poster__tags {
+  position: absolute;
+  top: 0.4rem;
+  left: 0.4rem;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.22rem;
+  max-width: calc(100% - 0.8rem);
+  pointer-events: none;
+}
+
+.poster__tag {
+  display: inline-block;
   max-width: 100%;
-  font-family: var(--font-display);
-  font-size: 0.88rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1.1;
+  padding: 0.22rem 0.42rem;
+  border-radius: 5px;
+}
+
+.poster__tag--new {
+  background: var(--brass);
+  color: #0e1419;
+}
+
+.poster__tag--unread {
+  background: color-mix(in srgb, var(--ink-950) 72%, transparent);
+  color: var(--paper);
+  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+  backdrop-filter: blur(4px);
+}
+
+.poster__progress {
+  position: absolute;
+  left: 0.4rem;
+  right: 0.4rem;
+  bottom: 0.4rem;
+  z-index: 2;
+  pointer-events: none;
+  font-size: 0.65rem;
   font-weight: 600;
+  line-height: 1.2;
+  padding: 0.2rem 0.35rem;
+  border-radius: 5px;
+  text-align: center;
+  color: var(--paper);
+  background: color-mix(in srgb, var(--ink-950) 68%, transparent);
+  backdrop-filter: blur(4px);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.poster__meta {
-  display: block;
-  margin-top: 0.15rem;
-  font-size: 0.72rem;
-  color: var(--paper-dim);
+.poster__title {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  margin-top: 0.55rem;
+  width: 100%;
+  max-width: 100%;
+  min-height: 2.5em;
+  max-height: 2.5em;
+  font-family: var(--font-display);
+  font-size: 0.88rem;
+  font-weight: 600;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: break-word;
 }
 
 .catalog__empty {
