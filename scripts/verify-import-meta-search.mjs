@@ -10,6 +10,7 @@ import {
   IMPORT_FLOW,
   META_RETURN,
   flowFromViewState,
+  flowFromRouteName,
   normalizeEntryIntent,
   normalizeImportFlow,
   normalizeMetaReturn,
@@ -17,6 +18,7 @@ import {
   viewStateFromFlow,
 } from '../src/shared/import-flow.js';
 import { resolveImportBackAction } from '../src/shared/import-focus.js';
+import { ROUTE } from '../src/shared/app-routes.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 let failed = 0;
@@ -59,14 +61,28 @@ assert(
 assert(viewStateFromFlow('sheet').viewMode === 'detail', 'viewState sheet');
 
 assert(
+  flowFromRouteName(ROUTE.IMPORT_ITEM_META) === 'meta-search',
+  'flow from route meta',
+);
+assert(flowFromRouteName(ROUTE.IMPORT_ITEM) === 'sheet', 'flow from route sheet');
+assert(flowFromRouteName(ROUTE.IMPORT) === 'list', 'flow from route list');
+
+assert(
   resolveImportFlowBack({ flow: 'meta-search', metaReturn: 'sheet' }) ===
     'to-sheet',
   'B meta-search → sheet',
 );
 assert(
-  resolveImportFlowBack({ flow: 'meta-search', metaReturn: 'book' }) ===
-    'to-book',
-  'B meta-search → book',
+  resolveImportFlowBack({
+    routeName: ROUTE.LIBRARY_BOOK_META,
+  }) === 'to-book',
+  'B library-book-meta → book (route)',
+);
+assert(
+  resolveImportFlowBack({
+    routeName: ROUTE.IMPORT_ITEM_META,
+  }) === 'to-sheet',
+  'B import-item-meta → sheet (route)',
 );
 assert(
   resolveImportFlowBack({ flow: 'sheet', metaReturn: 'list' }) === 'to-list',
@@ -91,10 +107,9 @@ assert(
 );
 assert(
   resolveImportBackAction({
-    flow: 'meta-search',
-    metaReturn: 'book',
+    routeName: ROUTE.LIBRARY_BOOK_META,
   }) === 'to-book',
-  'resolveImportBackAction to-book',
+  'resolveImportBackAction route → book',
 );
 
 const view = readFileSync(
@@ -125,9 +140,8 @@ const channels = readFileSync(
 );
 
 assert(store.includes('openMetaSearch'), 'store openMetaSearch');
-assert(store.includes('entryIntent'), 'store entryIntent');
-assert(store.includes('consumeEntryIntent'), 'store consumeEntryIntent');
-assert(store.includes('metaReturn'), 'store metaReturn');
+assert(store.includes('selectByBookId'), 'store selectByBookId');
+assert(store.includes('selectByItemKey'), 'store selectByItemKey');
 assert(store.includes('setFlow'), 'store setFlow');
 assert(store.includes('goToList'), 'store goToList');
 assert(store.includes('goToSheet'), 'store goToSheet');
@@ -138,17 +152,15 @@ assert(
   'toast retrait bibliothèque',
 );
 
-assert(view.includes('consumeEntryIntent'), 'ImportView consomme entryIntent');
+assert(view.includes('syncFromRoute'), 'ImportView syncFromRoute');
 assert(
   !/onMounted\([\s\S]*?imp\.closeDetail\(\)/.test(view),
   'ImportView onMounted ne closeDetail plus aveuglément',
 );
 assert(
-  view.includes('ne closeDetail() systématiquement') ||
-    view.includes('resumeFlow'),
+  view.includes('pas d’entryIntent') || view.includes('syncFromRoute'),
   'doc / garde anti-régression closeDetail',
 );
-assert(view.includes('resumeFlow'), 'ImportView reprend flow');
 assert(view.includes('Retirer de la bibliothèque'), 'hint X retirer');
 assert(view.includes('openMetaSearch'), 'ImportView openMetaSearch');
 assert(view.includes('import__import-all'), 'bouton header Tout importer');
@@ -158,9 +170,9 @@ assert(
   'plus hint Y Tout importer sur liste',
 );
 
-assert(bookView.includes('openMetaSearch'), 'BookDetail → openMetaSearch');
-assert(bookView.includes('META_RETURN.BOOK'), 'BookDetail metaReturn book');
-assert(bookView.includes('entryIntent: true'), 'BookDetail pose entryIntent');
+assert(bookView.includes('bookMetaLocation'), 'BookDetail → bookMetaLocation');
+assert(bookView.includes('goImportMeta'), 'BookDetail goImportMeta');
+assert(!bookView.includes('entryIntent'), 'plus entryIntent BookDetail');
 assert(
   !bookView.includes('setDetailTab(IMPORT_DETAIL_TABS.SEARCH)'),
   'plus de setDetailTab SEARCH puis push (course onMounted)',
@@ -168,7 +180,6 @@ assert(
 
 assert(gamepad.includes('to-book'), 'gamepad B → book');
 assert(gamepad.includes('toggleImportOrRemoveSelected'), 'gamepad X toggle');
-assert(gamepad.includes('openMetaSearch'), 'gamepad Y/LB → openMetaSearch');
 assert(gamepad.includes('IMPORT_FLOW'), 'gamepad machine flow');
 assert(
   gamepad.includes('libre sur liste'),
@@ -188,6 +199,7 @@ assert(
   store.includes('return true') && store.includes('applyEnrichResult'),
   'applyEnrichResult retourne booléen',
 );
+assert(store.includes('beginApplyEnrichResult'), 'apply ouvre modal');
 
 assert(channels.includes('LIBRARY_DELETE_BOOK'), 'IPC channel delete');
 assert(ipc.includes('LIBRARY_DELETE_BOOK'), 'IPC handler delete');

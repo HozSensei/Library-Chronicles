@@ -60,10 +60,17 @@ assert(view.includes('openSeries(group.seriesId)'), 'onglet Séries → fiche s�
 assert(!view.includes('nextUnreadForSelected().then'), 'plus d’ouverture directe nextUnread sur Séries');
 
 assert(seriesView.includes('series-detail'), 'SeriesDetailView markup');
-assert(seriesView.includes("name: 'book'"), 'série → fiche tome');
+assert(
+  seriesView.includes("name: 'library-book'") ||
+    seriesView.includes("name: 'book'"),
+  'série → fiche tome',
+);
 assert(seriesView.includes('volumes'), 'liste tomes');
 
-assert(pad.includes("route === 'series'"), 'useGamepad route series');
+assert(
+  pad.includes('LIBRARY_SERIES') || pad.includes("route === 'series'"),
+  'useGamepad route series',
+);
 assert(pad.includes('resolveSeriesOpen'), 'A séries → resolveSeriesOpen');
 assert(pad.includes('resolveRecentOpen'), 'A récents → resolveRecentOpen');
 assert(pad.includes("name: 'series'"), 'push fiche série');
