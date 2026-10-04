@@ -858,6 +858,8 @@ footer {
   gap: 0.55rem;
   min-width: 0;
   width: 100%;
+  padding: 0.2rem 0.1rem;
+  box-sizing: border-box;
 }
 
 .accent-swatch {
