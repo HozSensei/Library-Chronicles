@@ -13,7 +13,7 @@ import {
   importFieldDomId,
 } from '../../../shared/import-focus.js';
 import { IMPORT_FLOW } from '../../../shared/import-flow.js';
-import { metaSourceLabel } from '../../../shared/import-meta.js';
+import { metaSourceLabel, enrichResultCardFields } from '../../../shared/import-meta.js';
 import { focusTextInputForEdit } from '../../../shared/virtual-keyboard.js';
 import {
   META_APPLY_FIELDS,
@@ -50,19 +50,20 @@ const listHints = computed(() => {
 });
 
 const infosHints = computed(() => [
-  { key: '↑↓', label: 'champ' },
-  { key: 'A', label: 'éditer' },
-  { key: 'X', label: 'Importer le livre' },
-  { key: 'Y', label: 'Importer des méta' },
-  { key: 'B', label: 'retour liste' },
+  { key: '↑↓', label: t('import.hintField') },
+  { key: 'A', label: t('import.hintEdit') },
+  { key: 'X', label: t('import.hintImportBook') },
+  { key: 'Y', label: t('import.hintImportMeta') },
+  { key: 'LB/RB', label: t('import.hintTab') },
+  { key: 'B', label: t('import.hintBackList') },
 ]);
 
 const searchHints = computed(() => [
-  { key: '↑↓', label: 'champ / résultat' },
-  { key: 'LB/RB', label: 'onglet' },
-  { key: 'A', label: 'appliquer / éditer' },
-  { key: 'Y', label: 'lancer recherche' },
-  { key: 'B', label: 'retour fiche' },
+  { key: '↑↓', label: t('import.hintFieldResult') },
+  { key: 'LB/RB', label: t('import.hintTab') },
+  { key: 'A', label: t('import.hintApplyEdit') },
+  { key: 'Y', label: t('import.hintSearch') },
+  { key: 'B', label: t('import.hintBackSheet') },
 ]);
 
 const applyModalHints = computed(() => [
@@ -99,9 +100,7 @@ const draftFormatLabel = computed(() =>
 
 const showSheetTabs = computed(
   () =>
-    imp.isSearchTab &&
-    (route.name === ROUTE.IMPORT_ITEM_META ||
-      route.name === ROUTE.IMPORT_ITEM),
+    route.name === ROUTE.IMPORT_ITEM_META || route.name === ROUTE.IMPORT_ITEM,
 );
 
 /**
@@ -222,23 +221,25 @@ function switchTab(tab) {
   if (tab === IMPORT_DETAIL_TABS.SEARCH) {
     if (
       route.name === ROUTE.IMPORT_BOOK_META ||
-      route.name === ROUTE.LIBRARY_BOOK_META
+      route.name === ROUTE.LIBRARY_BOOK_META ||
+      route.name === ROUTE.IMPORT_ITEM_META
     ) {
       return;
     }
     if (item?.filePath) {
       router.push(importItemLocation(item.filePath, { meta: true }));
-      return;
     }
     return;
   }
-  const parent = resolveParentLocation(route);
-  if (parent) {
-    router.push(parent);
+  // Infos : rester sur sheet item — jamais remonter à la liste
+  if (route.name === ROUTE.IMPORT_ITEM) return;
+  if (route.name === ROUTE.IMPORT_ITEM_META && item?.filePath) {
+    router.push(importItemLocation(item.filePath));
     return;
   }
-  if (item?.filePath) {
-    router.push(importItemLocation(item.filePath));
+  const parent = resolveParentLocation(route);
+  if (parent && parent.name !== ROUTE.IMPORT) {
+    router.push(parent);
   }
 }
 
@@ -433,20 +434,22 @@ function enrichCoverSrc(result) {
   return imp.enrichCoverPreviews[result.id] || null;
 }
 
+function enrichCard(result) {
+  return enrichResultCardFields(result, {
+    volumeLabel: (v) => t('import.enrichVolume', { n: v }),
+  });
+}
+
 function enrichSeriesLabel(result) {
-  const series = String(result?.series || '').trim();
-  if (!series) return '';
-  const title = String(result?.title || '').trim();
-  if (series === title) return series;
-  return series;
+  return enrichCard(result).series;
 }
 
 function enrichVolumeLabel(result) {
-  const v = result?.volume;
-  if (v == null || v === '') return '';
-  const n = Number(v);
-  if (!Number.isFinite(n)) return `Tome ${v}`;
-  return `Tome ${n}`;
+  return enrichCard(result).volumeLabel;
+}
+
+function enrichSynopsisExcerpt(result) {
+  return enrichCard(result).synopsis;
 }
 
 function dotLabel(item) {
@@ -570,7 +573,7 @@ defineExpose({
           :class="{ 'is-active': imp.isInfosTab }"
           @click="switchTab(IMPORT_DETAIL_TABS.INFOS)"
         >
-          Fiche
+          {{ t('import.detail') }}
         </button>
         <button
           type="button"
@@ -578,7 +581,7 @@ defineExpose({
           :class="{ 'is-active': imp.isSearchTab }"
           @click="switchTab(IMPORT_DETAIL_TABS.SEARCH)"
         >
-          Recherche
+          {{ t('import.searchTab') }}
         </button>
       </nav>
 
@@ -795,9 +798,9 @@ defineExpose({
 
             <div v-if="imp.enrichResults.length" class="import__enrich">
               <p class="import__enrich-label">
-                Résultats
+                {{ t('import.resultsLabel') }}
                 <template v-if="imp.enrichProvider"> · {{ imp.enrichProvider }}</template>
-                <span class="import__enrich-hint"> · A pour appliquer</span>
+                <span class="import__enrich-hint"> · A {{ t('import.hintApplyEdit') }}</span>
               </p>
               <button
                 v-for="(r, rIndex) in imp.enrichResults"
@@ -821,7 +824,7 @@ defineExpose({
                     v-if="enrichSeriesLabel(r)"
                     class="import__enrich-series"
                   >
-                    Série · {{ enrichSeriesLabel(r) }}
+                    {{ t('import.enrichSeries', { name: enrichSeriesLabel(r) }) }}
                   </span>
                   <span
                     v-if="enrichVolumeLabel(r)"
@@ -829,6 +832,12 @@ defineExpose({
                   >
                     {{ enrichVolumeLabel(r) }}
                   </span>
+                  <p
+                    v-if="enrichSynopsisExcerpt(r)"
+                    class="import__enrich-synopsis"
+                  >
+                    {{ enrichSynopsisExcerpt(r) }}
+                  </p>
                 </div>
               </button>
             </div>
@@ -1573,10 +1582,10 @@ defineExpose({
   display: flex;
   flex-direction: row;
   align-items: stretch;
-  gap: 0.75rem;
+  gap: 0.9rem;
   width: 100%;
-  margin-top: 0.4rem;
-  padding: 0.5rem 0.65rem;
+  margin-top: 0.55rem;
+  padding: 0.7rem 0.8rem;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--surface);
@@ -1591,7 +1600,7 @@ defineExpose({
 }
 
 .import__enrich-cover {
-  width: 3.1rem;
+  width: 4.25rem;
   flex-shrink: 0;
 }
 
@@ -1617,23 +1626,27 @@ defineExpose({
   flex: 1;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  gap: 0.2rem;
+  justify-content: flex-start;
+  gap: 0.22rem;
+  padding: 0.1rem 0;
 }
 
 .import__enrich-title {
   font-family: var(--font-display);
-  font-size: 0.95rem;
+  font-size: 1.05rem;
   font-weight: 700;
   line-height: 1.25;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  white-space: normal;
 }
 
 .import__enrich-series,
 .import__enrich-volume {
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   color: var(--paper-dim);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1643,6 +1656,17 @@ defineExpose({
 .import__enrich-volume {
   color: var(--brass-bright);
   font-weight: 600;
+}
+
+.import__enrich-synopsis {
+  margin: 0.15rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: var(--paper-dim);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .import__enrich-item.is-focused,

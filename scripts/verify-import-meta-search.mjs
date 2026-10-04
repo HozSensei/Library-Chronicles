@@ -147,9 +147,11 @@ assert(store.includes('goToList'), 'store goToList');
 assert(store.includes('goToSheet'), 'store goToSheet');
 assert(store.includes('toggleImportOrRemoveSelected'), 'store toggle X');
 assert(store.includes('removeSelectedFromLibrary'), 'store remove');
+assert(store.includes('toast.removed') || store.includes('Retiré de la bibliothèque'), 'toast retrait bibliothèque');
 assert(
-  store.includes("Retiré de la bibliothèque"),
-  'toast retrait bibliothèque',
+  view.includes('Retirer de la bibliothèque') ||
+    view.includes("t('import.removeFromLibrary')"),
+  'hint X retirer',
 );
 
 assert(view.includes('syncFromRoute'), 'ImportView syncFromRoute');
@@ -161,7 +163,6 @@ assert(
   view.includes('pas d’entryIntent') || view.includes('syncFromRoute'),
   'doc / garde anti-régression closeDetail',
 );
-assert(view.includes('Retirer de la bibliothèque'), 'hint X retirer');
 assert(view.includes('openMetaSearch'), 'ImportView openMetaSearch');
 assert(view.includes('import__import-all'), 'bouton header Tout importer');
 assert(view.includes('doImportAll'), 'handler doImportAll');
@@ -181,6 +182,7 @@ assert(
 assert(gamepad.includes('to-book'), 'gamepad B → book');
 assert(gamepad.includes('toggleImportOrRemoveSelected'), 'gamepad X toggle');
 assert(gamepad.includes('IMPORT_FLOW'), 'gamepad machine flow');
+assert(gamepad.includes('resolveImportTabAction'), 'gamepad LB/RB tabs');
 assert(
   gamepad.includes('libre sur liste'),
   'Y n’importe plus tout depuis la liste',
