@@ -12,9 +12,10 @@
  * - `book`  — B depuis meta-search → BookDetail (`?from=import`)
  *
  * Bindings liste (rappel) :
- * - A = ouvrir fiche (BookDetail si ✓, sinon sheet)
+ * - A = ouvrir fiche (BookDetail si ✓, sinon sheet) ; sur header = Tout importer
  * - X = importer ce tome / retirer de la bibliothèque si déjà importé (toggle)
- * - Y = tout importer
+ * - Y = libre sur liste (méta / recherche seulement en fiche)
+ * - Tout importer = bouton header (pas binding Y)
  * - B = retour biblio
  */
 

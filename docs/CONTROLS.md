@@ -131,11 +131,13 @@ Navigation D-Pad **et stick** (identité landscape).
 
 | Contrôle | Action |
 |----------|--------|
-| ↑↓ | Naviguer les fichiers / footer Rescanner · Retour |
-| A | Ouvrir la **fiche** (onglet Infos) — pas d’import immédiat |
-| X | **Importer le tome focus** (méta sélectionnées API, sinon défaut détecté) |
-| Y | **Tout importer** — chaque item : méta sélectionnées si présentes, sinon défaut |
+| ↑↓ | Naviguer header « Tout importer » ↔ fichiers |
+| A | Ouvrir la **fiche** (ou BookDetail si déjà ✓) — pas d’import immédiat ; sur header = **Tout importer** |
+| X | **Importer / retirer** le tome focus (toggle si déjà ✓) |
+| Y | Libre sur liste (pas de bulk) — méta / recherche uniquement en fiche |
 | B | Retour bibliothèque |
+
+Bouton **Tout importer** à côté du titre (header) — clic ou focus manette + A. Plus de binding Y bulk (déclenchements accidentels).
 
 Pastilles à gauche de chaque ligne : **bleue** = méta détectées · **rouge** = aucune méta · **verte** = choix résultat API.
 

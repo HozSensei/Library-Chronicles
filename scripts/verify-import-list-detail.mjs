@@ -1,6 +1,6 @@
 /**
- * Garde-fous UX Import : liste → fiche Infos/Recherche + bindings A/X/Y/B/LB/RB + pastilles.
- * Pas de boutons footer (hints manette comme Bibliothèque).
+ * Garde-fous UX Import : liste → fiche Infos/Recherche + bindings A/X/B/LB/RB + pastilles.
+ * Tout importer = bouton header (pas Y). Hints manette comme Bibliothèque.
  */
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -66,6 +66,10 @@ const keys = readFileSync(
   join(root, 'src/shared/key-bindings.js'),
   'utf8',
 );
+const uiSrc = readFileSync(
+  join(root, 'src/renderer/src/stores/ui.js'),
+  'utf8',
+);
 const importMain = readFileSync(
   join(root, 'src/main/library/import.js'),
   'utf8',
@@ -83,8 +87,8 @@ assert(
 );
 assert(
   actionForBinding(bindings, 'import', `button:${GamepadButtons.Y}`) ===
-    'import-all',
-  'Y → import-all',
+    'enrich',
+  'Y → enrich (méta / recherche fiche ; libre sur liste)',
 );
 assert(
   actionForBinding(bindings, 'import', `button:${GamepadButtons.A}`) ===
@@ -111,8 +115,8 @@ assert(
   'défaut X = import-one',
 );
 assert(
-  DEFAULT_KEY_BINDINGS.import[`button:${GamepadButtons.Y}`] === 'import-all',
-  'défaut Y = import-all',
+  DEFAULT_KEY_BINDINGS.import[`button:${GamepadButtons.Y}`] === 'enrich',
+  'défaut Y = enrich (plus import-all)',
 );
 assert(
   DEFAULT_KEY_BINDINGS.import[`button:${GamepadButtons.LB}`] === 'tab-prev',
@@ -121,6 +125,10 @@ assert(
 assert(
   DEFAULT_KEY_BINDINGS.import[`button:${GamepadButtons.RB}`] === 'tab-next',
   'défaut RB = tab-next',
+);
+assert(
+  !Object.values(DEFAULT_KEY_BINDINGS.import).includes('import-all'),
+  'aucun binding défaut import-all',
 );
 
 assert(IMPORT_DETAIL_TABS.INFOS === 'infos', 'tab infos');
@@ -143,6 +151,7 @@ assert(
   'dom id title',
 );
 assert(normalizeImportFocusZone('results') === 'results', 'zone results');
+assert(normalizeImportFocusZone('header') === 'header', 'zone header');
 assert(normalizeImportFocusZone('actions') === 'list', 'zone actions → list');
 assert(normalizeImportFocusZone('nope') === 'list', 'zone fallback');
 assert(normalizeImportDetailTab('search') === 'search', 'tab normalize');
@@ -316,7 +325,14 @@ assert(view.includes('ouvrir fiche'), 'hint A ouvrir fiche');
 assert(view.includes('Importer ce tome'), 'hint X importer ce tome (liste)');
 assert(view.includes('Retirer de la bibliothèque'), 'hint X retirer si ✓');
 assert(view.includes('Importer le livre'), 'CTA / hint X fiche brouillon');
-assert(view.includes('Tout importer'), 'hint Y tout importer');
+assert(view.includes('Tout importer'), 'bouton header Tout importer');
+assert(view.includes('import__import-all'), 'CSS / bouton header import-all');
+assert(view.includes('doImportAll'), 'handler doImportAll');
+assert(view.includes("importFocusZone === 'header'"), 'focus zone header');
+assert(
+  !view.includes("key: 'Y', label: 'Tout importer'"),
+  'plus de hint footer Y Tout importer',
+);
 assert(view.includes('Importer des méta'), 'CTA Importer des méta');
 assert(view.includes("key: 'X'"), 'hint key X');
 assert(view.includes("key: 'LB/RB'"), 'hint LB/RB onglets recherche');
@@ -365,13 +381,32 @@ assert(
 );
 assert(gamepad.includes("from: 'import'"), 'gamepad query from=import');
 assert(gamepad.includes("action === 'import-one'"), 'gamepad import-one');
-assert(gamepad.includes("action === 'import-all'"), 'gamepad import-all');
+assert(
+  gamepad.includes("action === 'import-all' || action === 'enrich'"),
+  'gamepad enrich/import-all fiche (méta)',
+);
+assert(
+  gamepad.includes("setImportFocusZone('header')"),
+  'gamepad ↑ → header Tout importer',
+);
+assert(
+  gamepad.includes('libre sur liste'),
+  'gamepad Y libre sur liste (pas commitAll)',
+);
+assert(
+  !/Y = tout importer[\s\S]*?commitAll/.test(gamepad),
+  'liste : plus de commitAll via Y',
+);
+assert(
+  /header[\s\S]*?imp\.commitAll/.test(gamepad),
+  'header A → commitAll',
+);
 assert(
   gamepad.includes('toggleImportOrRemoveSelected'),
   'gamepad X → toggle import/retirer',
 );
 assert(gamepad.includes('imp.commitSelected'), 'gamepad X fiche → commitSelected');
-assert(gamepad.includes('imp.commitAll'), 'gamepad Y → commitAll liste');
+assert(gamepad.includes('imp.commitAll'), 'gamepad A header → commitAll');
 assert(gamepad.includes('imp.isDetail'), 'branche détail');
 assert(gamepad.includes('imp.enrich()'), 'recherche API détail');
 assert(gamepad.includes('applyEnrichCursor'), 'appliquer résultat');
@@ -387,7 +422,12 @@ assert(!gamepad.includes('IMPORT_DETAIL_ACTIONS'), 'plus nav footer détail');
 
 assert(focusSrc.includes('resolveImportConfirmAction'), 'focus resolve A');
 assert(focusSrc.includes('jamais import'), 'doc bindings Infos');
+assert(focusSrc.includes('header'), 'doc zone header');
 assert(keys.includes("GamepadButtons.LB}`]: 'tab-prev'"), 'keys LB import');
+assert(keys.includes("GamepadButtons.Y}`]: 'enrich'"), 'keys Y = enrich');
+assert(!keys.includes("GamepadButtons.Y}`]: 'import-all'"), 'keys Y ≠ import-all');
+
+assert(uiSrc.includes("zone === 'header'"), 'ui store accepte zone header');
 
 assert(
   importMain.includes('findBookForImportSource'),
