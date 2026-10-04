@@ -807,7 +807,7 @@ defineExpose({
                     class="import__provider-ok"
                     :aria-label="t('settings.configuredOk')"
                     :title="t('settings.configuredOk')"
-                  >✓</span>
+                  >✓ {{ t('settings.configuredOk') }}</span>
                 </label>
                 <select
                   class="import__select"
@@ -1609,8 +1609,8 @@ defineExpose({
   align-items: center;
   justify-content: center;
   margin-left: 0.35rem;
-  width: 1.05rem;
-  height: 1.05rem;
+  min-height: 1.05rem;
+  padding: 0.12rem 0.45rem;
   border-radius: 999px;
   background: color-mix(in srgb, var(--success) 22%, transparent);
   color: var(--success);
@@ -1618,6 +1618,7 @@ defineExpose({
   font-weight: 800;
   line-height: 1;
   vertical-align: middle;
+  white-space: nowrap;
 }
 
 .link-btn {

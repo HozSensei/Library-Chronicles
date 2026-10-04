@@ -58,12 +58,25 @@ interface VdrApi {
         helpUrl?: string | null;
         helpLinkLabel?: string | null;
         hasKey?: boolean;
+        canTest?: boolean;
+        testOk?: boolean;
+        configuredOk?: boolean;
+        testedAt?: number | null;
+        testError?: string | null;
       }>;
       activeProvider: string;
     }>;
     setProvider: (provider: string) => Promise<{ ok: boolean; provider?: unknown }>;
     setApiKey: (provider: string, key: string) => Promise<unknown>;
     hasApiKey: (provider: string) => Promise<{ hasKey: boolean; providers?: unknown[] }>;
+    testProvider: (
+      provider: string,
+    ) => Promise<{
+      ok: boolean;
+      error?: string | null;
+      providers?: unknown[];
+      testedAt?: number | null;
+    }>;
     openHelp: (payload: { provider?: string; url?: string }) => Promise<{ ok: boolean }>;
   };
   reader: {
