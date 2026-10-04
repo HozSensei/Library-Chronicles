@@ -1,5 +1,14 @@
 import { defineStore } from 'pinia';
 import {
+  IMPORT_FLOW,
+  META_RETURN,
+  flowFromViewState,
+  normalizeEntryIntent,
+  normalizeImportFlow,
+  normalizeMetaReturn,
+  viewStateFromFlow,
+} from '../../../shared/import-flow.js';
+import {
   META_SOURCE,
   computeMetaSource,
   metadataFromDetected,
@@ -35,10 +44,26 @@ export const useImportStore = defineStore('import', {
     cursor: 0,
     /** Chemins sélectionnés (interne : commitSelection). */
     selectedPaths: [],
-    /** list = fichiers · detail = fiche méta / search API. */
+    /**
+     * État UI bas niveau (rétrocompat).
+     * Préférer `flow` / `setFlow` : list | sheet | meta-search.
+     * list = fichiers · detail = fiche méta / search API.
+     */
     viewMode: 'list',
     /** Onglet fiche : infos (méta) | search (API). */
     detailTab: 'infos',
+    /**
+     * Contexte de retour B depuis sheet / meta-search.
+     * `book` → BookDetail ; `sheet` → fiche brouillon ; `list` → liste.
+     */
+    metaReturn: META_RETURN.LIST,
+    /** Id livre BookDetail quand metaReturn === 'book'. */
+    metaReturnBookId: null,
+    /**
+     * Intent d’entrée consommé au mount ImportView (évite reset list).
+     * null | list | sheet | meta-search
+     */
+    entryIntent: null,
     loading: false,
     committing: false,
     root: null,
@@ -87,8 +112,54 @@ export const useImportStore = defineStore('import', {
     isDetail: (s) => s.viewMode === 'detail',
     isInfosTab: (s) => s.detailTab !== 'search',
     isSearchTab: (s) => s.detailTab === 'search',
+    /** Machine d’état : list | sheet | meta-search */
+    flow: (s) =>
+      flowFromViewState({ viewMode: s.viewMode, detailTab: s.detailTab }),
+    isListFlow: (s) =>
+      flowFromViewState({ viewMode: s.viewMode, detailTab: s.detailTab }) ===
+      IMPORT_FLOW.LIST,
+    isSheetFlow: (s) =>
+      flowFromViewState({ viewMode: s.viewMode, detailTab: s.detailTab }) ===
+      IMPORT_FLOW.SHEET,
+    isMetaSearchFlow: (s) =>
+      flowFromViewState({ viewMode: s.viewMode, detailTab: s.detailTab }) ===
+      IMPORT_FLOW.META_SEARCH,
   },
   actions: {
+    /**
+     * Pose le flow nommé et synchronise viewMode/detailTab.
+     * @param {'list'|'sheet'|'meta-search'} flow
+     * @param {{ metaReturn?: string, bookId?: number|string|null, entryIntent?: boolean }} [opts]
+     */
+    setFlow(flow, opts = {}) {
+      const next = normalizeImportFlow(flow);
+      const { viewMode, detailTab } = viewStateFromFlow(next);
+      this.viewMode = viewMode;
+      this.detailTab = detailTab;
+      if (opts.metaReturn != null) {
+        this.metaReturn = normalizeMetaReturn(opts.metaReturn);
+      }
+      if (opts.bookId !== undefined) {
+        this.metaReturnBookId =
+          opts.bookId != null && opts.bookId !== ''
+            ? opts.bookId
+            : null;
+      }
+      if (opts.entryIntent) {
+        this.entryIntent = next;
+      }
+      if (next === IMPORT_FLOW.LIST) {
+        this.metaReturn = META_RETURN.LIST;
+        this.metaReturnBookId = null;
+        this.enrichResultCursor = 0;
+      }
+    },
+    /** Intent consommé une fois au mount ImportView. */
+    consumeEntryIntent() {
+      const intent = normalizeEntryIntent(this.entryIntent);
+      this.entryIntent = null;
+      return intent;
+    },
     setDetailTab(tab) {
       this.detailTab = tab === 'search' ? 'search' : 'infos';
     },
@@ -174,7 +245,7 @@ export const useImportStore = defineStore('import', {
         if (this.viewMode === 'detail' && this.selected) {
           await this.loadDraftFromSelected({ keepResults: false });
         } else if (this.viewMode === 'detail' && !this.selected) {
-          this.viewMode = 'list';
+          this.goToList();
         }
       } finally {
         this.loading = false;
@@ -185,23 +256,114 @@ export const useImportStore = defineStore('import', {
       this.cursor = (this.cursor + delta + this.items.length) % this.items.length;
     },
     /**
-     * Ouvre la fiche détail import (édition méta + search API) — pas d’import immédiat.
+     * Ouvre la fiche brouillon (flow `sheet`) — pas d’import immédiat.
      * @param {number} [index]
+     * @param {{ entryIntent?: boolean }} [opts]
      */
-    async openDetail(index) {
+    async openDetail(index, opts = {}) {
       if (typeof index === 'number' && this.items[index]) {
         this.cursor = index;
       }
       if (!this.selected) return false;
       await this.loadDraftFromSelected({ keepResults: false });
-      this.detailTab = 'infos';
-      this.viewMode = 'detail';
+      this.setFlow(IMPORT_FLOW.SHEET, {
+        metaReturn: META_RETURN.LIST,
+        bookId: null,
+        entryIntent: Boolean(opts.entryIntent),
+      });
+      return true;
+    },
+    /** Alias explicite — flow sheet. */
+    async openSheet(index, opts = {}) {
+      return this.openDetail(index, opts);
+    },
+    /**
+     * Ouvre la Recherche API (flow `meta-search`) sans dump vers la liste.
+     * @param {{
+     *   index?: number,
+     *   returnTo?: 'sheet'|'book'|'list',
+     *   bookId?: number|string|null,
+     *   entryIntent?: boolean,
+     *   keepResults?: boolean,
+     * }} [opts]
+     */
+    async openMetaSearch(opts = {}) {
+      const {
+        index,
+        returnTo = META_RETURN.SHEET,
+        bookId = null,
+        entryIntent = true,
+        keepResults = false,
+      } = opts;
+      if (typeof index === 'number' && this.items[index]) {
+        this.cursor = index;
+      }
+      if (!this.selected) return false;
+      await this.loadDraftFromSelected({ keepResults });
+      this.setFlow(IMPORT_FLOW.META_SEARCH, {
+        metaReturn: returnTo,
+        bookId:
+          bookId ??
+          (returnTo === META_RETURN.BOOK
+            ? this.selected?.existingBookId
+            : null),
+        entryIntent,
+      });
       return true;
     },
     closeDetail() {
-      this.viewMode = 'list';
-      this.detailTab = 'infos';
-      this.enrichResultCursor = 0;
+      this.setFlow(IMPORT_FLOW.LIST);
+    },
+    goToList() {
+      this.setFlow(IMPORT_FLOW.LIST);
+    },
+    goToSheet() {
+      this.setFlow(IMPORT_FLOW.SHEET, {
+        metaReturn: this.metaReturn === META_RETURN.BOOK
+          ? META_RETURN.BOOK
+          : META_RETURN.LIST,
+        bookId: this.metaReturnBookId,
+      });
+    },
+    /**
+     * X liste — toggle : importer OU retirer de la bibliothèque si déjà ✓.
+     */
+    async toggleImportOrRemoveSelected({ copyToLibrary = true } = {}) {
+      const item = this.selected;
+      if (!item || this.committing) return null;
+      if (item.alreadyInLibrary && item.existingBookId != null) {
+        return this.removeSelectedFromLibrary();
+      }
+      return this.commitSelected({ copyToLibrary });
+    },
+    /**
+     * Retire le livre déjà importé (focus) de la bibliothèque.
+     * Ne supprime pas le fichier source dans le dossier import.
+     */
+    async removeSelectedFromLibrary() {
+      const item = this.selected;
+      const bookId = item?.existingBookId;
+      if (!item || bookId == null) return null;
+      this.committing = true;
+      const toast = useToastStore();
+      try {
+        const lib = useLibraryStore();
+        const result = await lib.removeBook(bookId);
+        const label =
+          item.selectedMeta?.title ||
+          item.detected?.title ||
+          item.name ||
+          'Livre';
+        item.alreadyInLibrary = false;
+        item.existingBookId = null;
+        toast.success(`Retiré de la bibliothèque · ${label}`);
+        return result;
+      } catch (err) {
+        toast.error(err?.message || 'Échec du retrait');
+        throw err;
+      } finally {
+        this.committing = false;
+      }
     },
     async loadDraftFromSelected({ keepResults = false } = {}) {
       const item = this.selected;
@@ -404,10 +566,47 @@ export const useImportStore = defineStore('import', {
         item.selectedMeta = normalizeImportMetadata(this.draft, item);
         item.metaSource = META_SOURCE.SELECTED;
       }
-      try {
-        useToastStore().success('Métadonnées appliquées');
-      } catch {
-        /* toast optionnel */
+      // Depuis BookDetail : persister aussi la fiche bibliothèque
+      const bookId =
+        this.metaReturn === META_RETURN.BOOK
+          ? (this.metaReturnBookId ?? item?.existingBookId)
+          : null;
+      if (bookId != null) {
+        void (async () => {
+          try {
+            const lib = useLibraryStore();
+            await lib.updateBook(
+              bookId,
+              {
+                title: this.draft.title,
+                series: this.draft.series || null,
+                volume: this.draft.volume,
+                year: this.draft.year,
+                author: this.draft.author || null,
+                metadata: {
+                  description: this.draft.description || null,
+                  synopsis: this.draft.description || null,
+                  coverUrl: this.draft.coverUrl || null,
+                  source: this.draft.source || null,
+                },
+              },
+              { silent: true },
+            );
+            useToastStore().success('Métadonnées appliquées');
+          } catch (err) {
+            try {
+              useToastStore().error(err?.message || 'Échec méta');
+            } catch {
+              /* ignore */
+            }
+          }
+        })();
+      } else {
+        try {
+          useToastStore().success('Métadonnées appliquées');
+        } catch {
+          /* toast optionnel */
+        }
       }
     },
     applyEnrichCursor() {

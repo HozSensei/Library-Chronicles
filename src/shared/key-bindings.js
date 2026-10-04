@@ -83,7 +83,10 @@ export const BINDABLE_ACTIONS = Object.freeze({
     { id: 'cursor-right', label: 'Focus →' },
     { id: 'confirm', label: 'Détail / valider' },
     { id: 'back', label: 'Retour' },
-    { id: 'import-one', label: 'Importer le tome focus' },
+    {
+      id: 'import-one',
+      label: 'Importer / retirer le tome focus (X)',
+    },
     { id: 'import-all', label: 'Tout importer' },
     { id: 'tab-prev', label: 'Onglet Infos ← (LB)' },
     { id: 'tab-next', label: 'Onglet Recherche → (RB)' },
@@ -193,7 +196,7 @@ export const DEFAULT_KEY_BINDINGS = Object.freeze({
   import: {
     [`button:${GamepadButtons.A}`]: 'confirm',
     [`button:${GamepadButtons.B}`]: 'back',
-    /** X = un tome (focus) · Y = tous — méta sélectionnées ou défaut */
+    /** X = un tome (focus) import OU retirer si déjà ✓ · Y = tous */
     [`button:${GamepadButtons.X}`]: 'import-one',
     [`button:${GamepadButtons.Y}`]: 'import-all',
     /** LB / RB = onglets Infos ↔ Recherche (comme catalogue) */

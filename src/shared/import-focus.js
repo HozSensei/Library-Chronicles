@@ -1,21 +1,29 @@
 /**
  * Focus manette — Import (liste + fiche Infos / Recherche).
  *
+ * Machine d’état : voir `import-flow.js` (`list` | `sheet` | `meta-search`).
+ *
  * Bindings stables :
  * - Liste : A=ouvrir fiche biblio (si déjà importé) ou fiche brouillon alignée BookDetail ·
- *   X=importer ce tome · Y=tout importer · B=retour biblio
- * - Fiche Infos (brouillon) : même look que BookDetailView · A=éditer champ ·
- *   B=retour liste · X=Importer le livre · Y=Importer des méta (Recherche) ·
- *   ↑↓ navigation champs
- * - Fiche Recherche : A=appliquer résultat focusé / éditer ·
- *   B=retour fiche · Y=lancer search · Enter/clavier=lancer search · LB/RB=onglets
+ *   X=importer ce tome / retirer de la bibliothèque si ✓ · Y=tout importer · B=retour biblio
+ * - Fiche Infos / sheet : même look que BookDetailView · A=éditer champ ·
+ *   B=retour liste (ou BookDetail si entrée depuis fiche) · X=Importer le livre ·
+ *   Y=Importer des méta (Recherche) · ↑↓ navigation champs
+ * - Fiche Recherche / meta-search : A=appliquer résultat focusé / éditer ·
+ *   B=retour fiche (sheet ou BookDetail selon metaReturn) · Y=lancer search ·
+ *   Enter/clavier=lancer search · LB/RB=onglets
  *
  * Zones : `list` | `fields` | `results`
- * Onglets fiche : `infos` | `search`
+ * Onglets fiche : `infos` | `search` (alias flow sheet / meta-search)
  *
  * Footer Infos : boutons Importer le livre | Importer des méta (clic) ;
  * manette X/Y restent les bindings. Voir `import-meta.js` pour metaSource / pastilles.
  */
+
+import {
+  META_RETURN,
+  resolveImportFlowBack,
+} from './import-flow.js';
 
 /** Onglets de la fiche détail. */
 export const IMPORT_DETAIL_TABS = Object.freeze({
@@ -224,25 +232,34 @@ export function resolveImportConfirmAction({
 
 /**
  * Résout B / back selon contexte.
- * Recherche → Infos ; Infos → liste ; liste → biblio.
+ * meta-search → sheet (ou book si metaReturn) ; sheet → list (ou book) ; list → biblio.
+ *
+ * Alias rétrocompat : `to-infos` === `to-sheet`.
  *
  * @param {{
  *   isDetail?: boolean,
  *   detailTab?: string,
  *   zone?: string,
+ *   flow?: string,
+ *   metaReturn?: string,
  * }} opts
- * @returns {'library'|'to-list'|'to-infos'}
+ * @returns {'library'|'to-list'|'to-sheet'|'to-infos'|'to-book'}
  */
 export function resolveImportBackAction({
   isDetail = false,
   detailTab = IMPORT_DETAIL_TABS.INFOS,
   zone = 'list',
+  flow,
+  metaReturn = META_RETURN.LIST,
 } = {}) {
-  if (!isDetail) return 'library';
   void zone;
-  const tab = normalizeImportDetailTab(detailTab);
-  if (tab === IMPORT_DETAIL_TABS.SEARCH) {
-    return 'to-infos';
-  }
-  return 'to-list';
+  const action = resolveImportFlowBack({
+    flow,
+    metaReturn,
+    isDetail,
+    detailTab,
+  });
+  // Alias historique pour les tests / handlers qui écoutent to-infos
+  if (action === 'to-sheet') return 'to-infos';
+  return action;
 }

@@ -10,10 +10,8 @@ import {
   BOOK_FOCUS,
   isBookEditableFocus,
 } from '../../../shared/book-focus.js';
-import {
-  IMPORT_DETAIL_TABS,
-  IMPORT_SEARCH_FIELDS,
-} from '../../../shared/import-focus.js';
+import { IMPORT_SEARCH_FIELDS } from '../../../shared/import-focus.js';
+import { META_RETURN } from '../../../shared/import-flow.js';
 import { scheduleScrollFocusedIntoView } from '../../../shared/focus-scroll.js';
 import { focusTextInputForEdit } from '../../../shared/virtual-keyboard.js';
 
@@ -219,7 +217,7 @@ function read() {
 function back() {
   void saveDraft().then(() => {
     if (fromImport.value) {
-      imp.closeDetail();
+      imp.goToList();
       ui.setImportFocusZone('list');
       ui.setImportFocus(0);
       router.push({ name: 'import' });
@@ -229,7 +227,10 @@ function back() {
   });
 }
 
-/** Ouvre la recherche API méta (onglet Recherche import). */
+/**
+ * Ouvre le flow meta-search (Recherche API) sans dump vers la liste.
+ * Pose entryIntent pour qu’ImportView.onMounted ne closeDetail() pas.
+ */
 function goImportMeta() {
   void saveDraft().then(async () => {
     const bookId = book.value?.id;
@@ -244,9 +245,13 @@ function goImportMeta() {
               item.detected?.title === book.value?.title)),
       );
       if (idx >= 0) {
-        const ok = await imp.openDetail(idx);
+        const ok = await imp.openMetaSearch({
+          index: idx,
+          returnTo: META_RETURN.BOOK,
+          bookId,
+          entryIntent: true,
+        });
         if (ok) {
-          imp.setDetailTab(IMPORT_DETAIL_TABS.SEARCH);
           ui.setImportFocusZone('fields');
           ui.setImportFocus(IMPORT_SEARCH_FIELDS.QUERY);
           router.push({ name: 'import' });
@@ -256,6 +261,8 @@ function goImportMeta() {
     } catch (err) {
       console.warn('[VDR] ouvrir méta import:', err?.message || err);
     }
+    // Fallback : liste import (fichier hors dossier import)
+    imp.goToList();
     router.push({ name: 'import' });
   });
 }

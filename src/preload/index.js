@@ -33,6 +33,7 @@ contextBridge.exposeInMainWorld('vdr', {
     getCover: (bookId) => ipcRenderer.invoke(IpcChannels.LIBRARY_GET_COVER, bookId),
     updateBook: (id, patch) =>
       ipcRenderer.invoke(IpcChannels.LIBRARY_UPDATE_BOOK, { id, patch }),
+    deleteBook: (id) => ipcRenderer.invoke(IpcChannels.LIBRARY_DELETE_BOOK, id),
     continue: () => ipcRenderer.invoke(IpcChannels.LIBRARY_CONTINUE),
     recent: (limit) => ipcRenderer.invoke(IpcChannels.LIBRARY_RECENT, limit),
     lastAccessed: (excludeId) =>

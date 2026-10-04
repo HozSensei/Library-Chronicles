@@ -43,6 +43,7 @@ import {
   resolveImportBackAction,
   resolveImportConfirmAction,
 } from '../../../shared/import-focus.js';
+import { IMPORT_FLOW, META_RETURN } from '../../../shared/import-flow.js';
 import { createStickMenuNav } from '../../../shared/stick-menu-nav.js';
 import {
   isTextInputFocused,
@@ -530,7 +531,7 @@ function createLoop(ctx) {
         vibe('light');
         // Depuis import : B → liste import (pas de bouton Retour redondant)
         if (router.currentRoute.value.query?.from === 'import') {
-          imp.closeDetail();
+          imp.goToList();
           ui.setImportFocusZone('list');
           ui.setImportFocus(0);
           router.push({ name: 'import' });
@@ -633,11 +634,12 @@ function createLoop(ctx) {
     }
 
     if (route === 'import') {
-      // ——— Fiche détail : onglets Infos / Recherche ———
+      // ——— Fiche détail : flows sheet / meta-search ———
       if (imp.isDetail) {
         const resultCount = imp.enrichResults.length;
         const zone = ui.importFocusZone;
-        const tab = imp.detailTab === 'search'
+        const flow = imp.flow;
+        const tab = flow === IMPORT_FLOW.META_SEARCH
           ? IMPORT_DETAIL_TABS.SEARCH
           : IMPORT_DETAIL_TABS.INFOS;
         const fieldMax =
@@ -650,40 +652,68 @@ function createLoop(ctx) {
             : clampInfosFieldFocus;
 
         const goToInfos = () => {
-          imp.setDetailTab(IMPORT_DETAIL_TABS.INFOS);
+          imp.goToSheet();
           ui.setImportFocusZone('fields');
           ui.setImportFocus(IMPORT_INFOS_FIELDS.TITLE);
           afterFocusMove();
         };
 
         const goToSearch = () => {
-          imp.setDetailTab(IMPORT_DETAIL_TABS.SEARCH);
-          ui.setImportFocusZone('fields');
-          ui.setImportFocus(IMPORT_SEARCH_FIELDS.QUERY);
-          afterFocusMove();
+          void imp.openMetaSearch({
+            returnTo:
+              imp.metaReturn === META_RETURN.BOOK
+                ? META_RETURN.BOOK
+                : META_RETURN.SHEET,
+            bookId: imp.metaReturnBookId,
+            entryIntent: false,
+            keepResults: true,
+          }).then(() => {
+            ui.setImportFocusZone('fields');
+            ui.setImportFocus(IMPORT_SEARCH_FIELDS.QUERY);
+            afterFocusMove();
+          });
         };
 
         const closeToList = () => {
-          imp.closeDetail();
+          imp.goToList();
           ui.setImportFocusZone('list');
           ui.setImportFocus(0);
           afterFocusMove();
         };
 
-        // B : Recherche → Infos ; Infos → liste
+        const backToBook = () => {
+          const bookId = imp.metaReturnBookId ?? imp.selected?.existingBookId;
+          imp.goToList();
+          ui.setImportFocusZone('list');
+          ui.setImportFocus(0);
+          if (bookId != null) {
+            router.push({
+              name: 'book',
+              params: { id: String(bookId) },
+              query: { from: 'import' },
+            });
+            return;
+          }
+          afterFocusMove();
+        };
+
+        // B : meta-search → sheet|book ; sheet → list|book
         if (action === 'back') {
           vibe('light');
           const back = resolveImportBackAction({
+            flow,
+            metaReturn: imp.metaReturn,
             isDetail: true,
             detailTab: tab,
             zone,
           });
-          if (back === 'to-infos') goToInfos();
+          if (back === 'to-book') backToBook();
+          else if (back === 'to-infos' || back === 'to-sheet') goToInfos();
           else closeToList();
           return;
         }
 
-        // LB / RB : bascule Infos ↔ Recherche (comme catalogue)
+        // LB / RB : bascule sheet ↔ meta-search
         if (action === 'tab-prev' || action === 'tab-next') {
           if (tab === IMPORT_DETAIL_TABS.SEARCH) goToInfos();
           else goToSearch();
@@ -792,7 +822,7 @@ function createLoop(ctx) {
               const bookId =
                 result?.book?.id ?? imp.selected?.existingBookId;
               if (bookId != null) {
-                imp.closeDetail();
+                imp.goToList();
                 router.push({
                   name: 'book',
                   params: { id: String(bookId) },
@@ -805,11 +835,19 @@ function createLoop(ctx) {
           }
         }
 
-        // Y : Infos → Importer des méta (Recherche) ; Recherche → lancer search
+        // Y : sheet → meta-search ; meta-search → lancer search
         if (action === 'import-all' || action === 'enrich') {
           void (async () => {
             if (tab !== IMPORT_DETAIL_TABS.SEARCH) {
-              imp.setDetailTab(IMPORT_DETAIL_TABS.SEARCH);
+              await imp.openMetaSearch({
+                returnTo:
+                  imp.metaReturn === META_RETURN.BOOK
+                    ? META_RETURN.BOOK
+                    : META_RETURN.SHEET,
+                bookId: imp.metaReturnBookId,
+                entryIntent: false,
+                keepResults: true,
+              });
               ui.setImportFocusZone('fields');
               ui.setImportFocus(IMPORT_SEARCH_FIELDS.QUERY);
               afterFocusMove();
@@ -860,7 +898,7 @@ function createLoop(ctx) {
         void (async () => {
           const item = imp.selected;
           if (item?.existingBookId != null) {
-            imp.closeDetail();
+            imp.goToList();
             router.push({
               name: 'book',
               params: { id: String(item.existingBookId) },
@@ -868,7 +906,7 @@ function createLoop(ctx) {
             });
             return;
           }
-          const ok = await imp.openDetail();
+          const ok = await imp.openSheet();
           if (ok) {
             ui.setImportFocusZone('fields');
             ui.setImportFocus(IMPORT_INFOS_FIELDS.TITLE);
@@ -876,11 +914,11 @@ function createLoop(ctx) {
           }
         })();
       }
-      // X = importer le tome focus (méta sélectionnées ou défaut)
+      // X = toggle : importer ce tome / retirer de la bibliothèque si ✓
       if (action === 'import-one') {
         if (imp.selected && !imp.committing) {
           vibe('confirm');
-          void imp.commitSelected({ copyToLibrary: true });
+          void imp.toggleImportOrRemoveSelected({ copyToLibrary: true });
         }
       }
       // Y = tout importer (chaque item : méta sélectionnées ou défaut)

@@ -96,6 +96,8 @@ assert(view.includes('book-detail__meta'), 'méta labels + valeurs');
 assert(view.includes('grid-template-columns'), 'layout grid (pas absolute croisé)');
 assert(view.includes('Importer des méta'), 'CTA Importer des méta');
 assert(view.includes('goImportMeta'), 'handler recherche API');
+assert(view.includes('openMetaSearch'), 'goImportMeta → openMetaSearch');
+assert(view.includes('entryIntent: true'), 'entryIntent pour reprise mount');
 assert(view.includes("from === 'import'"), 'retour liste si from=import');
 assert(
   !view.includes('action-label">Retour</span>'),

@@ -11,6 +11,7 @@ import {
   IMPORT_SEARCH_FIELDS,
   importFieldDomId,
 } from '../../../shared/import-focus.js';
+import { IMPORT_FLOW, META_RETURN } from '../../../shared/import-flow.js';
 import { metaSourceLabel } from '../../../shared/import-meta.js';
 import { focusTextInputForEdit } from '../../../shared/virtual-keyboard.js';
 
@@ -18,33 +19,45 @@ const router = useRouter();
 const imp = useImportStore();
 const ui = useUiStore();
 
-const listHints = [
-  { key: '↑↓', label: 'fichier' },
-  { key: 'A', label: 'ouvrir fiche' },
-  { key: 'X', label: 'Importer ce tome' },
-  { key: 'Y', label: 'Tout importer' },
-  { key: 'B', label: 'retour biblio' },
-];
+const listHints = computed(() => {
+  const imported = Boolean(imp.selected?.alreadyInLibrary);
+  return [
+    { key: '↑↓', label: 'fichier' },
+    { key: 'A', label: 'ouvrir fiche' },
+    {
+      key: 'X',
+      label: imported
+        ? 'Retirer de la bibliothèque'
+        : 'Importer ce tome',
+    },
+    { key: 'Y', label: 'Tout importer' },
+    { key: 'B', label: 'retour biblio' },
+  ];
+});
 
-const infosHints = [
+const infosHints = computed(() => [
   { key: '↑↓', label: 'champ' },
   { key: 'A', label: 'éditer' },
   { key: 'X', label: 'Importer le livre' },
   { key: 'Y', label: 'Importer des méta' },
-  { key: 'B', label: 'retour liste' },
-];
+  {
+    key: 'B',
+    label:
+      imp.metaReturn === META_RETURN.BOOK ? 'retour fiche' : 'retour liste',
+  },
+]);
 
-const searchHints = [
+const searchHints = computed(() => [
   { key: '↑↓', label: 'champ / résultat' },
   { key: 'LB/RB', label: 'onglet' },
   { key: 'A', label: 'appliquer / éditer' },
   { key: 'Y', label: 'lancer recherche' },
   { key: 'B', label: 'retour fiche' },
-];
+]);
 
 const hints = computed(() => {
-  if (!imp.isDetail) return listHints;
-  return imp.isSearchTab ? searchHints : infosHints;
+  if (!imp.isDetail) return listHints.value;
+  return imp.isSearchTab ? searchHints.value : infosHints.value;
 });
 
 const statusLabel = computed(() => {
@@ -68,11 +81,33 @@ const draftFormatLabel = computed(() =>
 );
 
 onMounted(async () => {
+  // Intent posé avant navigation (ex. BookDetail → Recherche API).
+  // Ne surtout pas closeDetail() systématiquement : c’était la régression #44.
+  const intent = imp.consumeEntryIntent();
+  const resumeFlow =
+    intent === IMPORT_FLOW.META_SEARCH || intent === IMPORT_FLOW.SHEET
+      ? intent
+      : null;
+
   await imp.loadProviders();
   await imp.scan();
-  imp.closeDetail();
-  ui.setImportFocusZone('list');
-  ui.setImportFocus(0);
+
+  if (resumeFlow && imp.selected) {
+    imp.setFlow(resumeFlow, {
+      metaReturn: imp.metaReturn,
+      bookId: imp.metaReturnBookId,
+    });
+    ui.setImportFocusZone('fields');
+    ui.setImportFocus(
+      resumeFlow === IMPORT_FLOW.META_SEARCH
+        ? IMPORT_SEARCH_FIELDS.QUERY
+        : IMPORT_INFOS_FIELDS.TITLE,
+    );
+  } else {
+    imp.goToList();
+    ui.setImportFocusZone('list');
+    ui.setImportFocus(0);
+  }
   nextTick(() => scheduleScrollFocusedIntoView('.import'));
 });
 
@@ -99,7 +134,7 @@ async function openDetailAt(index) {
   const item = imp.selected;
   if (!item) return;
   if (item.existingBookId != null) {
-    imp.closeDetail();
+    imp.goToList();
     router.push({
       name: 'book',
       params: { id: String(item.existingBookId) },
@@ -107,7 +142,7 @@ async function openDetailAt(index) {
     });
     return;
   }
-  const ok = await imp.openDetail(index);
+  const ok = await imp.openSheet(index);
   if (!ok) return;
   ui.setImportFocusZone('fields');
   ui.setImportFocus(IMPORT_INFOS_FIELDS.TITLE);
@@ -115,7 +150,7 @@ async function openDetailAt(index) {
 }
 
 function backToList() {
-  imp.closeDetail();
+  imp.goToList();
   ui.setImportFocusZone('list');
   ui.setImportFocus(0);
 }
@@ -123,12 +158,25 @@ function backToList() {
 function switchTab(tab) {
   const next =
     tab === IMPORT_DETAIL_TABS.SEARCH
-      ? IMPORT_DETAIL_TABS.SEARCH
-      : IMPORT_DETAIL_TABS.INFOS;
-  imp.setDetailTab(next);
+      ? IMPORT_FLOW.META_SEARCH
+      : IMPORT_FLOW.SHEET;
+  if (next === IMPORT_FLOW.META_SEARCH) {
+    imp.setFlow(IMPORT_FLOW.META_SEARCH, {
+      metaReturn:
+        imp.metaReturn === META_RETURN.BOOK
+          ? META_RETURN.BOOK
+          : META_RETURN.SHEET,
+      bookId: imp.metaReturnBookId,
+    });
+  } else {
+    imp.setFlow(IMPORT_FLOW.SHEET, {
+      metaReturn: imp.metaReturn,
+      bookId: imp.metaReturnBookId,
+    });
+  }
   ui.setImportFocusZone('fields');
   ui.setImportFocus(
-    next === IMPORT_DETAIL_TABS.SEARCH
+    next === IMPORT_FLOW.META_SEARCH
       ? IMPORT_SEARCH_FIELDS.QUERY
       : IMPORT_INFOS_FIELDS.TITLE,
   );
@@ -137,10 +185,15 @@ function switchTab(tab) {
 
 async function doImportOne() {
   if (!imp.selected || imp.committing) return;
+  // Liste : X = toggle import / retirer ; fiche : toujours importer
+  if (!imp.isDetail && imp.selected.alreadyInLibrary) {
+    await imp.removeSelectedFromLibrary();
+    return;
+  }
   const result = await imp.commitSelected({ copyToLibrary: true });
   const bookId = result?.book?.id ?? imp.selected?.existingBookId;
   if (bookId != null) {
-    imp.closeDetail();
+    imp.goToList();
     router.push({
       name: 'book',
       params: { id: String(bookId) },
@@ -151,9 +204,24 @@ async function doImportOne() {
   backToList();
 }
 
-/** Bouton / Y Infos → onglet Recherche API (Importer des méta). */
-function openMetaSearch() {
-  switchTab(IMPORT_DETAIL_TABS.SEARCH);
+/** Bouton / Y Infos → flow meta-search (Importer des méta). */
+async function openMetaSearch() {
+  const ok = await imp.openMetaSearch({
+    returnTo:
+      imp.metaReturn === META_RETURN.BOOK
+        ? META_RETURN.BOOK
+        : META_RETURN.SHEET,
+    bookId: imp.metaReturnBookId,
+    entryIntent: false,
+    keepResults: true,
+  });
+  if (!ok) {
+    switchTab(IMPORT_DETAIL_TABS.SEARCH);
+    return;
+  }
+  ui.setImportFocusZone('fields');
+  ui.setImportFocus(IMPORT_SEARCH_FIELDS.QUERY);
+  nextTick(() => scheduleScrollFocusedIntoView('.import'));
 }
 
 async function doSearch() {

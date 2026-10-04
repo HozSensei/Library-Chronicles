@@ -8,6 +8,7 @@ export const IpcChannels = Object.freeze({
   LIBRARY_LIST: 'library:list',
   LIBRARY_GET_COVER: 'library:get-cover',
   LIBRARY_UPDATE_BOOK: 'library:update-book',
+  LIBRARY_DELETE_BOOK: 'library:delete-book',
   LIBRARY_CONTINUE: 'library:continue',
   LIBRARY_RECENT: 'library:recent',
   LIBRARY_LAST_ACCESSED: 'library:last-accessed',

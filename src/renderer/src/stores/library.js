@@ -366,11 +366,41 @@ export const useLibraryStore = defineStore('library', {
       return this.coverPending[id];
     },
     /**
+     * Retire un livre de la bibliothèque (DB + progression / signets).
+     * Ne supprime pas le fichier source.
+     * @param {number|string} id
+     */
+    async removeBook(id) {
+      if (id == null) return null;
+      const result = await window.vdr.library.deleteBook(Number(id));
+      if (!result?.ok) {
+        throw new Error(result?.error || 'Échec du retrait');
+      }
+      this.books = this.books.filter((b) => String(b.id) !== String(id));
+      delete this.covers[id];
+      delete this.coverPending[id];
+      try {
+        const series = groupBooksBySeries(this.books);
+        this.seriesGroups = series?.groups || [];
+        this.seriesSingles = series?.singles || [];
+      } catch {
+        /* ignore */
+      }
+      this._refreshedAt = Date.now();
+      this.invalidate();
+      return result;
+    },
+    /**
      * Met à jour les métadonnées d’un livre (fiche détail).
      * @param {number|string} id
      * @param {Record<string, unknown>} patch
      */
-    async updateBook(id, patch) {
+    /**
+     * @param {number|string} id
+     * @param {Record<string, unknown>} patch
+     * @param {{ silent?: boolean }} [opts] silent = pas de toast (ex. sync depuis import méta)
+     */
+    async updateBook(id, patch, opts = {}) {
       if (id == null || !patch || typeof patch !== 'object') return null;
       const toast = useToastStore();
       try {
@@ -390,10 +420,10 @@ export const useLibraryStore = defineStore('library', {
           /* ignore — liste books déjà à jour */
         }
         this._refreshedAt = Date.now();
-        toast.success('Fiche enregistrée');
+        if (!opts.silent) toast.success('Fiche enregistrée');
         return updated;
       } catch (err) {
-        toast.error(err?.message || 'Échec de l’enregistrement');
+        if (!opts.silent) toast.error(err?.message || 'Échec de l’enregistrement');
         throw err;
       }
     },
