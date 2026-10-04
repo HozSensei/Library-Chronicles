@@ -4,6 +4,7 @@
  * Stick / D-Pad ←→ = page-écran ±1 (rendition next/prev), puis chapitre voisin.
  * D-Pad ↑/↓ = taille police ± (reflow epub.js).
  * L3 / R3 = reset taille police.
+ * LT / RT = chapitre spine ±1 (géré hors de ce module via stepChapter).
  * LB fit-width = no-op (pas d’image à fitter).
  * Pas de scroll continu ni de filtres sépia manga sur le HTML.
  */

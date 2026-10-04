@@ -82,8 +82,12 @@ CTA fiche **« Lire en continu »** : disabled pour EPUB (et formats texte).
 
 ### EPUB (reflow paginé) — type liseuse
 
-EPUB = XHTML/CSS reflow. Une **page** = un **viewport** (colonnes CSS), pas un chapitre spine entier.
+EPUB = XHTML/CSS reflow. Une **page** = un **viewport** epub.js, pas un chapitre spine entier.
 Changement de taille police → **re-pagination** (reflow). Contenu isolé des filtres manga (brightness / sépia).
+
+**Sauts de page chapitre** (thème `rendition.themes.default`) : `break-before: page` /
+`page-break-before: always` sur `h1`, `h2`, `.chapter`, `section[epub|type~="chapter"]`
+(sauf `body > :first-child` pour éviter une page blanche en tête de spine).
 
 | Contrôle | Action |
 |----------|--------|
@@ -91,7 +95,7 @@ Changement de taille police → **re-pagination** (reflow). Contenu isolé des f
 | D-Pad ← / → | **Page-écran** ±1 ; en bout → chapitre / spine ±1 |
 | D-Pad **↑** / **↓** | Taille police ±10 % (70–200 %) → reflow |
 | L3 / R3 | Reset taille police (100 %) |
-| LT / RT | Chapitre spine ±1 (atterrit début / fin) |
+| LT / RT | **Chapitre spine ±1** (RT début du suivant · LT fin du précédent) |
 | LB Fit Width | **No-op** (pas d’image à fitter) |
 | A / B / X / Y / Select | Sens, quitter, signet, HUD, pause (comme page) |
 

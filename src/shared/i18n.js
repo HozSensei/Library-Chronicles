@@ -429,7 +429,7 @@ export const MESSAGES = Object.freeze({
       hintStrip:
         'A valider · B fermer · Select pause · ↑↓ focus · Stick scroll · LT/RT chapitre · D-Pad désactivé',
       hintEpub:
-        'A valider · B fermer · Select pause · Stick/←→ page écran · ↑↓ police · L3 police défaut · LT/RT chapitre',
+        'A valider · B fermer · Select pause · Stick/←→ page écran · ↑↓ police · L3 police défaut · LT/RT chapitre spine ±1',
       fullscreen: 'Plein écran',
       fullscreenExit: 'Quitter plein écran',
     },
@@ -814,7 +814,7 @@ export const MESSAGES = Object.freeze({
       hintStrip:
         'A confirm · B close · Select pause · ↑↓ focus · Stick scroll · LT/RT chapter · D-Pad off',
       hintEpub:
-        'A confirm · B close · Select pause · Stick/←→ screen page · ↑↓ font · L3 default font · LT/RT chapter',
+        'A confirm · B close · Select pause · Stick/←→ screen page · ↑↓ font · L3 default font · LT/RT spine chapter ±1',
       fullscreen: 'Fullscreen',
       fullscreenExit: 'Exit fullscreen',
     },
