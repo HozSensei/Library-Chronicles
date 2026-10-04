@@ -658,6 +658,13 @@ export const useImportStore = defineStore('import', {
       this.patchDraft(patch);
       if (selection.cover && patch.coverUrl) {
         void this.resolveCoverPreview(patch.coverUrl);
+      } else if (selection.cover && !patch.coverUrl) {
+        try {
+          useToastStore().info('Jaquette absente chez le provider');
+          console.warn('[VDR] apply méta: coverUrl manquante', result?.id || result?.provider);
+        } catch {
+          /* toast optionnel */
+        }
       }
       const item = this.selected;
       if (item) {
@@ -693,12 +700,33 @@ export const useImportStore = defineStore('import', {
                   ? { coverUrl: this.draft.coverUrl || null }
                   : {}),
                 ...(selection.title || selection.series || selection.author
-                  ? { source: this.draft.source || null }
+                  ? {
+                      source: this.draft.source || null,
+                      provider: this.draft.provider || this.draft.source || null,
+                    }
                   : {}),
               };
             }
-            await lib.updateBook(bookId, update, { silent: true });
+            const updated = await lib.updateBook(bookId, update, { silent: true });
+            // Forcer rechargement jaquette (coverPath peut avoir changé côté main).
+            if (selection.cover) {
+              delete lib.covers[bookId];
+              delete lib.coverPending[bookId];
+              if (updated?.coverPath || updated?.metadata?.coverSource === 'remote') {
+                await lib.ensureCover(bookId);
+              }
+            }
             useToastStore().success('Métadonnées appliquées');
+            if (
+              selection.cover &&
+              this.draft.coverUrl &&
+              updated?.metadata?.coverSource !== 'remote'
+            ) {
+              useToastStore().info(
+                updated?.metadata?.coverError ||
+                  'Jaquette non téléchargée — réessaie ou scanne la bibliothèque',
+              );
+            }
           } catch (err) {
             try {
               useToastStore().error(err?.message || 'Échec méta');
@@ -771,6 +799,11 @@ export const useImportStore = defineStore('import', {
         const label =
           result.book?.title || meta?.title || item.name || 'Livre';
         toast.success(t('toast.imported', { label }));
+        if (result.coverWarning) {
+          toast.info(`Jaquette: ${result.coverWarning}`);
+        } else if (meta?.coverUrl && result.book?.metadata?.coverSource !== 'remote') {
+          toast.info('Jaquette absente ou non téléchargée');
+        }
         return result;
       } catch (err) {
         toast.error(err?.message || t('toast.importFail'));
@@ -829,6 +862,14 @@ export const useImportStore = defineStore('import', {
               ? t('toast.imported', { label: results[0].book?.title || t('common.book') })
               : t('toast.importedMany', { n: results.length }),
           );
+          const coverFails = results.filter((r) => r.coverWarning).length;
+          if (coverFails) {
+            toast.info(
+              coverFails === 1
+                ? `Jaquette: ${results.find((r) => r.coverWarning)?.coverWarning}`
+                : `${coverFails} jaquettes non téléchargées`,
+            );
+          }
         }
       } catch (err) {
         toast.error(err?.message || t('toast.importFail'));
@@ -881,6 +922,14 @@ export const useImportStore = defineStore('import', {
               ? t('toast.imported', { label: results[0].book?.title || t('common.book') })
               : t('toast.importedMany', { n: results.length }),
           );
+          const coverFails = results.filter((r) => r.coverWarning).length;
+          if (coverFails) {
+            toast.info(
+              coverFails === 1
+                ? `Jaquette: ${results.find((r) => r.coverWarning)?.coverWarning}`
+                : `${coverFails} jaquettes non téléchargées`,
+            );
+          }
         }
       } catch (err) {
         toast.error(err?.message || t('toast.importFail'));

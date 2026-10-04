@@ -9,7 +9,10 @@ import { getConfig } from '../config.js';
 import { getActiveProfileId } from '../database/profiles.js';
 import { fetchBuffer } from '../metadata/fetch.js';
 import { USER_AGENT } from '../metadata/types.js';
-import { bufferToDataUrl } from '../../shared/cover-url.js';
+import {
+  bufferToDataUrl,
+  normalizeRemoteCoverUrl,
+} from '../../shared/cover-url.js';
 
 /**
  * Scan le dossier import + métadonnées détectées pour chaque fichier.
@@ -65,16 +68,23 @@ export async function commitImport({ sourcePath, metadata, copyToLibrary = true 
   let pageTotal = 0;
   let coverPath = null;
   const profileId = getActiveProfileId();
-  const remoteCoverUrl =
-    typeof metadata?.coverUrl === 'string' ? metadata.coverUrl.trim() : '';
+  const remoteCoverUrl = normalizeRemoteCoverUrl(metadata?.coverUrl);
 
   // Jacket API en priorité (providers renvoient coverUrl) — fallback page 0 archive.
+  let coverError = null;
   if (remoteCoverUrl) {
     try {
       coverPath = await ensureCoverFromUrl(destPath, remoteCoverUrl, profileId);
     } catch (err) {
-      console.warn('[VDR] jacket API:', err.message);
+      coverError = String(err?.message || err);
+      console.warn('[VDR] jacket API:', coverError);
     }
+  } else if (
+    typeof metadata?.coverUrl === 'string' &&
+    metadata.coverUrl.trim()
+  ) {
+    coverError = 'URL couverture invalide (https absolu requis)';
+    console.warn('[VDR] jacket API:', coverError, metadata.coverUrl);
   }
 
   try {
@@ -97,7 +107,7 @@ export async function commitImport({ sourcePath, metadata, copyToLibrary = true 
   }
 
   const appliedRemote =
-    Boolean(coverPath) && Boolean(remoteCoverUrl);
+    Boolean(coverPath) && Boolean(remoteCoverUrl) && !coverError;
   const meta = {
     filePath: destPath,
     title: metadata?.title || path.basename(destPath, path.extname(destPath)),
@@ -111,16 +121,22 @@ export async function commitImport({ sourcePath, metadata, copyToLibrary = true 
     pageTotal,
     metadata: {
       ...(metadata || {}),
-      coverUrl: remoteCoverUrl || metadata?.coverUrl || null,
+      coverUrl: remoteCoverUrl || null,
       /** remote = jacket API écrite ; archive = page 0 ; null = aucune. */
       coverSource: appliedRemote ? 'remote' : coverPath ? 'archive' : null,
+      ...(coverError ? { coverError } : {}),
       importedAt: new Date().toISOString(),
       sourcePath,
     },
   };
 
   const saved = upsertBook(meta);
-  return { ok: true, book: saved, destPath };
+  return {
+    ok: true,
+    book: saved,
+    destPath,
+    coverWarning: coverError || null,
+  };
 }
 
 /**
@@ -152,11 +168,8 @@ export async function previewCoverFromUrl(coverUrl) {
   if (/^data:/i.test(raw)) {
     return { dataUrl: raw, mime: raw.slice(5).split(';')[0] || 'image/jpeg' };
   }
-  let url = raw;
-  if (/^http:\/\//i.test(url)) {
-    url = `https://${url.slice(7)}`;
-  }
-  if (!/^https:\/\//i.test(url)) {
+  const url = normalizeRemoteCoverUrl(raw);
+  if (!url) {
     throw new Error('URL couverture invalide');
   }
   const buffer = await fetchBuffer(url, {

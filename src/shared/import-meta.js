@@ -8,7 +8,12 @@
  *
  * Commit : X = un tome (focus), Y = tous — chaque item utilise
  * selectedMeta si présent, sinon méta détectées / nom de fichier.
+ *
+ * Les résultats API arrivent en NormalizedMeta (`coverUrl` https absolu,
+ * `authors`/`synopsis` + aliases `author`/`description`/`source`).
  */
+
+import { absoluteHttpsCoverUrl } from './normalized-meta.js';
 
 export const META_SOURCE = Object.freeze({
   SELECTED: 'selected',
@@ -70,16 +75,28 @@ export function metadataFromDetected(item) {
 export function normalizeImportMetadata(meta, fallbackItem = null) {
   const m = meta || {};
   const source = m.source || m.provider || null;
+  const author =
+    m.author ||
+    (Array.isArray(m.authors) && m.authors[0] ? m.authors[0] : '') ||
+    '';
+  const description = m.description || m.synopsis || null;
   return {
     title: m.title || fallbackItem?.name || '',
     series: m.series || '',
     volume: m.volume ?? null,
-    author: m.author || '',
+    author,
     year: m.year ?? null,
-    description: m.description || null,
-    coverUrl: m.coverUrl || null,
+    description,
+    synopsis: description,
+    coverUrl: absoluteHttpsCoverUrl(m.coverUrl) || null,
     source,
     provider: m.provider || source || null,
+    providerId: m.providerId ?? null,
+    authors: Array.isArray(m.authors)
+      ? m.authors
+      : author
+        ? [author]
+        : [],
   };
 }
 
@@ -103,15 +120,30 @@ export function metadataPatchFromEnrichResult(result, draft = null) {
   // Volume fichier (tome N) > volume API (souvent total de la série)
   const volume =
     prev.volume != null ? prev.volume : (result?.volume ?? null);
+  const authorFromResult =
+    result?.author ||
+    (Array.isArray(result?.authors) && result.authors[0]
+      ? result.authors[0]
+      : null);
+  const synopsis =
+    result?.synopsis || result?.description || prev.description || '';
+  const coverUrl =
+    absoluteHttpsCoverUrl(result?.coverUrl) ||
+    absoluteHttpsCoverUrl(prev.coverUrl) ||
+    null;
+  const source = result?.provider || result?.source || prev.source || null;
   return {
     title: title || String(prev.title || ''),
     series: apiSeries || apiTitle || '',
     volume,
-    author: result?.author || prev.author || '',
+    author: authorFromResult || prev.author || '',
     year: result?.year ?? prev.year ?? null,
-    description: result?.description || prev.description || '',
-    coverUrl: result?.coverUrl || prev.coverUrl || null,
-    source: result?.source || prev.source || null,
+    description: synopsis,
+    synopsis,
+    coverUrl,
+    source,
+    provider: source,
+    providerId: result?.providerId ?? prev.providerId ?? null,
   };
 }
 
@@ -173,7 +205,7 @@ export function enrichResultCardFields(result, opts = {}) {
     volumeLabel = typeof fmt === 'function' ? String(fmt(volume) || '') : `Tome ${volume}`;
   }
   const synopsis = truncateExcerpt(
-    result?.description || result?.synopsis || '',
+    result?.synopsis || result?.description || '',
     opts.synopsisMax ?? ENRICH_SYNOPSIS_MAX,
   );
   return {
@@ -182,6 +214,6 @@ export function enrichResultCardFields(result, opts = {}) {
     volume,
     volumeLabel,
     synopsis,
-    coverUrl: result?.coverUrl || null,
+    coverUrl: absoluteHttpsCoverUrl(result?.coverUrl) || null,
   };
 }

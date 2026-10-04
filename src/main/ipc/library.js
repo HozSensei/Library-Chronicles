@@ -21,11 +21,13 @@ import {
   coverToDataUrl,
   ensureCover,
   ensureCoverFromUrl,
+  invalidateCoverDataUrl,
 } from '../library/thumbnails.js';
 import { openBook } from '../extractors/index.js';
 import { syncWatchersFromConfig } from '../library/watcher.js';
 import { detectFromFilename } from '../metadata/parse-filename.js';
 import { getActiveProfileId, setProfilePrefs } from '../database/profiles.js';
+import { normalizeRemoteCoverUrl } from '../../shared/cover-url.js';
 
 export function registerLibraryIpc() {
   ipcMain.handle(IpcChannels.LIBRARY_SELECT_ROOT, async () => {
@@ -78,10 +80,9 @@ export function registerLibraryIpc() {
     for (const file of scan.found) {
       try {
         const existing = getBookByPath(file.filePath);
-        const remoteCoverUrl =
-          typeof existing?.metadata?.coverUrl === 'string'
-            ? existing.metadata.coverUrl.trim()
-            : '';
+        const remoteCoverUrl = normalizeRemoteCoverUrl(
+          existing?.metadata?.coverUrl,
+        );
         // Jacket API connue mais pas encore marquée remote (ex. race watcher
         // a écrit page 0) → ne pas skip, re-télécharger la jaquette.
         const needsRemoteCover =
@@ -176,9 +177,71 @@ export function registerLibraryIpc() {
     return coverToDataUrl(book.coverPath);
   });
 
-  ipcMain.handle(IpcChannels.LIBRARY_UPDATE_BOOK, async (_e, { id, patch }) =>
-    updateBook(id, patch),
-  );
+  ipcMain.handle(IpcChannels.LIBRARY_UPDATE_BOOK, async (_e, { id, patch }) => {
+    const bookId = Number(id);
+    if (!Number.isFinite(bookId)) return null;
+    const existing = getBookById(bookId);
+    if (!existing) return null;
+
+    const nextPatch = patch && typeof patch === 'object' ? { ...patch } : {};
+    const incomingMeta =
+      nextPatch.metadata && typeof nextPatch.metadata === 'object'
+        ? { ...nextPatch.metadata }
+        : null;
+
+    if (incomingMeta) {
+      const remoteCoverUrl = normalizeRemoteCoverUrl(incomingMeta.coverUrl);
+      const prevCoverUrl = normalizeRemoteCoverUrl(existing?.metadata?.coverUrl);
+      const wantsRemote =
+        Boolean(remoteCoverUrl) &&
+        (remoteCoverUrl !== prevCoverUrl ||
+          existing?.metadata?.coverSource !== 'remote' ||
+          !existing?.coverPath);
+
+      if (remoteCoverUrl) {
+        incomingMeta.coverUrl = remoteCoverUrl;
+      }
+
+      if (wantsRemote && remoteCoverUrl && existing.filePath) {
+        try {
+          const pid = getActiveProfileId();
+          const coverPath = await ensureCoverFromUrl(
+            existing.filePath,
+            remoteCoverUrl,
+            pid,
+          );
+          nextPatch.coverPath = coverPath;
+          incomingMeta.coverSource = 'remote';
+          delete incomingMeta.coverError;
+          if (existing.coverPath && existing.coverPath !== coverPath) {
+            invalidateCoverDataUrl(existing.coverPath);
+          }
+          invalidateCoverDataUrl(coverPath);
+        } catch (err) {
+          console.warn('[VDR] updateBook jacket API:', err?.message || err);
+          incomingMeta.coverSource =
+            existing?.metadata?.coverSource === 'remote'
+              ? 'remote'
+              : existing?.metadata?.coverSource || null;
+          incomingMeta.coverError = String(err?.message || err);
+        }
+      } else if (
+        Object.prototype.hasOwnProperty.call(incomingMeta, 'coverUrl') &&
+        !remoteCoverUrl
+      ) {
+        // cover coché mais URL absente / invalide
+        incomingMeta.coverUrl = null;
+        console.warn('[VDR] updateBook: coverUrl manquante ou invalide');
+      }
+
+      nextPatch.metadata = {
+        ...(existing.metadata || {}),
+        ...incomingMeta,
+      };
+    }
+
+    return updateBook(bookId, nextPatch);
+  });
 
   ipcMain.handle(IpcChannels.LIBRARY_DELETE_BOOK, async (_e, id) => {
     const bookId = Number(id);

@@ -9,9 +9,9 @@ import {
   USER_AGENT,
   metadataSearchLimit,
   collectSearchPages,
-  extractYear,
 } from '../types.js';
 import { stubProvider } from './stub.js';
+import { mapMangadexItem } from '../mappers/mangadex.js';
 
 /** @type {import('../types.js').MetadataProvider} */
 export const mangadexProvider = {
@@ -57,7 +57,7 @@ export const mangadexProvider = {
               ? Number(data.total)
               : null;
           return {
-            items: rows.map(mapManga),
+            items: rows.map(mapMangadexItem),
             total,
             hasMore: total != null ? offset + rows.length < total : null,
           };
@@ -72,57 +72,11 @@ export const mangadexProvider = {
   },
 };
 
-function mapManga(item) {
-  const attrs = item.attributes || {};
-  const titles = attrs.title || {};
-  const title =
-    titles.en ||
-    titles.ja ||
-    titles['ja-ro'] ||
-    Object.values(titles)[0] ||
-    'Manga';
-  const series = titles['ja-ro'] || titles.en || titles.ja || title;
-
-  return {
-    id: `mangadex:${item.id}`,
-    title,
-    series,
-    volume: null,
-    author: findAuthor(item.relationships),
-    year: extractYear(attrs.year),
-    description: pickDescription(attrs.description),
-    coverUrl: coverUrl(item.id, item.relationships),
-    source: 'mangadex',
-    confidence: 0.8,
-  };
-}
-
-function pickDescription(desc) {
-  if (!desc || typeof desc !== 'object') return null;
-  const text = desc.en || desc.fr || Object.values(desc)[0];
-  if (!text) return null;
-  return String(text).replace(/\s+/g, ' ').trim().slice(0, 600);
-}
-
-function findAuthor(relationships) {
-  if (!Array.isArray(relationships)) return null;
-  const author = relationships.find((r) => r.type === 'author');
-  return author?.attributes?.name || null;
-}
-
-function coverUrl(mangaId, relationships) {
-  if (!Array.isArray(relationships)) return null;
-  const cover = relationships.find((r) => r.type === 'cover_art');
-  const fileName = cover?.attributes?.fileName;
-  if (!fileName || !mangaId) return null;
-  // .512.jpg = meilleure jacket catalogue (CDN MangaDex)
-  return `https://uploads.mangadex.org/covers/${mangaId}/${fileName}.512.jpg`;
-}
-
 async function softFallback(q, note) {
   const stub = await stubProvider.search(q);
   return stub.map((r) => ({
     ...r,
     description: `${r.description || ''} (${note})`.trim(),
+    synopsis: `${r.synopsis || r.description || ''} (${note})`.trim(),
   }));
 }

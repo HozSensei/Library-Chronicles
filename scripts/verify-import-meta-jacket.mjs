@@ -128,6 +128,11 @@ assert(
   'http → https',
 );
 assert(
+  normalizeRemoteCoverUrl('//cdn.example/proto.jpg') ===
+    'https://cdn.example/proto.jpg',
+  '// → https',
+);
+assert(
   normalizeRemoteCoverUrl('https://cdn.example/b.jpg') ===
     'https://cdn.example/b.jpg',
   'https inchangé',
@@ -232,7 +237,10 @@ assert(
   'ensureCover protège jacket contre race page 0',
 );
 assert(fetchSrc.includes('export async function fetchBuffer'), 'fetchBuffer dispo');
-assert(importStore.includes('coverUrl'), 'store import draft coverUrl');
+assert(importStore.includes('Jaquette absente'), 'toast cover manquante à l’apply');
+assert(importStore.includes('coverWarning'), 'toast coverWarning au commit');
+assert(importMain.includes('coverWarning'), 'commitImport renvoie coverWarning');
+assert(importMain.includes('normalizeRemoteCoverUrl'), 'commitImport normalise coverUrl');
 assert(importStore.includes('resolveCoverPreview'), 'store resolveCoverPreview');
 assert(importStore.includes('previewCoverFromUrl'), 'store appelle previewCoverFromUrl');
 assert(importStore.includes('enrichCoverPreviews'), 'store previews résultats search');
@@ -311,6 +319,15 @@ assert(
 assert(
   ipcLibrary.includes("coverSource !== 'remote'"),
   'scan ne skip pas si coverSource ≠ remote',
+);
+assert(
+  ipcLibrary.includes('LIBRARY_UPDATE_BOOK') ||
+    ipcLibrary.includes('updateBook jacket'),
+  'updateBook télécharge jacket API',
+);
+assert(
+  ipcLibrary.includes('normalizeRemoteCoverUrl'),
+  'updateBook normalise coverUrl https',
 );
 assert(
   querySrc.includes('export function normalizeMetadataQuery'),

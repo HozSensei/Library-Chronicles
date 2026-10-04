@@ -3,13 +3,16 @@
  */
 
 /**
- * Normalise une URL jacket (http → https ; rejette non-http).
+ * Normalise une URL jacket (http → https ; // → https ; rejette non-http).
  * @param {string} coverUrl
  * @returns {string}
  */
 export function normalizeRemoteCoverUrl(coverUrl) {
   let url = String(coverUrl || '').trim();
   if (!url) return '';
+  if (url.startsWith('//')) {
+    url = `https:${url}`;
+  }
   if (/^http:\/\//i.test(url)) {
     url = `https://${url.slice(7)}`;
   }

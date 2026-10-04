@@ -74,6 +74,11 @@ assert(
   'toast apply enrich meta',
 );
 assert(
+  importStore.includes('Jaquette absente') ||
+    importStore.includes('coverWarning'),
+  'toast cover manquante / warning',
+);
+assert(
   importStore.includes("t('toast.imported'") ||
     importStore.includes('toast.imported'),
   'toast commit import succès',
