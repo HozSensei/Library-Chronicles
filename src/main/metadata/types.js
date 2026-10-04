@@ -35,6 +35,9 @@ export const USER_AGENT = 'VerticalDeckReader/0.1 (Library-Chronicles; +https://
  * - Open Library `limit` : 100 (défaut / page raisonnable)
  * - Google Books `maxResults` max 40
  * - ComicVine `limit` max 100
+ *
+ * Chaque provider ne demande qu’une page à la fois ; `collectSearchPages`
+ * enchaîne les pages jusqu’à `METADATA_SEARCH_MAX_TOTAL`.
  */
 export const METADATA_SEARCH_LIMITS = Object.freeze({
   anilist: 50,
@@ -44,6 +47,12 @@ export const METADATA_SEARCH_LIMITS = Object.freeze({
   comicvine: 100,
   stub: 50,
 });
+
+/**
+ * Plafond de sécurité global (toutes pages confondues).
+ * Évite le spam API tout en récupérant bien plus qu’une seule page.
+ */
+export const METADATA_SEARCH_MAX_TOTAL = 250;
 
 /** Alias du plafond AniList (50) — préférer `metadataSearchLimit(id)`. */
 export const METADATA_SEARCH_LIMIT = METADATA_SEARCH_LIMITS.anilist;
@@ -58,6 +67,83 @@ export function metadataSearchLimit(providerId) {
     return METADATA_SEARCH_LIMITS[id];
   }
   return METADATA_SEARCH_LIMIT;
+}
+
+/**
+ * Enchaîne les pages d’une API de recherche jusqu’au plafond global.
+ *
+ * @template T
+ * @param {{
+ *   pageSize: number,
+ *   maxTotal?: number,
+ *   fetchPage: (ctx: { page: number, offset: number, limit: number }) =>
+ *     Promise<{ items: T[], hasMore?: boolean|null, total?: number|null }>
+ * }} opts
+ * @returns {Promise<T[]>}
+ */
+export async function collectSearchPages({
+  pageSize,
+  maxTotal = METADATA_SEARCH_MAX_TOTAL,
+  fetchPage,
+}) {
+  const limit = Math.max(1, Number(pageSize) || 1);
+  const cap = Math.max(1, Number(maxTotal) || METADATA_SEARCH_MAX_TOTAL);
+  const maxPages = Math.ceil(cap / limit) + 1;
+  /** @type {T[]} */
+  const out = [];
+  const seen = new Set();
+  let page = 1;
+  let offset = 0;
+
+  for (let i = 0; i < maxPages && out.length < cap; i += 1) {
+    // Toujours demander une page pleine : réduire `limit` sur le dernier lot
+    // casse la pagination page-based (AniList / OL) et crée des trous.
+    let payload;
+    try {
+      payload = await fetchPage({ page, offset, limit });
+    } catch (err) {
+      // Page 2+ en échec : conserver les hits déjà collectés (ne pas stubber).
+      if (out.length) {
+        console.warn(
+          '[VDR] metadata pagination stopped early:',
+          err?.message || err,
+        );
+        break;
+      }
+      throw err;
+    }
+    const items = Array.isArray(payload?.items) ? payload.items : [];
+    if (!items.length) break;
+
+    for (const item of items) {
+      const key =
+        item && typeof item === 'object' && 'id' in item && item.id != null
+          ? String(item.id)
+          : null;
+      if (key) {
+        if (seen.has(key)) continue;
+        seen.add(key);
+      }
+      out.push(item);
+      if (out.length >= cap) break;
+    }
+
+    if (out.length >= cap) break;
+
+    const total =
+      payload?.total != null && Number.isFinite(Number(payload.total))
+        ? Number(payload.total)
+        : null;
+    if (payload?.hasMore === false) break;
+    if (total != null && offset + items.length >= total) break;
+    // Page incomplète → dernière page (sauf hasMore forcé à true).
+    if (items.length < limit && payload?.hasMore !== true) break;
+
+    page += 1;
+    offset += items.length;
+  }
+
+  return out.slice(0, cap);
 }
 
 export function parseVolume(v) {

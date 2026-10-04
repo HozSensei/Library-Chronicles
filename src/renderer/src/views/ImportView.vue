@@ -845,6 +845,7 @@ defineExpose({
             <div v-if="imp.enrichResults.length" class="import__enrich">
               <p class="import__enrich-label">
                 {{ t('import.resultsLabel') }}
+                · {{ t('import.resultsCount', { n: imp.enrichResults.length }) }}
                 <template v-if="imp.enrichProvider"> · {{ imp.enrichProvider }}</template>
                 <span class="import__enrich-hint"> · A {{ t('import.hintApplyEdit') }}</span>
               </p>

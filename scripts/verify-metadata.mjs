@@ -12,7 +12,9 @@ import {
   prepareMetadataSearchQuery,
   METADATA_SEARCH_LIMIT,
   METADATA_SEARCH_LIMITS,
+  METADATA_SEARCH_MAX_TOTAL,
   metadataSearchLimit,
+  collectSearchPages,
 } from '../src/main/metadata/types.js';
 import { stubProvider } from '../src/main/metadata/providers/stub.js';
 import { comicvineProvider } from '../src/main/metadata/providers/comicvine.js';
@@ -58,10 +60,64 @@ assert.equal(METADATA_SEARCH_LIMITS.openlibrary, 100);
 assert.equal(METADATA_SEARCH_LIMITS.googlebooks, 40);
 assert.equal(METADATA_SEARCH_LIMITS.comicvine, 100);
 assert.equal(METADATA_SEARCH_LIMIT, 50);
+assert.equal(METADATA_SEARCH_MAX_TOTAL, 250);
 assert.equal(metadataSearchLimit('anilist'), 50);
 assert.equal(metadataSearchLimit('mangadex'), 100);
 assert.equal(metadataSearchLimit('googlebooks'), 40);
 assert.equal(metadataSearchLimit('unknown'), METADATA_SEARCH_LIMIT);
+
+// collectSearchPages : multi-pages + plafond + dédup + arrêt page 2+ en erreur
+{
+  const calls = [];
+  const paged = await collectSearchPages({
+    pageSize: 2,
+    maxTotal: 5,
+    fetchPage: async ({ page, offset, limit }) => {
+      calls.push({ page, offset, limit });
+      const start = offset;
+      return {
+        items: [
+          { id: `x:${start}`, n: start },
+          { id: `x:${start + 1}`, n: start + 1 },
+        ],
+        total: 10,
+        hasMore: true,
+      };
+    },
+  });
+  assert.equal(paged.length, 5);
+  assert.equal(paged[0].id, 'x:0');
+  assert.equal(paged[4].id, 'x:4');
+  assert.ok(calls.length >= 3, 'au moins 3 pages pour atteindre le plafond 5');
+
+  const deduped = await collectSearchPages({
+    pageSize: 2,
+    maxTotal: 10,
+    fetchPage: async () => ({
+      items: [
+        { id: 'same', n: 1 },
+        { id: 'same', n: 2 },
+      ],
+      hasMore: false,
+    }),
+  });
+  assert.equal(deduped.length, 1);
+
+  let page2Throws = 0;
+  const partial = await collectSearchPages({
+    pageSize: 2,
+    maxTotal: 20,
+    fetchPage: async ({ page }) => {
+      if (page === 1) {
+        return { items: [{ id: 'a' }, { id: 'b' }], hasMore: true, total: 4 };
+      }
+      page2Throws += 1;
+      throw new Error('page2 boom');
+    },
+  });
+  assert.equal(partial.length, 2);
+  assert.equal(page2Throws, 1);
+}
 
 const parsed = detectFromFilename('/lib/One Piece - Tome 03 (2019).cbz');
 assert.equal(parsed.series, 'One Piece');
@@ -96,15 +152,44 @@ assert.ok(String(gbNoKey[0].description).includes('clé API manquante'));
 // --- mock fetch pour parsers réseau ---
 const originalFetch = globalThis.fetch;
 
-/** Captures last request payloads to assert query + limit. */
-const seen = { openlibrary: null, anilist: null, mangadex: null, googlebooks: null, comicvine: null };
+/** Captures last request payloads to assert query + limit / pagination. */
+const seen = {
+  openlibrary: null,
+  anilist: null,
+  mangadex: null,
+  googlebooks: null,
+  comicvine: null,
+};
+const pageHits = {
+  openlibrary: [],
+  anilist: [],
+  mangadex: [],
+  googlebooks: [],
+  comicvine: [],
+};
 
 globalThis.fetch = async (url, opts = {}) => {
   const href = String(url);
 
   if (href.includes('openlibrary.org/search.json')) {
     const u = new URL(href);
-    seen.openlibrary = { q: u.searchParams.get('q'), limit: u.searchParams.get('limit') };
+    const offset = Number(u.searchParams.get('offset') || '0');
+    const limit = Number(u.searchParams.get('limit') || '100');
+    seen.openlibrary = {
+      q: u.searchParams.get('q'),
+      limit: u.searchParams.get('limit'),
+      offset: u.searchParams.get('offset'),
+    };
+    pageHits.openlibrary.push(offset);
+    if (u.searchParams.get('q') === 'MultiPageOL') {
+      const docs = Array.from({ length: Math.min(limit, 150 - offset) }, (_, i) => ({
+        key: `/works/OL${offset + i}W`,
+        title: `OL Hit ${offset + i}`,
+        author_name: ['A'],
+        first_publish_year: 2000,
+      }));
+      return jsonResponse({ docs, numFound: 150 });
+    }
     return jsonResponse({
       docs: [
         {
@@ -116,15 +201,62 @@ globalThis.fetch = async (url, opts = {}) => {
           subtitle: 'Tome 1',
         },
       ],
+      numFound: 1,
     });
   }
 
   if (href.includes('graphql.anilist.co')) {
     const body = JSON.parse(opts.body || '{}');
-    seen.anilist = body.variables || null;
+    const vars = body.variables || {};
+    seen.anilist = vars;
+    pageHits.anilist.push(Number(vars.page || 1));
+    if (vars.search === 'MultiPageAL') {
+      const page = Number(vars.page || 1);
+      const media =
+        page === 1
+          ? Array.from({ length: 50 }, (_, i) => ({
+              id: 1000 + i,
+              title: { romaji: `AL ${i}`, english: `AL ${i}`, native: null },
+              volumes: null,
+              startDate: { year: 2010 },
+              description: 'x',
+              coverImage: { large: null, medium: null },
+              staff: { edges: [] },
+            }))
+          : Array.from({ length: 10 }, (_, i) => ({
+              id: 2000 + i,
+              title: { romaji: `AL p2 ${i}`, english: `AL p2 ${i}`, native: null },
+              volumes: null,
+              startDate: { year: 2011 },
+              description: 'y',
+              coverImage: { large: null, medium: null },
+              staff: { edges: [] },
+            }));
+      return jsonResponse({
+        data: {
+          Page: {
+            pageInfo: {
+              total: 60,
+              currentPage: page,
+              lastPage: 2,
+              hasNextPage: page < 2,
+              perPage: vars.perPage,
+            },
+            media,
+          },
+        },
+      });
+    }
     return jsonResponse({
       data: {
         Page: {
+          pageInfo: {
+            total: 1,
+            currentPage: 1,
+            lastPage: 1,
+            hasNextPage: false,
+            perPage: vars.perPage,
+          },
           media: [
             {
               id: 30013,
@@ -145,7 +277,43 @@ globalThis.fetch = async (url, opts = {}) => {
 
   if (href.includes('api.mangadex.org/manga')) {
     const u = new URL(href);
-    seen.mangadex = { title: u.searchParams.get('title'), limit: u.searchParams.get('limit') };
+    const offset = Number(u.searchParams.get('offset') || '0');
+    seen.mangadex = {
+      title: u.searchParams.get('title'),
+      limit: u.searchParams.get('limit'),
+      offset: u.searchParams.get('offset'),
+    };
+    pageHits.mangadex.push(offset);
+    if (u.searchParams.get('title') === 'MultiPageMD') {
+      const rows =
+        offset === 0
+          ? Array.from({ length: 100 }, (_, i) => ({
+              id: `md-${i}`,
+              attributes: {
+                title: { en: `MD ${i}` },
+                altTitles: [],
+                year: 2001,
+                description: { en: 'x' },
+              },
+              relationships: [],
+            }))
+          : Array.from({ length: 20 }, (_, i) => ({
+              id: `md-${100 + i}`,
+              attributes: {
+                title: { en: `MD ${100 + i}` },
+                altTitles: [],
+                year: 2002,
+                description: { en: 'y' },
+              },
+              relationships: [],
+            }));
+      return jsonResponse({
+        data: rows,
+        total: 120,
+        offset,
+        limit: Number(u.searchParams.get('limit')),
+      });
+    }
     return jsonResponse({
       data: [
         {
@@ -162,12 +330,34 @@ globalThis.fetch = async (url, opts = {}) => {
           ],
         },
       ],
+      total: 1,
+      offset: 0,
+      limit: Number(u.searchParams.get('limit')),
     });
   }
 
   if (href.includes('googleapis.com/books')) {
     const u = new URL(href);
-    seen.googlebooks = { q: u.searchParams.get('q'), maxResults: u.searchParams.get('maxResults') };
+    const startIndex = Number(u.searchParams.get('startIndex') || '0');
+    seen.googlebooks = {
+      q: u.searchParams.get('q'),
+      maxResults: u.searchParams.get('maxResults'),
+      startIndex: u.searchParams.get('startIndex'),
+    };
+    pageHits.googlebooks.push(startIndex);
+    if (u.searchParams.get('q') === 'MultiPageGB') {
+      const rows =
+        startIndex === 0
+          ? Array.from({ length: 40 }, (_, i) => ({
+              id: `gb-${i}`,
+              volumeInfo: { title: `GB ${i}`, authors: ['A'], publishedDate: '2000' },
+            }))
+          : Array.from({ length: 40 }, (_, i) => ({
+              id: `gb-${40 + i}`,
+              volumeInfo: { title: `GB ${40 + i}`, authors: ['A'], publishedDate: '2001' },
+            }));
+      return jsonResponse({ items: rows, totalItems: 80 });
+    }
     return jsonResponse({
       items: [
         {
@@ -181,12 +371,42 @@ globalThis.fetch = async (url, opts = {}) => {
           },
         },
       ],
+      totalItems: 1,
     });
   }
 
   if (href.includes('comicvine.gamespot.com')) {
     const u = new URL(href);
-    seen.comicvine = { query: u.searchParams.get('query'), limit: u.searchParams.get('limit') };
+    const offset = Number(u.searchParams.get('offset') || '0');
+    seen.comicvine = {
+      query: u.searchParams.get('query'),
+      limit: u.searchParams.get('limit'),
+      offset: u.searchParams.get('offset'),
+    };
+    pageHits.comicvine.push(offset);
+    if (u.searchParams.get('query') === 'MultiPageCV') {
+      const rows =
+        offset === 0
+          ? Array.from({ length: 100 }, (_, i) => ({
+              id: 1000 + i,
+              name: `CV ${i}`,
+              start_year: '2000',
+              deck: 'x',
+            }))
+          : Array.from({ length: 30 }, (_, i) => ({
+              id: 2000 + i,
+              name: `CV ${100 + i}`,
+              start_year: '2001',
+              deck: 'y',
+            }));
+      return jsonResponse({
+        results: rows,
+        number_of_total_results: 130,
+        number_of_page_results: rows.length,
+        offset,
+        limit: Number(u.searchParams.get('limit')),
+      });
+    }
     return jsonResponse({
       results: [
         {
@@ -197,6 +417,10 @@ globalThis.fetch = async (url, opts = {}) => {
           image: { thumb_url: 'https://example.com/b.jpg' },
         },
       ],
+      number_of_total_results: 1,
+      number_of_page_results: 1,
+      offset: 0,
+      limit: Number(u.searchParams.get('limit')),
     });
   }
 
@@ -260,6 +484,32 @@ try {
   assert.equal(cv[0].year, 1939);
   assert.equal(seen.comicvine.query, 'Batman');
   assert.equal(seen.comicvine.limit, String(metadataSearchLimit('comicvine')));
+
+  // Multi-page : au-delà d’une seule page API
+  pageHits.openlibrary = [];
+  const olMulti = await openLibraryProvider.search('MultiPageOL');
+  assert.equal(olMulti.length, 150);
+  assert.ok(pageHits.openlibrary.includes(0) && pageHits.openlibrary.includes(100));
+
+  pageHits.anilist = [];
+  const alMulti = await anilistProvider.search('MultiPageAL');
+  assert.equal(alMulti.length, 60);
+  assert.ok(pageHits.anilist.includes(1) && pageHits.anilist.includes(2));
+
+  pageHits.mangadex = [];
+  const mdMulti = await mangadexProvider.search('MultiPageMD');
+  assert.equal(mdMulti.length, 120);
+  assert.ok(pageHits.mangadex.includes(0) && pageHits.mangadex.includes(100));
+
+  pageHits.googlebooks = [];
+  const gbMulti = await googleBooksProvider.search('MultiPageGB', { apiKey: 'test-key' });
+  assert.equal(gbMulti.length, 80);
+  assert.ok(pageHits.googlebooks.includes(0) && pageHits.googlebooks.includes(40));
+
+  pageHits.comicvine = [];
+  const cvMulti = await comicvineProvider.search('MultiPageCV', { apiKey: 'cv-key' });
+  assert.equal(cvMulti.length, 130);
+  assert.ok(pageHits.comicvine.includes(0) && pageHits.comicvine.includes(100));
 
   // Timeout / réseau → soft fallback stub
   globalThis.fetch = async () => {
