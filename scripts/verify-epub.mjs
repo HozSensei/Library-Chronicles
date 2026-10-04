@@ -30,6 +30,9 @@ import {
   EPUB_ENGINE,
   EPUB_INK,
   EPUB_PAPER_BG,
+  EPUB_CHAPTER_BREAK_SELECTORS,
+  EPUB_CHAPTER_BREAK_SKIP_SELECTORS,
+  EPUB_CHAPTER_BREAK_PROPS,
   buildEpubJsThemeRules,
   buildEpubThemeCss,
   clampScreenIndex,
@@ -179,7 +182,7 @@ assert.equal(stickToEpubPageWhich(0.1, 0.9), 'next');
 assert.equal(stickToEpubPageWhich(0.1, -0.9), 'prev');
 assert.equal(stickToEpubPageWhich(0.1, 0.1), null);
 
-// Thème epub.js : encre/papier, sans colonnes / translateX maison
+// Thème epub.js : encre/papier, sauts de page chapitre, sans colonnes / translateX
 {
   const rules = buildEpubJsThemeRules({ fontPct: 120 });
   assert.equal(rules.body.color, EPUB_INK);
@@ -187,10 +190,27 @@ assert.equal(stickToEpubPageWhich(0.1, 0.1), null);
   assert.equal(rules.body['font-size'], '120%');
   assert.equal(rules.html.background, EPUB_PAPER_BG);
 
+  const chapterBreak = rules[EPUB_CHAPTER_BREAK_SELECTORS];
+  assert.ok(chapterBreak, 'règles break-before chapitre');
+  assert.equal(chapterBreak['break-before'], EPUB_CHAPTER_BREAK_PROPS['break-before']);
+  assert.equal(
+    chapterBreak['page-break-before'],
+    EPUB_CHAPTER_BREAK_PROPS['page-break-before'],
+  );
+  assert.match(EPUB_CHAPTER_BREAK_SELECTORS, /\bh1\b/);
+  assert.match(EPUB_CHAPTER_BREAK_SELECTORS, /\bh2\b/);
+  assert.match(EPUB_CHAPTER_BREAK_SELECTORS, /\.chapter\b/);
+  assert.match(EPUB_CHAPTER_BREAK_SELECTORS, /epub\|type/);
+  const skip = rules[EPUB_CHAPTER_BREAK_SKIP_SELECTORS];
+  assert.equal(skip['break-before'], 'auto');
+  assert.equal(skip['page-break-before'], 'auto');
+
   const css = buildEpubThemeCss({ fontPct: 120 });
   assert.match(css, new RegExp(`color:\\s*${EPUB_INK}`));
   assert.match(css, new RegExp(`background:\\s*${EPUB_PAPER_BG}`));
   assert.match(css, /font-size:\s*120%/);
+  assert.match(css, /break-before:\s*page/);
+  assert.match(css, /page-break-before:\s*always/);
   assert.doesNotMatch(css, /column-width/);
   assert.doesNotMatch(css, /translateX/);
   assert.doesNotMatch(css, /var\(--paper/);
@@ -270,10 +290,36 @@ assert.equal(stickToEpubPageWhich(0.1, 0.1), null);
   );
   assert.match(pagination, /EPUB_ENGINE/);
   assert.match(pagination, /buildEpubJsThemeRules/);
+  assert.match(pagination, /EPUB_CHAPTER_BREAK_SELECTORS/);
+  assert.match(pagination, /break-before/);
   // Plus d’injection column-width / translateX dans le CSS thème actif
   assert.doesNotMatch(
     buildEpubThemeCss({ fontPct: 100, pageWidth: 100, pageHeight: 100 }),
     /column-width|translateX/,
+  );
+
+  const controlsDoc = fs.readFileSync(
+    path.join(root, 'docs/CONTROLS.md'),
+    'utf8',
+  );
+  assert.match(controlsDoc, /break-before:\s*page/);
+  assert.match(controlsDoc, /Chapitre spine ±1/);
+  assert.match(controlsDoc, /h1.*h2|\.chapter/);
+
+  const i18n = fs.readFileSync(path.join(root, 'src/shared/i18n.js'), 'utf8');
+  assert.match(i18n, /LT\/RT chapitre spine ±1|LT\/RT spine chapter ±1/);
+
+  const bindings = fs.readFileSync(
+    path.join(root, 'src/shared/key-bindings.js'),
+    'utf8',
+  );
+  assert.ok(
+    bindings.includes("GamepadButtons.LT}`]: 'chapter-prev'"),
+    'LT → chapter-prev',
+  );
+  assert.ok(
+    bindings.includes("GamepadButtons.RT}`]: 'chapter-next'"),
+    'RT → chapter-next',
   );
 
   const ipc = fs.readFileSync(
@@ -385,5 +431,5 @@ try {
 }
 
 console.log(
-  'OK  EPUB extracteur + epub.js (viewport) + thème encre/papier (sans colonnes maison)',
+  'OK  EPUB extracteur + epub.js (viewport) + thème encre/papier + chapter breaks',
 );

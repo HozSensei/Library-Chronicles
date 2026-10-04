@@ -101,8 +101,34 @@ export function stickToEpubPageWhich(
 }
 
 /**
+ * Sélecteurs chapitre — saut de page avant titres / blocs chapitre
+ * (intra-spine : plusieurs chapitres dans un même XHTML).
+ * Injectés via `rendition.themes.default()`.
+ */
+export const EPUB_CHAPTER_BREAK_SELECTORS =
+  'h1, h2, .chapter, section[epub|type~="chapter"]';
+
+/**
+ * Évite une page blanche en tête de document spine
+ * (le premier enfant a déjà un début de section).
+ */
+export const EPUB_CHAPTER_BREAK_SKIP_SELECTORS = 'body > :first-child';
+
+/** Propriétés CSS saut de page (CSS3 + legacy). */
+export const EPUB_CHAPTER_BREAK_PROPS = Object.freeze({
+  'break-before': 'page',
+  'page-break-before': 'always',
+});
+
+/** Neutralise le saut pour le premier enfant du body. */
+export const EPUB_CHAPTER_BREAK_SKIP_PROPS = Object.freeze({
+  'break-before': 'auto',
+  'page-break-before': 'auto',
+});
+
+/**
  * Règles CSS pour `rendition.themes.default()` — encre lisible, sans
- * colonnes maison ni translateX.
+ * colonnes maison ni translateX. Inclut sauts de page avant titres chapitre.
  *
  * @param {{ fontPct?: number }} [opts]
  * @returns {Record<string, Record<string, string>>}
@@ -126,6 +152,8 @@ export function buildEpubJsThemeRules(opts = {}) {
     'h1, h2, h3, h4, h5, h6': {
       color: EPUB_INK,
     },
+    [EPUB_CHAPTER_BREAK_SELECTORS]: { ...EPUB_CHAPTER_BREAK_PROPS },
+    [EPUB_CHAPTER_BREAK_SKIP_SELECTORS]: { ...EPUB_CHAPTER_BREAK_SKIP_PROPS },
     'img, svg': {
       'max-width': '100%',
       height: 'auto',
@@ -186,6 +214,14 @@ html, body {
   overflow-wrap: anywhere !important;
 }
 a, a:visited { color: ${EPUB_LINK} !important; }
+${EPUB_CHAPTER_BREAK_SELECTORS} {
+  break-before: page !important;
+  page-break-before: always !important;
+}
+${EPUB_CHAPTER_BREAK_SKIP_SELECTORS} {
+  break-before: auto !important;
+  page-break-before: auto !important;
+}
 img, svg { max-width: 100% !important; height: auto !important; }
 `;
 }

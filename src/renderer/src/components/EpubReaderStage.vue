@@ -5,7 +5,9 @@
  * - Charge l’archive `.epub` (ArrayBuffer IPC) une fois.
  * - `rendition.next()` / `prev()` pour les pages-écran ; spine pour les chapitres.
  * - Dimensions = `clientWidth` / `clientHeight` du stage (repère local pré-rotate(+90°)).
- * - Thème encre/papier ; police → themes.fontSize (reflow géré par epub.js).
+ * - Thème encre/papier + sauts de page avant titres chapitre (themes.default).
+ * - Police → themes.fontSize (reflow géré par epub.js).
+ * - LT/RT (store.stepChapter) = spine ±1 ; pages via rendition next/prev.
  */
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import ePubMod from 'epubjs';
@@ -69,6 +71,7 @@ function stageSize() {
 
 function applyTheme() {
   if (!rendition) return;
+  // Inclut break-before:page sur titres/blocs chapitre (buildEpubJsThemeRules).
   const rules = buildEpubJsThemeRules({ fontPct: reader.fontSize || 100 });
   rendition.themes.default(rules);
   rendition.themes.fontSize(`${reader.fontSize || 100}%`);

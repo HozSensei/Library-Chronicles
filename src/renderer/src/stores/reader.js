@@ -1002,6 +1002,11 @@ export const useReaderStore = defineStore('reader', {
       this.flashHud(900);
       return true;
     },
+    /**
+     * LT / RT — chapitre spine ±1.
+     * EPUB : atterrit début (RT / next) ou fin (LT / prev) via epubLandOn.
+     * CBZ : saute au startIndex du chapitre détecté (dossiers).
+     */
     async stepChapter(dir) {
       if (this.isEpubMode) {
         this.epubLandOn = dir < 0 ? 'end' : 'start';
