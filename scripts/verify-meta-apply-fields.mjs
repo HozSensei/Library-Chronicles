@@ -89,8 +89,19 @@ assert(store.includes('confirmApplyEnrich'), 'store confirm modal');
 assert(store.includes('filterMetaPatchBySelection'), 'store filtre champs');
 assert(store.includes('pendingApplyResult'), 'store pending');
 assert(store.includes('applyFieldSelection'), 'store selection');
+assert(store.includes('sanitizeForIpc'), 'store sanitize IPC');
+assert(store.includes('toRaw'), 'store toRaw avant apply');
+assert(store.includes('_debugDumpMetaApply'), 'store dump debug');
 assert(store.includes('hydrateDraftFromSelected'), 'hydrate draft sans empty flash');
 assert(store.includes('loadCoverForSelected'), 'cover reload idempotent');
+
+const plainClone = readFileSync(join(root, 'src/shared/plain-clone.js'), 'utf8');
+assert(plainClone.includes('sanitizeForIpc'), 'helper sanitizeForIpc');
+assert(plainClone.includes('JSON.parse(JSON.stringify'), 'JSON roundtrip');
+
+const preload = readFileSync(join(root, 'src/preload/index.js'), 'utf8');
+assert(preload.includes('sanitizeForIpc(patch)'), 'preload updateBook sanitize');
+assert(preload.includes('debugDumpApply'), 'preload dump apply');
 
 const view = readFileSync(join(root, 'src/renderer/src/views/ImportView.vue'), 'utf8');
 assert(view.includes('import__apply-modal'), 'modal DOM');

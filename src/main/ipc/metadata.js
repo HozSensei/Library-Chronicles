@@ -1,5 +1,6 @@
 import { ipcMain, shell } from 'electron';
 import { IpcChannels } from '../../shared/ipc-channels.js';
+import { sanitizeForIpc } from '../../shared/plain-clone.js';
 import {
   detectMetadata,
   searchMetadata,
@@ -11,6 +12,7 @@ import {
   getProvider,
   testProvider,
 } from '../metadata/provider.js';
+import { registerMetaApplyDebugIpc } from './meta-apply-debug.js';
 
 const ALLOWED_HELP_HOSTS = new Set([
   'comicvine.gamespot.com',
@@ -35,13 +37,16 @@ export function registerMetadataIpc() {
     const usedProvider = Array.isArray(payload)
       ? getActiveProviderId()
       : payload.provider || getActiveProviderId();
-    return {
+    return sanitizeForIpc({
       results,
       warning,
       providers: listProviders(),
       activeProvider: usedProvider,
-    };
+    });
   });
+
+  // Dump apply méta (dev) — enregistré avec les autres canaux metadata
+  registerMetaApplyDebugIpc();
 
   ipcMain.handle(IpcChannels.METADATA_LIST_PROVIDERS, async () => ({
     providers: listProviders(),

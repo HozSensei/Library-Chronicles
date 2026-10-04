@@ -80,6 +80,15 @@ interface VdrApi {
       testedAt?: number | null;
     }>;
     openHelp: (payload: { provider?: string; url?: string }) => Promise<{ ok: boolean }>;
+    /** Dump debug apply méta (dev) → userData/.debug/meta-apply/ */
+    debugDumpApply: (payload: {
+      provider?: string | null;
+      raw?: unknown;
+      normalized?: unknown;
+      fieldsSelected?: unknown;
+      patch?: unknown;
+      bookId?: number | string | null;
+    }) => Promise<{ ok: boolean; paths?: string[]; skipped?: boolean; error?: string }>;
   };
   reader: {
     open: (filePath: string) => Promise<{

@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia';
+import { toRaw } from 'vue';
 import {
   IMPORT_FLOW,
   META_RETURN,
@@ -25,6 +26,12 @@ import {
 } from '../../../shared/meta-apply-fields.js';
 import { normalizeMetadataQuery } from '../../../shared/metadata-query.js';
 import { pathFromItemKey } from '../../../shared/app-routes.js';
+import {
+  clonePlainMeta,
+  isDevMode,
+  sanitizeForIpc,
+} from '../../../shared/plain-clone.js';
+import { ensureNormalizedMeta } from '../../../shared/normalized-meta.js';
 import { useLibraryStore } from './library.js';
 import { useToastStore } from './toast.js';
 import { t } from '../../../shared/i18n.js';
@@ -645,6 +652,7 @@ export const useImportStore = defineStore('import', {
     /**
      * Applique un résultat API → draft + selectedMeta (pastille verte).
      * Série : API uniquement (series → title) — pas de fallback filename/folder.
+     * Sanitize plain avant IPC (Proxies Pinia → « An object could not be cloned »).
      * @param {object} result
      * @param {{ fields?: Record<string, boolean>, bookId?: number|string|null }} [opts]
      * @returns {boolean} true si appliqué
@@ -653,7 +661,15 @@ export const useImportStore = defineStore('import', {
       if (!result) return false;
       const selection = opts.fields || defaultMetaApplySelection();
       if (!hasMetaApplySelection(selection)) return false;
-      const fullPatch = metadataPatchFromEnrichResult(result, this.draft);
+      // toRaw : détache le Proxy Pinia sur le NormalizedMeta stocké dans enrichResults
+      const rawResult = toRaw(result);
+      const plainResult =
+        clonePlainMeta(rawResult) ||
+        ensureNormalizedMeta(rawResult) ||
+        sanitizeForIpc(rawResult);
+      if (!plainResult || typeof plainResult !== 'object') return false;
+
+      const fullPatch = metadataPatchFromEnrichResult(plainResult, toRaw(this.draft));
       const patch = filterMetaPatchBySelection(fullPatch, selection);
       this.patchDraft(patch);
       if (selection.cover && patch.coverUrl) {
@@ -661,7 +677,10 @@ export const useImportStore = defineStore('import', {
       } else if (selection.cover && !patch.coverUrl) {
         try {
           useToastStore().info('Jaquette absente chez le provider');
-          console.warn('[VDR] apply méta: coverUrl manquante', result?.id || result?.provider);
+          console.warn(
+            '[VDR] apply méta: coverUrl manquante',
+            plainResult?.id || plainResult?.provider,
+          );
         } catch {
           /* toast optionnel */
         }
@@ -669,12 +688,24 @@ export const useImportStore = defineStore('import', {
       const item = this.selected;
       if (item) {
         item.metaSource = META_SOURCE.SELECTED;
-        item.selectedMeta = normalizeImportMetadata(this.draft, item);
+        item.selectedMeta = normalizeImportMetadata(toRaw(this.draft), item);
       }
       const bookId =
         opts.bookId != null
           ? opts.bookId
           : (this.metaReturnBookId ?? item?.existingBookId ?? null);
+
+      // Dump debug (dev) : raw + normalized + champs cochés — ne bloque pas l’apply
+      if (isDevMode()) {
+        void this._debugDumpMetaApply({
+          raw: rawResult,
+          normalized: plainResult,
+          fieldsSelected: selection,
+          patch,
+          bookId,
+        });
+      }
+
       if (bookId != null) {
         void (async () => {
           try {
@@ -687,7 +718,8 @@ export const useImportStore = defineStore('import', {
             if (selection.year) update.year = this.draft.year;
             if (selection.author) update.author = this.draft.author || null;
             if (selection.synopsis || selection.cover || selection.title) {
-              const prev = lib.getBookById?.(bookId)?.metadata || {};
+              const prev =
+                sanitizeForIpc(toRaw(lib.getBookById?.(bookId)?.metadata)) || {};
               update.metadata = {
                 ...prev,
                 ...(selection.synopsis
@@ -707,7 +739,10 @@ export const useImportStore = defineStore('import', {
                   : {}),
               };
             }
-            const updated = await lib.updateBook(bookId, update, { silent: true });
+            const plainUpdate = sanitizeForIpc(update) || update;
+            const updated = await lib.updateBook(bookId, plainUpdate, {
+              silent: true,
+            });
             // Forcer rechargement jaquette (coverPath peut avoir changé côté main).
             if (selection.cover) {
               delete lib.covers[bookId];
@@ -745,6 +780,25 @@ export const useImportStore = defineStore('import', {
       this.pendingApplyResult = null;
       return true;
     },
+    /**
+     * Mode developer : dump raw + normalized + fields sur disque (IPC main).
+     * @param {{ raw?: unknown, normalized?: unknown, fieldsSelected?: object, patch?: object, bookId?: unknown }} payload
+     */
+    async _debugDumpMetaApply(payload) {
+      try {
+        if (typeof window?.vdr?.metadata?.debugDumpApply !== 'function') return;
+        await window.vdr.metadata.debugDumpApply({
+          provider: payload?.normalized?.provider || payload?.raw?.provider || null,
+          raw: sanitizeForIpc(payload?.raw),
+          normalized: sanitizeForIpc(payload?.normalized),
+          fieldsSelected: sanitizeForIpc(payload?.fieldsSelected),
+          patch: sanitizeForIpc(payload?.patch),
+          bookId: payload?.bookId ?? null,
+        });
+      } catch (err) {
+        console.warn('[VDR] meta-apply dump failed:', err?.message || err);
+      }
+    },
     confirmApplyEnrich(opts = {}) {
       const result = this.pendingApplyResult;
       if (!result) return false;
@@ -777,10 +831,12 @@ export const useImportStore = defineStore('import', {
       this.committing = true;
       const toast = useToastStore();
       try {
-        const meta = resolveItemMetadata(item, {
-          draft: this.draft,
-          preferDraft: this.isDetail,
-        });
+        const meta = sanitizeForIpc(
+          resolveItemMetadata(item, {
+            draft: toRaw(this.draft),
+            preferDraft: this.isDetail,
+          }),
+        );
         const result = await window.vdr.import.commit({
           sourcePath: item.filePath,
           metadata: meta,
@@ -830,10 +886,12 @@ export const useImportStore = defineStore('import', {
           if (!item) continue;
           const preferDraft =
             this.isDetail && this.selected?.filePath === filePath;
-          const meta = resolveItemMetadata(item, {
-            draft: this.draft,
-            preferDraft,
-          });
+          const meta = sanitizeForIpc(
+            resolveItemMetadata(item, {
+              draft: toRaw(this.draft),
+              preferDraft,
+            }),
+          );
           const result = await window.vdr.import.commit({
             sourcePath: filePath,
             metadata: meta,
@@ -892,10 +950,12 @@ export const useImportStore = defineStore('import', {
         for (const item of this.items) {
           const preferDraft =
             this.isDetail && this.selected?.filePath === item.filePath;
-          const meta = resolveItemMetadata(item, {
-            draft: this.draft,
-            preferDraft,
-          });
+          const meta = sanitizeForIpc(
+            resolveItemMetadata(item, {
+              draft: toRaw(this.draft),
+              preferDraft,
+            }),
+          );
           const result = await window.vdr.import.commit({
             sourcePath: item.filePath,
             metadata: meta,

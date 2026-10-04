@@ -14,6 +14,7 @@
  */
 
 import { absoluteHttpsCoverUrl } from './normalized-meta.js';
+import { sanitizeForIpc } from './plain-clone.js';
 
 export const META_SOURCE = Object.freeze({
   SELECTED: 'selected',
@@ -80,7 +81,13 @@ export function normalizeImportMetadata(meta, fallbackItem = null) {
     (Array.isArray(m.authors) && m.authors[0] ? m.authors[0] : '') ||
     '';
   const description = m.description || m.synopsis || null;
-  return {
+  // Copie auteurs (pas la ref Proxy Pinia) + sanitize IPC.
+  const authors = Array.isArray(m.authors)
+    ? m.authors.map((a) => String(a || '').trim()).filter(Boolean)
+    : author
+      ? [author]
+      : [];
+  return sanitizeForIpc({
     title: m.title || fallbackItem?.name || '',
     series: m.series || '',
     volume: m.volume ?? null,
@@ -92,12 +99,8 @@ export function normalizeImportMetadata(meta, fallbackItem = null) {
     source,
     provider: m.provider || source || null,
     providerId: m.providerId ?? null,
-    authors: Array.isArray(m.authors)
-      ? m.authors
-      : author
-        ? [author]
-        : [],
-  };
+    authors,
+  });
 }
 
 /**
@@ -132,7 +135,7 @@ export function metadataPatchFromEnrichResult(result, draft = null) {
     absoluteHttpsCoverUrl(prev.coverUrl) ||
     null;
   const source = result?.provider || result?.source || prev.source || null;
-  return {
+  return sanitizeForIpc({
     title: title || String(prev.title || ''),
     series: apiSeries || apiTitle || '',
     volume,
@@ -144,7 +147,7 @@ export function metadataPatchFromEnrichResult(result, draft = null) {
     source,
     provider: source,
     providerId: result?.providerId ?? prev.providerId ?? null,
-  };
+  });
 }
 
 /**

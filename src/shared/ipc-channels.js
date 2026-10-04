@@ -29,6 +29,8 @@ export const IpcChannels = Object.freeze({
   METADATA_SET_PROVIDER: 'metadata:set-provider',
   METADATA_TEST_PROVIDER: 'metadata:test-provider',
   METADATA_OPEN_HELP: 'metadata:open-help',
+  /** Dump debug apply méta (dev only) → userData/.debug/meta-apply/ */
+  METADATA_DEBUG_DUMP_APPLY: 'metadata:debug-dump-apply',
 
   READER_OPEN: 'reader:open',
   READER_GET_PAGE: 'reader:get-page',

@@ -1,9 +1,11 @@
 import { defineStore } from 'pinia';
+import { toRaw } from 'vue';
 import {
   findSeriesGroup,
   groupBooksBySeries,
   listRecentSeries,
 } from '../../../shared/series.js';
+import { sanitizeForIpc } from '../../../shared/plain-clone.js';
 import { useToastStore } from './toast.js';
 import { t } from '../../../shared/i18n.js';
 
@@ -405,7 +407,13 @@ export const useLibraryStore = defineStore('library', {
       if (id == null || !patch || typeof patch !== 'object') return null;
       const toast = useToastStore();
       try {
-        const updated = await window.vdr.library.updateBook(Number(id), patch);
+        // toRaw + JSON sanitize : évite Proxies Pinia/Vue dans IPC Electron
+        // (« An object could not be cloned » — ex. metadata.authors réactif).
+        const plainPatch = sanitizeForIpc(toRaw(patch)) || {};
+        const updated = await window.vdr.library.updateBook(
+          Number(id),
+          plainPatch,
+        );
         if (!updated) return null;
         const idx = this.books.findIndex((b) => String(b.id) === String(id));
         if (idx >= 0) {
