@@ -62,6 +62,7 @@
   },
   "dependencies": {
     "@fontsource/figtree": "^5.2.5",
+    "epubjs": "^0.3.93",
     "jszip": "^3.10.1",
     "node-unrar-js": "^2.0.2",
     "pdfjs-dist": "^4.10.38",

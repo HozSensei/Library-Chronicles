@@ -1,8 +1,8 @@
 /**
- * Chemin manette — lecteur EPUB (texte reflow paginé type liseuse).
+ * Chemin manette — lecteur EPUB (texte reflow paginé via epub.js).
  *
- * Stick / D-Pad ←→ = page-écran ±1 dans le chapitre, puis chapitre voisin.
- * D-Pad ↑/↓ = taille police ± (reflow → re-pagination).
+ * Stick / D-Pad ←→ = page-écran ±1 (rendition next/prev), puis chapitre voisin.
+ * D-Pad ↑/↓ = taille police ± (reflow epub.js).
  * L3 / R3 = reset taille police.
  * LB fit-width = no-op (pas d’image à fitter).
  * Pas de scroll continu ni de filtres sépia manga sur le HTML.

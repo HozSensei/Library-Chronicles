@@ -1,23 +1,26 @@
 <script setup>
 /**
- * Chemin EPUB — pagination type liseuse (1 page = viewport local).
+ * Chemin EPUB — pagination viewport via **epub.js** (pas de colonnes CSS maison).
  *
- * Multi-colonnes CSS dans l’iframe + translateX ; police → reflow.
- * Dimensions via clientWidth/Height du stage (repère local pré-rotate(90deg)).
- * D-Pad / stick : page-écran ± puis chapitre ; ↑↓ police ; L3 reset.
- * Contenu isolé des filtres manga (brightness/sepia) — encre sur papier.
+ * - Charge l’archive `.epub` (ArrayBuffer IPC) une fois.
+ * - `rendition.next()` / `prev()` pour les pages-écran ; spine pour les chapitres.
+ * - Dimensions = `clientWidth` / `clientHeight` du stage (repère local pré-rotate(+90°)).
+ * - Thème encre/papier ; police → themes.fontSize (reflow géré par epub.js).
  */
-import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import ePubMod from 'epubjs';
 import { useReaderStore } from '../stores/reader';
 import { useI18n } from '../composables/useI18n';
 import {
-  buildEpubThemeCss,
-  clampScreenIndex,
-  computeScreenCount,
-  remapScreenIndex,
-  resolveEpubPageGeometry,
-  screenOffsetX,
+  EPUB_ENGINE,
+  EPUB_INK,
+  EPUB_PAPER_BG,
+  buildEpubJsThemeRules,
 } from '../../../shared/epub-pagination.js';
+import {
+  base64ToArrayBuffer,
+  resolveEpubFactory,
+} from '../../../shared/epubjs-loader.js';
 
 const reader = useReaderStore();
 const { t } = useI18n();
@@ -25,12 +28,31 @@ const { t } = useI18n();
 defineEmits(['leave']);
 
 const stageEl = ref(null);
-const frameEl = ref(null);
+const bootError = ref(null);
+const engineReady = ref(false);
+
+/** @type {import('epubjs').Book | null} */
+let book = null;
+/** @type {import('epubjs').Rendition | null} */
+let rendition = null;
 /** @type {ResizeObserver | null} */
 let ro = null;
-let measureTimer = 0;
-/** Ignore les mesures obsolètes (chapitre / police / resize en vol). */
-let measureGen = 0;
+/** Ignore display() déclenché par notre propre sync spine. */
+let syncingFromRendition = false;
+/** Génération pour annuler un boot concurrent. */
+let bootGen = 0;
+/** Resize debounce. */
+let resizeTimer = 0;
+
+const ePub = resolveEpubFactory(ePubMod);
+
+const showPlaceholder = computed(
+  () =>
+    Boolean(bootError.value) ||
+    Boolean(reader.error) ||
+    !reader.filePath ||
+    (reader.loading && !engineReady.value),
+);
 
 /**
  * Stage local (avant rotate(90deg) du plan). Ne jamais prendre
@@ -45,211 +67,269 @@ function stageSize() {
   };
 }
 
-function frameDoc() {
+function applyTheme() {
+  if (!rendition) return;
+  const rules = buildEpubJsThemeRules({ fontPct: reader.fontSize || 100 });
+  rendition.themes.default(rules);
+  rendition.themes.fontSize(`${reader.fontSize || 100}%`);
+  rendition.themes.override('color', EPUB_INK, true);
+  rendition.themes.override('background-color', EPUB_PAPER_BG, true);
+}
+
+function destroyEngine() {
+  reader.registerEpubNavigator(null);
   try {
-    return frameEl.value?.contentDocument || null;
+    rendition?.destroy();
   } catch {
-    return null;
+    // ignore
   }
-}
-
-/** Document iframe prêt (body avec contenu après load blob). */
-function docReady(doc) {
-  if (!doc?.documentElement || !doc.body) return false;
-  // Blob fraîchement navigué peut exposer body vide un instant.
-  if (!doc.body.childNodes || doc.body.childNodes.length === 0) return false;
-  return true;
-}
-
-function injectTheme(doc, geo) {
-  if (!doc?.head) return;
-  let style = doc.getElementById('vdr-epub-theme');
-  if (!style) {
-    style = doc.createElement('style');
-    style.id = 'vdr-epub-theme';
-    doc.head.appendChild(style);
+  try {
+    book?.destroy();
+  } catch {
+    // ignore
   }
-  style.textContent = buildEpubThemeCss({
-    fontPct: reader.fontSize || 100,
-    pageWidth: geo.pageWidth,
-    pageHeight: geo.pageHeight,
-    padX: geo.padX,
-    padY: geo.padY,
-  });
-}
-
-function applyScreenTransform(doc, index, stride) {
-  const body = doc?.body;
-  if (!body) return;
-  const x = -screenOffsetX(index, stride);
-  body.style.transform = `translateX(${x}px)`;
+  rendition = null;
+  book = null;
+  engineReady.value = false;
 }
 
 /**
- * Mesure les colonnes, met à jour le store, applique le translate.
- * @param {{ preserveRatio?: boolean }} [opts]
- * @returns {boolean} true si mesure appliquée
+ * Atterrir en fin de section courante (page-prev chapitre).
  */
-function syncPagination(opts = {}) {
-  const frame = frameEl.value;
-  const doc = frameDoc();
-  const { w, h } = stageSize();
-  if (!frame || !w || !h) return false;
-  if (!docReady(doc)) return false;
-
-  const geo = resolveEpubPageGeometry({ pageWidth: w, pageHeight: h });
-  frame.style.width = `${geo.pageWidth}px`;
-  frame.style.height = `${geo.pageHeight}px`;
-  injectTheme(doc, geo);
-
-  // Forcer layout après CSS colonnes (lecture scrollWidth).
-  void doc.body.offsetWidth;
-  const scrollW = Math.max(
-    doc.documentElement.scrollWidth || 0,
-    doc.body?.scrollWidth || 0,
-    geo.stride,
-  );
-  const count = computeScreenCount(scrollW, geo.stride);
-  const prevCount = reader.epubScreenCount || 1;
-  const prevIndex = reader.epubScreenIndex || 0;
-
-  let nextIndex;
-  if (reader.epubLandOn === 'end') {
-    nextIndex = count - 1;
-  } else if (reader.epubLandOn === 'start') {
-    nextIndex = 0;
-  } else if (opts.preserveRatio && prevCount !== count) {
-    nextIndex = remapScreenIndex(prevIndex, prevCount, count);
-  } else {
-    nextIndex = clampScreenIndex(prevIndex, count);
-  }
-
-  nextIndex = clampScreenIndex(nextIndex, count);
-  reader.setEpubScreens(count, nextIndex);
-  applyScreenTransform(doc, reader.epubScreenIndex, geo.stride);
-  return true;
-}
-
-/**
- * Mesure après paint (double rAF) pour éviter race font-size / layout.
- * @param {boolean} [preserveRatio]
- * @param {number} [attempt]
- */
-function scheduleMeasure(preserveRatio = false, attempt = 0) {
-  if (measureTimer) clearTimeout(measureTimer);
-  const gen = ++measureGen;
-  measureTimer = window.setTimeout(() => {
-    measureTimer = 0;
-    const run = () => {
-      if (gen !== measureGen) return;
-      requestAnimationFrame(() => {
-        if (gen !== measureGen) return;
-        requestAnimationFrame(() => {
-          if (gen !== measureGen) return;
-          try {
-            const ok = syncPagination({ preserveRatio });
-            // Blob pas encore peint / fonts : réessayer brièvement.
-            if (!ok && attempt < 8) {
-              measureTimer = window.setTimeout(() => {
-                measureTimer = 0;
-                scheduleMeasure(preserveRatio, attempt + 1);
-              }, 32);
-            }
-          } catch {
-            // blob: same-origin / doc détaché
-          }
-        });
-      });
-    };
-    // fonts.ready si dispo (évite reflow mid-mesure → count faux → blancs).
-    const doc = frameDoc();
-    const fonts = doc?.fonts;
-    if (fonts?.ready && typeof fonts.ready.then === 'function') {
-      fonts.ready.then(run).catch(run);
-    } else {
-      run();
+async function goToSectionEnd() {
+  if (!rendition) return;
+  let guard = 0;
+  while (guard < 400) {
+    guard += 1;
+    const loc =
+      typeof rendition.currentLocation === 'function'
+        ? rendition.currentLocation()
+        : rendition.location;
+    const start = loc?.start || loc;
+    if (!start?.displayed) break;
+    const page = start.displayed.page || 1;
+    const total = Math.max(1, start.displayed.total || 1);
+    if (page >= total) break;
+    const spineIdx = start.index;
+    // eslint-disable-next-line no-await-in-loop
+    await rendition.next();
+    const after =
+      typeof rendition.currentLocation === 'function'
+        ? rendition.currentLocation()
+        : rendition.location;
+    const afterStart = after?.start || after;
+    if (afterStart?.index != null && afterStart.index !== spineIdx) {
+      // eslint-disable-next-line no-await-in-loop
+      await rendition.prev();
+      break;
     }
-  }, 16);
+  }
 }
 
-function onFrameLoad() {
-  scheduleMeasure(false);
+function onRelocated(location) {
+  if (!location?.start) return;
+  syncingFromRendition = true;
+  try {
+    const page = location.start.displayed?.page || 1;
+    const total = Math.max(1, location.start.displayed?.total || 1);
+    reader.setEpubScreens(total, page - 1);
+    const spineIdx = location.start.index;
+    if (typeof spineIdx === 'number' && spineIdx !== reader.pageIndex) {
+      reader.syncEpubSpineIndex(spineIdx);
+    }
+  } finally {
+    // microtask : laisse les watchers pageIndex ignorer ce cycle
+    queueMicrotask(() => {
+      syncingFromRendition = false;
+    });
+  }
 }
 
-// Ne pas mesurer sur pageUrl seul : landOn serait consommé avant load
-// (count=1) → index faux / pages blanches. @load suffit.
+/**
+ * @param {'prev'|'next'} which
+ * @returns {Promise<boolean>}
+ */
+async function navigatePage(which) {
+  if (!rendition) return false;
+  try {
+    const loc = rendition.location;
+    if (which === 'next') {
+      if (loc?.atEnd) return false;
+      await rendition.next();
+      return true;
+    }
+    if (loc?.atStart) return false;
+    await rendition.prev();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function scheduleResize() {
+  if (resizeTimer) clearTimeout(resizeTimer);
+  resizeTimer = window.setTimeout(() => {
+    resizeTimer = 0;
+    if (!rendition) return;
+    const { w, h } = stageSize();
+    if (w > 1 && h > 1) {
+      try {
+        rendition.resize(w, h);
+      } catch {
+        // ignore
+      }
+    }
+  }, 40);
+}
+
+async function bootEngine() {
+  const gen = ++bootGen;
+  bootError.value = null;
+  destroyEngine();
+
+  if (!reader.isEpubMode || !reader.filePath || !stageEl.value) return;
+  if (typeof window.vdr?.reader?.getBytes !== 'function') {
+    bootError.value = 'IPC getBytes indisponible';
+    return;
+  }
+
+  try {
+    const payload = await window.vdr.reader.getBytes();
+    if (gen !== bootGen) return;
+    if (!payload?.data) throw new Error('Archive EPUB vide');
+
+    const ab = base64ToArrayBuffer(payload.data);
+    book = ePub(ab);
+
+    await book.ready;
+    if (gen !== bootGen) return;
+
+    const { w, h } = stageSize();
+    // Vider le conteneur avant renderTo (epub.js y injecte ses iframes).
+    stageEl.value.replaceChildren();
+
+    rendition = book.renderTo(stageEl.value, {
+      width: w,
+      height: h,
+      flow: 'paginated',
+      spread: 'none',
+      allowScriptedContent: false,
+      // On mesure clientWidth/Height nous-mêmes (rotation Ally +90°).
+      resizeOnOrientationChange: false,
+    });
+
+    applyTheme();
+    if (reader.direction === 'rtl') {
+      try {
+        rendition.direction('rtl');
+      } catch {
+        // ignore
+      }
+    }
+
+    rendition.on('relocated', onRelocated);
+    reader.registerEpubNavigator(navigatePage);
+
+    const target = Math.max(0, Math.min(reader.pageIndex || 0, (reader.pageCount || 1) - 1));
+    await rendition.display(target);
+    if (gen !== bootGen) return;
+
+    if (reader.epubLandOn === 'end') {
+      await goToSectionEnd();
+      reader.clearEpubLandOn();
+    }
+
+    engineReady.value = true;
+  } catch (err) {
+    if (gen !== bootGen) return;
+    bootError.value = err?.message || String(err);
+    engineReady.value = false;
+    destroyEngine();
+  }
+}
+
 watch(
-  () => reader.pageUrl,
+  () => reader.filePath,
   async () => {
     await nextTick();
-    // Annule une mesure en vol sur l’ancien chapitre.
-    measureGen += 1;
-    if (measureTimer) {
-      clearTimeout(measureTimer);
-      measureTimer = 0;
-    }
+    await bootEngine();
   },
 );
 
 watch(
-  () => reader.fontSize,
-  async () => {
-    await nextTick();
-    scheduleMeasure(true);
-  },
-);
-
-watch(
-  () => reader.epubScreenIndex,
-  () => {
-    const doc = frameDoc();
-    const { w } = stageSize();
-    if (!docReady(doc) || !w) return;
-    const geo = resolveEpubPageGeometry({ pageWidth: w, pageHeight: 1 });
+  () => reader.pageIndex,
+  async (idx) => {
+    if (syncingFromRendition || !rendition || !engineReady.value) return;
     try {
-      applyScreenTransform(doc, reader.epubScreenIndex, geo.stride);
+      await rendition.display(Math.max(0, Number(idx) || 0));
+      if (reader.epubLandOn === 'end') {
+        await goToSectionEnd();
+        reader.clearEpubLandOn();
+      } else if (reader.epubLandOn === 'start') {
+        reader.clearEpubLandOn();
+      }
     } catch {
       // ignore
     }
   },
 );
 
-onMounted(() => {
+watch(
+  () => reader.fontSize,
+  () => {
+    if (!rendition) return;
+    applyTheme();
+  },
+);
+
+watch(
+  () => reader.direction,
+  (dir) => {
+    if (!rendition) return;
+    try {
+      rendition.direction(dir === 'rtl' ? 'rtl' : 'ltr');
+    } catch {
+      // ignore
+    }
+  },
+);
+
+onMounted(async () => {
   if (typeof ResizeObserver !== 'undefined' && stageEl.value) {
-    ro = new ResizeObserver(() => scheduleMeasure(true));
+    ro = new ResizeObserver(() => scheduleResize());
     ro.observe(stageEl.value);
   }
-  // Si l’iframe est déjà chargée (blob en cache), forcer une mesure.
-  scheduleMeasure(false);
+  await bootEngine();
 });
 
 onBeforeUnmount(() => {
-  measureGen += 1;
-  if (measureTimer) clearTimeout(measureTimer);
+  bootGen += 1;
+  if (resizeTimer) clearTimeout(resizeTimer);
   ro?.disconnect();
   ro = null;
+  destroyEngine();
 });
 </script>
 
 <template>
   <div
-    ref="stageEl"
-    class="reader__epub"
+    class="reader__epub-wrap"
     data-reader-path="epub"
+    :data-epub-engine="EPUB_ENGINE"
     data-epub-paginated="1"
   >
-    <iframe
-      v-if="reader.pageUrl"
-      ref="frameEl"
-      class="reader__epub-frame"
-      title="Chapitre EPUB"
-      sandbox="allow-same-origin"
-      :src="reader.pageUrl"
-      @load="onFrameLoad"
+    <div
+      ref="stageEl"
+      class="reader__epub"
+      data-epub-stage="1"
     />
-    <div v-else class="reader__epub-placeholder">
+    <div
+      v-if="showPlaceholder"
+      class="reader__epub-placeholder"
+    >
       <p class="reader__brand">Library Chronicles</p>
-      <p v-if="reader.loading">{{ t('reader.loading') }}</p>
+      <p v-if="bootError">{{ bootError }}</p>
+      <p v-else-if="reader.loading">{{ t('reader.loading') }}</p>
       <p v-else-if="reader.error">{{ reader.error }}</p>
       <template v-else>
         <p>{{ t('reader.empty') }}</p>
@@ -263,7 +343,7 @@ onBeforeUnmount(() => {
 </template>
 
 <style>
-.reader__epub[data-reader-path='epub'] {
+.reader__epub-wrap[data-reader-path='epub'] {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -272,23 +352,30 @@ onBeforeUnmount(() => {
   overscroll-behavior: none;
   background: #f4efe6;
   color: #1a1a1a;
-  /* Pas de filter CSS manga (brightness/sepia) — isole le HTML EPUB. */
   filter: none !important;
   touch-action: none;
 }
 
-.reader__epub[data-reader-path='epub'] .reader__epub-frame {
-  display: block;
+.reader__epub-wrap[data-reader-path='epub'] .reader__epub {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
-  border: 0;
-  background: #f4efe6;
-  pointer-events: none;
-  /* Évite barre de défilement fantôme qui rogne clientWidth. */
   overflow: hidden;
+  background: #f4efe6;
 }
 
-.reader__epub[data-reader-path='epub'] .reader__epub-placeholder {
+/* epub.js injecte iframe(s) — plein cadre, sans scroll fantôme. */
+.reader__epub-wrap[data-reader-path='epub'] .reader__epub iframe {
+  border: 0 !important;
+  background: #f4efe6;
+  pointer-events: none;
+}
+
+.reader__epub-wrap[data-reader-path='epub'] .reader__epub-placeholder {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
   display: grid;
   place-items: center;
   gap: 0.4rem;
@@ -296,10 +383,10 @@ onBeforeUnmount(() => {
   color: #1a1a1a;
   padding: 2rem;
   min-width: 0;
-  height: 100%;
+  background: #f4efe6;
 }
 
-.reader__epub[data-reader-path='epub'] .reader__brand {
+.reader__epub-wrap[data-reader-path='epub'] .reader__brand {
   margin: 0 0 0.5rem;
   font-family: var(--font-display);
   font-weight: 800;
@@ -307,7 +394,7 @@ onBeforeUnmount(() => {
   color: var(--brass-deep, #9a7b3a);
 }
 
-.reader__epub[data-reader-path='epub'] .dim {
+.reader__epub-wrap[data-reader-path='epub'] .dim {
   color: #4a453f;
   margin: 0;
 }

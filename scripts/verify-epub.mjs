@@ -1,11 +1,12 @@
 /**
- * Smoke EPUB : archive minimale + pagination liseuse + thème encre/papier.
+ * Smoke EPUB : extracteur + epub.js (pagination viewport) + thème encre/papier.
  */
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import zlib from 'node:zlib';
+import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import JSZip from 'jszip';
 import {
@@ -26,24 +27,29 @@ import {
   supportsStripReading,
 } from '../src/shared/reading-mode.js';
 import {
+  EPUB_ENGINE,
   EPUB_INK,
-  EPUB_PAD_X,
   EPUB_PAPER_BG,
+  buildEpubJsThemeRules,
   buildEpubThemeCss,
   clampScreenIndex,
-  computeScreenCount,
   remapScreenIndex,
-  resolveEpubPageGeometry,
   resolveEpubPageStep,
-  screenOffsetX,
   stickToEpubPageWhich,
 } from '../src/shared/epub-pagination.js';
+import {
+  base64ToArrayBuffer,
+  resolveEpubFactory,
+} from '../src/shared/epubjs-loader.js';
 import {
   applyEpubReaderAction,
   applyEpubStickPage,
   isEpubZoomNoop,
   resetEpubStickPageClock,
 } from '../src/shared/reader-epub-controls.js';
+
+const require = createRequire(import.meta.url);
+const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 function tinyPng(r, g, b) {
   const signature = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
@@ -128,43 +134,15 @@ assert.equal(supportsStripReading('cbz'), true);
 assert.equal(resolveReadingMode('epub', 'strip'), READING_MODE.EPUB);
 assert.equal(resolveReadingMode('cbz', 'strip'), READING_MODE.STRIP);
 assert.equal(isEpubZoomNoop('fit-width'), true);
+assert.equal(EPUB_ENGINE, 'epubjs');
 
-// ——— Pagination pure ————————————————————————————————————————————————
-assert.equal(computeScreenCount(3240, 1080), 3);
-assert.equal(computeScreenCount(1080, 1080), 1);
-assert.equal(computeScreenCount(0, 1080), 1);
-// Sous-pixel / pad résiduel : ne pas inventer une page blanche.
-assert.equal(computeScreenCount(1080 + 0.5, 1080), 1);
-assert.equal(computeScreenCount(2160 + 12, 1080), 2);
+// ——— Navigation pure (fallback / HUD) ————————————————————————————————
 assert.equal(clampScreenIndex(5, 3), 2);
 assert.equal(clampScreenIndex(-1, 3), 0);
 assert.equal(clampScreenIndex(99, 1), 0);
 assert.equal(clampScreenIndex(2.9, 3), 2);
-assert.equal(screenOffsetX(2, 1080), 2160);
 assert.equal(remapScreenIndex(1, 4, 8), 2);
 assert.equal(remapScreenIndex(0, 1, 5), 0);
-
-// Colonne + gap = stride = largeur stage (viewport local pré-rotate).
-{
-  const geo = resolveEpubPageGeometry({
-    pageWidth: 1080,
-    pageHeight: 1920,
-  });
-  assert.equal(geo.pageWidth, 1080);
-  assert.equal(geo.pageHeight, 1920);
-  assert.equal(geo.padX, EPUB_PAD_X);
-  assert.equal(geo.colW + geo.columnGap, geo.pageWidth, 'colonne+gap = stage');
-  assert.equal(geo.stride, geo.pageWidth, 'stride = clientWidth local');
-  assert.equal(geo.columnGap, 2 * geo.padX);
-  // Portrait Ally local (plane 100vh×100vw avant +90°)
-  const ally = resolveEpubPageGeometry({ pageWidth: 1080, pageHeight: 1920 });
-  assert.equal(ally.stride, 1080);
-  assert.notEqual(ally.pageWidth, ally.pageHeight);
-  // Pas de confusion width/height : stride suit pageWidth, pas height.
-  const swapped = resolveEpubPageGeometry({ pageWidth: 1920, pageHeight: 1080 });
-  assert.equal(swapped.stride, 1920);
-  assert.equal(swapped.colW + swapped.columnGap, 1920);
-}
 
 {
   const mid = resolveEpubPageStep({
@@ -201,23 +179,22 @@ assert.equal(stickToEpubPageWhich(0.1, 0.9), 'next');
 assert.equal(stickToEpubPageWhich(0.1, -0.9), 'prev');
 assert.equal(stickToEpubPageWhich(0.1, 0.1), null);
 
+// Thème epub.js : encre/papier, sans colonnes / translateX maison
 {
-  const css = buildEpubThemeCss({
-    fontPct: 120,
-    pageWidth: 1080,
-    pageHeight: 1920,
-  });
-  const geo = resolveEpubPageGeometry({ pageWidth: 1080, pageHeight: 1920 });
+  const rules = buildEpubJsThemeRules({ fontPct: 120 });
+  assert.equal(rules.body.color, EPUB_INK);
+  assert.equal(rules.body.background, EPUB_PAPER_BG);
+  assert.equal(rules.body['font-size'], '120%');
+  assert.equal(rules.html.background, EPUB_PAPER_BG);
+
+  const css = buildEpubThemeCss({ fontPct: 120 });
   assert.match(css, new RegExp(`color:\\s*${EPUB_INK}`));
   assert.match(css, new RegExp(`background:\\s*${EPUB_PAPER_BG}`));
-  assert.match(css, new RegExp(`column-width:\\s*${geo.colW}px`));
-  assert.match(css, new RegExp(`column-gap:\\s*${geo.columnGap}px`));
-  assert.match(css, /width:\s*auto/);
   assert.match(css, /font-size:\s*120%/);
+  assert.doesNotMatch(css, /column-width/);
+  assert.doesNotMatch(css, /translateX/);
   assert.doesNotMatch(css, /var\(--paper/);
   assert.doesNotMatch(css, /sepia|brightness\(|contrast\(/);
-  // Invariant rendu : une fenêtre = exactement le viewport local.
-  assert.equal(geo.colW + geo.columnGap, 1080);
 }
 
 {
@@ -237,7 +214,6 @@ assert.equal(stickToEpubPageWhich(0.1, 0.1), null);
     true,
   );
   assert.ok(calls.includes('page:next'), 'stick page-tourne');
-  // Deuxième stick immédiat = cooldown (consommé, pas de 2e step)
   const before = calls.filter((c) => c.startsWith('page:')).length;
   assert.equal(applyEpubStickPage(reader, 0, 1, Date.now()), true);
   assert.equal(
@@ -251,21 +227,70 @@ assert.equal(stickToEpubPageWhich(0.1, 0.1), null);
   );
 }
 
-// Stage : pas de filter manga, pagination flag, géométrie locale
+// Dépendance npm epubjs + licence BSD-2-Clause
 {
-  const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
+  const pkg = JSON.parse(
+    fs.readFileSync(path.join(root, 'package.json'), 'utf8'),
+  );
+  assert.ok(pkg.dependencies?.epubjs, 'dépendance epubjs');
+  const epubPkg = JSON.parse(
+    fs.readFileSync(path.join(root, 'node_modules/epubjs/package.json'), 'utf8'),
+  );
+  assert.match(String(epubPkg.license || ''), /BSD/i);
+  const epubMod = require('epubjs');
+  const factory = resolveEpubFactory(epubMod);
+  assert.equal(typeof factory, 'function');
+  const ab = base64ToArrayBuffer(Buffer.from('PK\x03\x04demo').toString('base64'));
+  assert.ok(ab.byteLength >= 4);
+}
+
+// Stage : epub.js, clientWidth local, pas de translateX / colonnes maison
+{
   const stage = fs.readFileSync(
     path.join(root, 'src/renderer/src/components/EpubReaderStage.vue'),
     'utf8',
   );
   assert.match(stage, /data-epub-paginated/);
-  assert.match(stage, /buildEpubThemeCss|epub-pagination/);
-  assert.match(stage, /resolveEpubPageGeometry/);
+  assert.match(stage, /data-epub-engine/);
+  assert.match(stage, /from ['"]epubjs['"]/);
+  assert.match(stage, /buildEpubJsThemeRules|epub-pagination/);
   assert.match(stage, /filter:\s*none/);
   assert.match(stage, /clientWidth/);
+  assert.match(stage, /rendition\.resize/);
+  assert.match(stage, /getBytes/);
   assert.doesNotMatch(stage, /getBoundingClientRect/);
+  assert.doesNotMatch(stage, /translateX/);
+  assert.doesNotMatch(stage, /column-width/);
   assert.doesNotMatch(stage, /reader\.filterCss/);
   assert.doesNotMatch(stage, /color:\s*var\(--paper/);
+
+  const pagination = fs.readFileSync(
+    path.join(root, 'src/shared/epub-pagination.js'),
+    'utf8',
+  );
+  assert.match(pagination, /EPUB_ENGINE/);
+  assert.match(pagination, /buildEpubJsThemeRules/);
+  // Plus d’injection column-width / translateX dans le CSS thème actif
+  assert.doesNotMatch(
+    buildEpubThemeCss({ fontPct: 100, pageWidth: 100, pageHeight: 100 }),
+    /column-width|translateX/,
+  );
+
+  const ipc = fs.readFileSync(
+    path.join(root, 'src/shared/ipc-channels.js'),
+    'utf8',
+  );
+  assert.match(ipc, /READER_GET_BYTES/);
+  const preload = fs.readFileSync(
+    path.join(root, 'src/preload/index.js'),
+    'utf8',
+  );
+  assert.match(preload, /getBytes/);
+  const readerIpc = fs.readFileSync(
+    path.join(root, 'src/main/ipc/reader.js'),
+    'utf8',
+  );
+  assert.match(readerIpc, /READER_GET_BYTES|get-bytes/);
 }
 
 async function buildFixture() {
@@ -338,10 +363,27 @@ try {
     new Map(),
   );
   assert.match(rewritten, /data:image\/png;base64,/);
+
+  // Smoke epub.js : factory + Book sur ArrayBuffer (parse async en navigateur ;
+  // ici on vérifie seulement que l’archive est acceptée sans throw synchrone).
+  {
+    const epubMod = require('epubjs');
+    const ePub = resolveEpubFactory(epubMod);
+    const copy = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
+    const jsBook = ePub(copy);
+    assert.ok(jsBook);
+    assert.equal(typeof jsBook.renderTo, 'function');
+    assert.ok(jsBook.opened);
+    try {
+      jsBook.destroy();
+    } catch {
+      // Node sans DOM : destroy peut échouer — OK pour smoke factory.
+    }
+  }
 } finally {
   fs.unlinkSync(tmp);
 }
 
 console.log(
-  'OK  EPUB extracteur + pagination viewport (colonne=stage) + thème encre/papier',
+  'OK  EPUB extracteur + epub.js (viewport) + thème encre/papier (sans colonnes maison)',
 );

@@ -71,12 +71,18 @@ export const useReaderStore = defineStore('reader', {
     fontSize: EPUB_FONT_DEFAULT,
     /**
      * Pagination liseuse EPUB : index / total des pages-écran du chapitre.
-     * Mesuré par EpubReaderStage (colonnes CSS) ; indépendant du spine.
+     * Renseigné par EpubReaderStage via epub.js (`displayed.page/total`).
      */
     epubScreenIndex: 0,
     epubScreenCount: 1,
     /** À l’ouverture d’un chapitre : atterrir début ou fin (page-prev). */
     epubLandOn: 'start',
+    /**
+     * Navigateur epub.js enregistré par EpubReaderStage
+     * (`next`/`prev` rendition). Null hors stage monté.
+     * @type {null | ((which: 'prev'|'next') => Promise<boolean>|boolean)}
+     */
+    _epubNavigator: null,
     /** Facteur de zoom ∈ [1, 4] — 1 = page entière (fitScale). */
     zoom: 1,
     /** Offset de pan en px stage locaux (centré = 0). */
@@ -336,11 +342,12 @@ export const useReaderStore = defineStore('reader', {
     async loadCurrentPage({ scrollToCurrent = false } = {}) {
       if (!this.filePath || this.pageCount === 0) return;
       if (this.isEpubMode) {
-        const url = await this.ensurePageUrl(this.pageIndex);
-        this.pageUrl = url;
+        // Rendu délégué à epub.js (ArrayBuffer IPC) — pas de blob chapitre.
+        this.pageUrl = null;
         this.stripPages = [];
-        this.trimPageCache();
-        void this.prefetchNeighbors(this.pageIndex);
+        this.syncChapterIndex();
+        this.persistProgress();
+        return;
       } else if (this.isStripMode) {
         await this.loadStripWindow();
         if (scrollToCurrent) this.requestStripScroll();
@@ -396,13 +403,7 @@ export const useReaderStore = defineStore('reader', {
      */
     async prefetchNeighbors(center = this.pageIndex) {
       if (this.isEpubMode) {
-        const jobs = [];
-        for (let i = center - 1; i <= center + 1; i += 1) {
-          if (i === center) continue;
-          if (i >= 0 && i < this.pageCount) jobs.push(this.ensurePageUrl(i));
-        }
-        if (jobs.length) await Promise.all(jobs);
-        this.trimPageCache(center);
+        // epub.js gère le spine en mémoire — pas de prefetch blob chapitre.
         return;
       }
       if (this.isStripMode) {
@@ -428,13 +429,8 @@ export const useReaderStore = defineStore('reader', {
     trimPageCache(center = this.pageIndex) {
       const keep = new Set();
       if (this.isEpubMode) {
-        for (let i = center - 1; i <= center + 1; i += 1) {
-          if (i >= 0 && i < this.pageCount) keep.add(i);
-        }
-        // Ne jamais révoquer le blob encore affiché dans l’iframe.
-        if (this.pageIndex >= 0 && this.pageIndex < this.pageCount) {
-          keep.add(this.pageIndex);
-        }
+        // Pas de cache ObjectURL chapitre (moteur epub.js).
+        return;
       } else if (this.isStripMode) {
         const { start, end } = stripPrefetchRange(center, this.pageCount);
         for (let i = start; i <= end; i += 1) keep.add(i);
@@ -833,7 +829,32 @@ export const useReaderStore = defineStore('reader', {
       this.flashHud(900);
     },
     /**
-     * Mesure EpubReaderStage → pages-écran du chapitre courant.
+     * EpubReaderStage enregistre le callback next/prev epub.js.
+     * @param {null | ((which: 'prev'|'next') => Promise<boolean>|boolean)} fn
+     */
+    registerEpubNavigator(fn) {
+      this._epubNavigator = typeof fn === 'function' ? fn : null;
+    },
+    clearEpubLandOn() {
+      this.epubLandOn = '';
+    },
+    /**
+     * Sync spine depuis l’événement `relocated` epub.js (sans recharger).
+     * @param {number} index
+     */
+    syncEpubSpineIndex(index) {
+      if (!this.isEpubMode) return;
+      const i = Math.max(
+        0,
+        Math.min(this.pageCount - 1, Math.floor(Number(index) || 0)),
+      );
+      if (i === this.pageIndex) return;
+      this.pageIndex = i;
+      this.syncChapterIndex();
+      this.persistProgress();
+    },
+    /**
+     * Mesure EpubReaderStage → pages-écran du chapitre courant (epub.js).
      * @param {number} count
      * @param {number} index
      */
@@ -921,8 +942,22 @@ export const useReaderStore = defineStore('reader', {
       this.flashHud(900);
     },
     async stepPage(which) {
-      // EPUB : d’abord page-écran dans le chapitre, puis spine ±1.
+      // EPUB : pagination viewport via epub.js (rendition next/prev).
       if (this.isEpubMode) {
+        const rtl = this.direction === 'rtl';
+        let dir = which === 'prev' ? 'prev' : 'next';
+        if (rtl) dir = dir === 'next' ? 'prev' : 'next';
+
+        if (typeof this._epubNavigator === 'function') {
+          const ok = await this._epubNavigator(dir);
+          if (!ok && dir === 'next' && this.isFinished) {
+            await this.checkAdjacentVolumes();
+          }
+          if (ok) this.flashHud(900);
+          return Boolean(ok);
+        }
+
+        // Fallback hors stage (tests unitaires) : logique écran/chapitre.
         const step = resolveEpubPageStep({
           screenIndex: this.epubScreenIndex,
           screenCount: this.epubScreenCount,
@@ -935,8 +970,8 @@ export const useReaderStore = defineStore('reader', {
           return true;
         }
         if (step.type === 'chapter') {
-          const dir = step.which === 'next' ? 1 : -1;
-          const next = this.pageIndex + dir;
+          const d = step.which === 'next' ? 1 : -1;
+          const next = this.pageIndex + d;
           if (next < 0 || next >= this.pageCount) {
             if (step.which === 'next' && this.isFinished) {
               await this.checkAdjacentVolumes();
@@ -945,8 +980,6 @@ export const useReaderStore = defineStore('reader', {
           }
           this.epubLandOn = step.landOn;
           this.pageIndex = next;
-          // Index provisoire : l’ancien screenCount ne s’applique pas au nouveau
-          // chapitre (sinon index hors range → page blanche jusqu’à re-mesure).
           this.epubScreenIndex = 0;
           this.epubScreenCount = 1;
           await this.loadCurrentPage({ scrollToCurrent: false });

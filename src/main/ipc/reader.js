@@ -1,3 +1,4 @@
+import fs from 'fs';
 import { ipcMain } from 'electron';
 import { IpcChannels } from '../../shared/ipc-channels.js';
 import { openBook } from '../extractors/index.js';
@@ -6,6 +7,8 @@ import { getBookByPath } from '../database/books.js';
 import { createLruMap } from '../../shared/perf-cache.js';
 
 let session = null;
+/** Chemin fichier de la session courante (pour getBytes / epub.js). */
+let sessionPath = null;
 /** Cache IPC base64 pages courantes ±N (évite re-encode à chaque getPage). */
 let pagePayloadCache = createLruMap(10);
 /** @type {Map<number, Promise<object>>} */
@@ -41,10 +44,12 @@ export function registerReaderIpc() {
       await session.close().catch(() => {});
       session = null;
     }
+    sessionPath = null;
     clearPageCaches();
 
     const book = await openBook(filePath);
     session = book;
+    sessionPath = filePath;
     setConfig({ lastOpenedPath: filePath });
 
     const dbBook = getBookByPath(filePath);
@@ -90,11 +95,34 @@ export function registerReaderIpc() {
     return session.chapters || [];
   });
 
+  /**
+   * Octets bruts du fichier ouvert — utilisé par le renderer epub.js
+   * (pagination viewport native, sans colonnes CSS maison).
+   */
+  ipcMain.handle(IpcChannels.READER_GET_BYTES, async () => {
+    if (!sessionPath) throw new Error('Aucun livre ouvert');
+    if (!fs.existsSync(sessionPath)) {
+      throw new Error('Fichier introuvable: ' + sessionPath);
+    }
+    const buf = fs.readFileSync(sessionPath);
+    const format = session?.format || null;
+    return {
+      data: buf.toString('base64'),
+      mime:
+        format === 'epub'
+          ? 'application/epub+zip'
+          : 'application/octet-stream',
+      format,
+      byteLength: buf.length,
+    };
+  });
+
   ipcMain.handle(IpcChannels.READER_CLOSE, async () => {
     if (session) {
       await session.close().catch(() => {});
     }
     session = null;
+    sessionPath = null;
     clearPageCaches();
     return { ok: true };
   });

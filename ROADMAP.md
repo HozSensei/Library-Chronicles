@@ -87,7 +87,7 @@ Voir [`docs/UX.md`](./docs/UX.md), [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.
 ### Phase 1 — MVP lecteur *(fait)*
 
 - [x] CBZ/ZIP réel via JSZip (pages triées, getPage)
-- [x] **EPUB** — 3ᵉ chemin `EpubReaderStage` (JSZip + OPF/spine, reflow) ; strip disabled ; police / stick scroll / chapitres
+- [x] **EPUB** — 3ᵉ chemin `EpubReaderStage` + **epub.js** (pagination viewport) ; extracteur JSZip/OPF pour méta/spine ; strip disabled ; police / stick page / chapitres
 - [x] Page entière (contain), pan stick (`translate3d`), zoom D-Pad ±15 %, reset zoom L3
       — modèle unique `page-view-transform.js` (`fitScale` / `zoom ∈ [1,4]` / offset clampé)
 - [x] Pages D-Pad (avec remap portrait)
@@ -186,7 +186,7 @@ Setup (1ʳᵉ fois)
 | Archives ZIP/CBZ | JSZip |
 | Archives RAR/CBR | node-unrar-js |
 | PDF | pdfjs-dist (+ canvas Chromium / optionnel node-canvas) |
-| EPUB | JSZip + parse OPF/spine (reflow, pas epubjs) |
+| EPUB | epub.js (viewport) + JSZip/OPF méta-spine |
 | DB | better-sqlite3 (fallback JSON) |
 | Rendu zoom/pan/filtres | CSS transform + filter GPU |
 | Métadonnées | stub, Open Library, AniList, MangaDex (sans clé) ; ComicVine, Google Books (clé userData) — voir [`docs/METADATA.md`](./docs/METADATA.md) |
