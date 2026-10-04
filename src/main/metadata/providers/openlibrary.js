@@ -39,7 +39,7 @@ export const openLibraryProvider = {
           url.searchParams.set('offset', String(offset));
           url.searchParams.set(
             'fields',
-            'key,title,author_name,first_publish_year,cover_i,subtitle,number_of_pages_median',
+            'key,title,author_name,first_publish_year,cover_i,subtitle,number_of_pages_median,series',
           );
 
           const data = await fetchJson(url, {
@@ -71,16 +71,22 @@ export const openLibraryProvider = {
 
 function mapDoc(doc, i, q) {
   const coverId = doc.cover_i;
+  const seriesRaw = Array.isArray(doc.series) ? doc.series[0] : doc.series;
+  const series =
+    seriesRaw != null && String(seriesRaw).trim()
+      ? String(seriesRaw).trim()
+      : null;
   return {
     id: `openlibrary:${doc.key || i}`,
     title: doc.title || q,
-    series: null,
+    series,
     volume: null,
     author: Array.isArray(doc.author_name) ? doc.author_name[0] : null,
     year: extractYear(doc.first_publish_year),
     description: doc.subtitle || null,
+    // -L = large (meilleur pour jacket catalogue que -M medium)
     coverUrl: coverId
-      ? `https://covers.openlibrary.org/b/id/${coverId}-M.jpg`
+      ? `https://covers.openlibrary.org/b/id/${coverId}-L.jpg`
       : null,
     source: 'openlibrary',
     confidence: 0.7,

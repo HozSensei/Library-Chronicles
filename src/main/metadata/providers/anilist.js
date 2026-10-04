@@ -115,7 +115,8 @@ function mapMedia(item) {
     id: `anilist:${item.id}`,
     title,
     series: item.title?.romaji || item.title?.english || title,
-    volume: item.volumes ?? null,
+    // `volumes` AniList = total de la série, pas le n° de tome courant.
+    volume: null,
     author,
     year: item.startDate?.year || null,
     description: stripHtml(item.description),

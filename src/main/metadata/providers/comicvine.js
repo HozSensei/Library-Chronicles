@@ -80,18 +80,42 @@ export const comicvineProvider = {
 };
 
 function mapItem(item, i, q) {
+  const issueNo = item.issue_number;
+  // count_of_issues = total de la série (volume resource) — pas un n° de tome.
+  const volume =
+    issueNo != null && String(issueNo).trim() !== ''
+      ? parseVolume(issueNo)
+      : null;
   return {
     id: `comicvine:${item.id || i}`,
     title: item.name || item.volume?.name || q,
     series: item.volume?.name || item.name || null,
-    volume: parseVolume(item.issue_number || item.count_of_issues),
+    volume,
     author: null,
     year: extractYear(item.start_year || item.cover_date),
     description: stripHtml(item.deck || item.description),
-    coverUrl: item.image?.thumb_url || item.image?.small_url || null,
+    coverUrl: pickComicVineCover(item.image),
     source: 'comicvine',
     confidence: 0.8,
   };
+}
+
+/**
+ * @param {object|null|undefined} image
+ * @returns {string|null}
+ */
+function pickComicVineCover(image) {
+  if (!image || typeof image !== 'object') return null;
+  const raw =
+    image.medium_url ||
+    image.small_url ||
+    image.thumb_url ||
+    image.original_url ||
+    null;
+  if (!raw) return null;
+  let u = String(raw).trim();
+  if (/^http:\/\//i.test(u)) u = `https://${u.slice(7)}`;
+  return /^https:\/\//i.test(u) ? u : null;
 }
 
 function withNote(results, note) {

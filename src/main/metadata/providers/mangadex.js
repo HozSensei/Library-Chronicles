@@ -114,8 +114,9 @@ function coverUrl(mangaId, relationships) {
   if (!Array.isArray(relationships)) return null;
   const cover = relationships.find((r) => r.type === 'cover_art');
   const fileName = cover?.attributes?.fileName;
-  if (!fileName) return null;
-  return `https://uploads.mangadex.org/covers/${mangaId}/${fileName}.256.jpg`;
+  if (!fileName || !mangaId) return null;
+  // .512.jpg = meilleure jacket catalogue (CDN MangaDex)
+  return `https://uploads.mangadex.org/covers/${mangaId}/${fileName}.512.jpg`;
 }
 
 async function softFallback(q, note) {
