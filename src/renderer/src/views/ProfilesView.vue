@@ -394,9 +394,9 @@ footer {
 
 .profiles__prompt {
   margin: 0;
-  font-family: var(--font-body, inherit);
+  font-family: var(--font-display);
   font-size: clamp(0.95rem, 1.6vw, 1.1rem);
-  font-weight: 500;
+  font-weight: 700;
   letter-spacing: 0.04em;
   color: var(--paper-dim);
 }

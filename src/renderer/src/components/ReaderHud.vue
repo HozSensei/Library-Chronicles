@@ -603,6 +603,8 @@ async function quitReading() {
   color: var(--paper-dim);
   padding: 0.45rem 0.4rem;
   font: inherit;
+  font-family: var(--font-display);
+  font-weight: 600;
   font-size: 0.78rem;
   cursor: pointer;
   min-width: 0;

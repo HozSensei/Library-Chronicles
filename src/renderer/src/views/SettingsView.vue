@@ -506,6 +506,7 @@ const listeningLabel = computed(() => {
 h1 {
   margin: 0;
   font-family: var(--font-display);
+  font-weight: 800;
   font-size: 2rem;
 }
 
@@ -529,6 +530,8 @@ h1 {
   border-radius: 999px;
   padding: 0.4rem 0.85rem;
   cursor: pointer;
+  font-family: var(--font-display);
+  font-weight: 600;
   font-size: 0.85rem;
   transition:
     border-color 160ms var(--ease-soft),

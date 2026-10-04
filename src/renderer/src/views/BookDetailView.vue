@@ -692,6 +692,7 @@ function onEditableKeydown(ev) {
 
 .book-detail__empty-title {
   margin: 0;
+  font-family: var(--font-display);
   font-weight: 700;
   color: var(--paper);
   font-size: 1.15rem;

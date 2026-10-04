@@ -789,6 +789,7 @@ defineExpose({ doSearch, doImportOne, switchTab, backToList });
 
 .import__empty-title {
   margin: 0;
+  font-family: var(--font-display);
   font-weight: 700;
   color: var(--paper);
 }

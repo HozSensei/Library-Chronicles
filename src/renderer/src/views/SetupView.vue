@@ -411,6 +411,7 @@ defineExpose({
 h1 {
   margin: 0;
   font-family: var(--font-display);
+  font-weight: 800;
   font-size: clamp(1.35rem, 3vw, 1.75rem);
   letter-spacing: -0.01em;
 }
