@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia';
+import { useToastStore } from './toast.js';
 
 export const useProfilesStore = defineStore('profiles', {
   state: () => ({
@@ -51,9 +52,16 @@ export const useProfilesStore = defineStore('profiles', {
       return result;
     },
     async create(name, color) {
-      const profile = await window.vdr.profiles.create({ name, color });
-      await this.refresh();
-      return profile;
+      const toast = useToastStore();
+      try {
+        const profile = await window.vdr.profiles.create({ name, color });
+        await this.refresh();
+        toast.success(`Profil créé · ${profile?.name || name || 'Lecteur'}`);
+        return profile;
+      } catch (err) {
+        toast.error(err?.message || 'Échec création profil');
+        throw err;
+      }
     },
     async update(id, patch) {
       await window.vdr.profiles.update(id, patch);
