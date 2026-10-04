@@ -43,14 +43,21 @@ export function focusRootForRoute(routeName) {
     case 'library':
       return '.catalog';
     case 'book':
+    case 'library-book':
+    case 'import-book':
       return '.book-detail';
     case 'series':
+    case 'library-series':
       return '.series-detail';
     case 'setup':
       return '.setup';
     case 'profiles':
       return '.profiles';
     case 'import':
+    case 'import-item':
+    case 'import-item-meta':
+    case 'import-book-meta':
+    case 'library-book-meta':
       return '.import';
     case 'settings':
       return '.settings';
