@@ -4,7 +4,13 @@
  */
 
 import { fetchJson } from '../fetch.js';
-import { USER_AGENT, parseVolume, extractYear, stripHtml } from '../types.js';
+import {
+  USER_AGENT,
+  metadataSearchLimit,
+  parseVolume,
+  extractYear,
+  stripHtml,
+} from '../types.js';
 import { stubProvider } from './stub.js';
 
 /** @type {import('../types.js').MetadataProvider} */
@@ -34,7 +40,7 @@ export const comicvineProvider = {
       url.searchParams.set('format', 'json');
       url.searchParams.set('resources', 'volume,issue');
       url.searchParams.set('query', q);
-      url.searchParams.set('limit', '8');
+      url.searchParams.set('limit', String(metadataSearchLimit('comicvine')));
 
       const data = await fetchJson(url, {
         signal,

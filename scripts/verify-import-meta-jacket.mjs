@@ -184,10 +184,20 @@ assert(fetchSrc.includes('export async function fetchBuffer'), 'fetchBuffer disp
 assert(importStore.includes('coverUrl'), 'store import draft coverUrl');
 assert(importStore.includes('resolveCoverPreview'), 'store resolveCoverPreview');
 assert(importStore.includes('previewCoverFromUrl'), 'store appelle previewCoverFromUrl');
+assert(importStore.includes('enrichCoverPreviews'), 'store previews résultats search');
+assert(importStore.includes('loadEnrichCoverPreviews'), 'store charge jackets search');
 assert(
   importStore.includes('this.draft.volume != null'),
   'applyEnrich garde volume détecté (pas total série API)',
 );
+const importView = readFileSync(
+  join(root, 'src/renderer/src/views/ImportView.vue'),
+  'utf8',
+);
+assert(importView.includes('import__enrich-cover'), 'UI résultat jaquette');
+assert(importView.includes('enrichCoverSrc'), 'UI lit previewCover résultats');
+assert(importView.includes('import__enrich-series'), 'UI résultat série');
+assert(importView.includes('import__enrich-volume'), 'UI résultat tome');
 assert(libraryStore.includes('async updateBook'), 'library.updateBook action');
 assert(bookView.includes('v-model="draft.title"'), 'fiche titre éditable');
 assert(bookView.includes('v-model="draft.series"'), 'fiche série éditable');
@@ -227,8 +237,12 @@ const providerSrc = readFileSync(
   join(root, 'src/main/metadata/provider.js'),
   'utf8',
 );
-const typesSrc = readFileSync(
-  join(root, 'src/main/metadata/types.js'),
+const querySrc = readFileSync(
+  join(root, 'src/shared/metadata-query.js'),
+  'utf8',
+);
+const importStoreSrc = readFileSync(
+  join(root, 'src/renderer/src/stores/import.js'),
   'utf8',
 );
 assert(
@@ -244,12 +258,24 @@ assert(
   'scan ne skip pas si coverSource ≠ remote',
 );
 assert(
-  typesSrc.includes('export function normalizeMetadataQuery'),
-  'normalizeMetadataQuery exporté',
+  querySrc.includes('export function normalizeMetadataQuery'),
+  'normalizeMetadataQuery exporté (préfill auto)',
 );
 assert(
-  providerSrc.includes('normalizeMetadataQuery'),
-  'searchMetadata normalise query (strip tome)',
+  querySrc.includes('export function prepareMetadataSearchQuery'),
+  'prepareMetadataSearchQuery exporté (query manuelle)',
+);
+assert(
+  providerSrc.includes('prepareMetadataSearchQuery'),
+  'searchMetadata utilise prepareMetadataSearchQuery (pas de strip tome)',
+);
+assert(
+  !/const q = normalizeMetadataQuery\(/.test(providerSrc),
+  'searchMetadata ne strippe plus via normalizeMetadataQuery',
+);
+assert(
+  importStoreSrc.includes('normalizeMetadataQuery'),
+  'préremplissage import strippe via normalizeMetadataQuery',
 );
 
 if (failed) {

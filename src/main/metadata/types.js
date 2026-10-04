@@ -28,6 +28,38 @@
 
 export const USER_AGENT = 'VerticalDeckReader/0.1 (Library-Chronicles; +https://github.com/HozSensei/Library-Chronicles)';
 
+/**
+ * Plafonds techniques par provider (limites API documentées — pas une coupe UX).
+ * - AniList Page.perPage max 50
+ * - MangaDex `limit` max 100
+ * - Open Library `limit` : 100 (défaut / page raisonnable)
+ * - Google Books `maxResults` max 40
+ * - ComicVine `limit` max 100
+ */
+export const METADATA_SEARCH_LIMITS = Object.freeze({
+  anilist: 50,
+  mangadex: 100,
+  openlibrary: 100,
+  googlebooks: 40,
+  comicvine: 100,
+  stub: 50,
+});
+
+/** Alias du plafond AniList (50) — préférer `metadataSearchLimit(id)`. */
+export const METADATA_SEARCH_LIMIT = METADATA_SEARCH_LIMITS.anilist;
+
+/**
+ * @param {string} [providerId]
+ * @returns {number}
+ */
+export function metadataSearchLimit(providerId) {
+  const id = String(providerId || '').trim();
+  if (id && Object.prototype.hasOwnProperty.call(METADATA_SEARCH_LIMITS, id)) {
+    return METADATA_SEARCH_LIMITS[id];
+  }
+  return METADATA_SEARCH_LIMIT;
+}
+
 export function parseVolume(v) {
   if (v == null || v === '') return null;
   const n = Number(String(v).replace(/[^\d]/g, ''));
@@ -57,20 +89,8 @@ export function stripHtml(html) {
     .slice(0, 600) || null;
 }
 
-/**
- * Retire les suffixes tome/volume pour les recherches API.
- * « Solo Leveling Tome 1 » → « Solo Leveling » (AniList/MangaDex matchent mieux).
- * @param {string} query
- * @returns {string}
- */
-export function normalizeMetadataQuery(query) {
-  const raw = String(query || '').trim();
-  if (!raw) return '';
-  const stripped = raw
-    .replace(/\b(?:tome|tomes|vol\.?|volume)\s*\d{1,4}\b/gi, ' ')
-    .replace(/\b[tT]\d{1,3}\b/g, ' ')
-    .replace(/[-_]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-  return stripped || raw;
-}
+// Réexports : logique query partagée (préfill vs query manuelle).
+export {
+  normalizeMetadataQuery,
+  prepareMetadataSearchQuery,
+} from '../../shared/metadata-query.js';

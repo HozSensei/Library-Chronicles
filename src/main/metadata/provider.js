@@ -10,7 +10,10 @@
 import { getConfigInternal, setConfig } from '../config.js';
 import { createTtlCache } from '../../shared/perf-cache.js';
 import { detectFromFilename } from './parse-filename.js';
-import { normalizeMetadataQuery } from './types.js';
+import {
+  normalizeMetadataQuery,
+  prepareMetadataSearchQuery,
+} from './types.js';
 import { stubProvider } from './providers/stub.js';
 import { comicvineProvider } from './providers/comicvine.js';
 import { openLibraryProvider } from './providers/openlibrary.js';
@@ -18,7 +21,7 @@ import { anilistProvider } from './providers/anilist.js';
 import { mangadexProvider } from './providers/mangadex.js';
 import { googleBooksProvider } from './providers/googlebooks.js';
 
-export { normalizeMetadataQuery };
+export { normalizeMetadataQuery, prepareMetadataSearchQuery };
 
 /** @type {import('./types.js').MetadataProvider[]} */
 const PROVIDERS = [
@@ -90,12 +93,13 @@ export async function searchMetadata(query, { provider, force = false } = {}) {
   const providerId = provider || cfg.metadataProvider || 'anilist';
   const impl = BY_ID[providerId] || stubProvider;
   const apiKey = cfg.apiKeys?.[impl.id] || null;
-  const raw = String(query || '').trim();
-  // Toujours strip tome/volume : « Solo Leveling Tome 1 » matche mieux
-  // (AniList/MangaDex) et évite les faux positifs Open Library.
-  const q = normalizeMetadataQuery(raw) || raw;
+  // Query manuelle / IPC : trim minimal uniquement.
+  // Ne PAS stripper « Tome N » — l’utilisateur peut chercher un tome précis.
+  // Le strip auto (filename → « One Piece ») est dans normalizeMetadataQuery,
+  // appliqué au préremplissage import (store), pas ici.
+  const q = prepareMetadataSearchQuery(query);
 
-  if (!raw) {
+  if (!q) {
     return {
       results: [],
       provider: impl.id,
