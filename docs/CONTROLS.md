@@ -45,10 +45,10 @@ Pan plan +90° CSS : mêmes axes **physiques**, puis `visualPanToLocal` = **mêm
 
 | Contrôle | Action |
 |----------|--------|
-| Stick L | Pan (axes physiques → `visualPanToLocal` +90°) |
-| L3 / R3 | **Reset zoom** (page entière / fit stage) |
-| D-Pad **↑** | **Zoom +** (±15 %) |
-| D-Pad **↓** | **Zoom −** |
+| Stick L | **Pan** si la page déborde (axes physiques → `visualPanToLocal` +90°) · **Page ±1** (←→ utilisateur) si la page tient entièrement à l’écran |
+| L3 / R3 | **Reset zoom** — page entière bord à bord, recentrée |
+| D-Pad **↑** | **Zoom +** (×1.15, plafond ×4 de la page entière) |
+| D-Pad **↓** | **Zoom −** (plancher = page entière) |
 | D-Pad ← / → | Page ±1 (inversé en Manga) |
 | A | LTR ↔ RTL |
 | B | Fermer → bibliothèque (restore landscape) |
@@ -59,16 +59,54 @@ Pan plan +90° CSS : mêmes axes **physiques**, puis `visualPanToLocal` = **mêm
 | RB | Tome suivant non lu |
 | LT / RT | Chapitre ±1 |
 
-### Fit Width / Fit Height (plan +90°)
+### Modèle de transform — mode page
 
-- **Fit Width** : planche **bord à bord gauche-droite** = 100 % de la largeur
-  du viewport lecture. Sous `rotate(90deg)` Ally CCW, largeur utilisateur =
-  **largeur locale** du stage (`clientWidth` = `100vh`).
-  CSS : `width: 100%; height: auto` + `scale = 1`
-  (formule équivalente : `scale = stageLocalWidth / pageNaturalWidth`).
-- **Fit Height** : 100 % de la hauteur locale (`height: 100%; width: auto`).
-- **L3 / R3** : **reset zoom** — `scale = 1`, pan recentré/clampé, **sans**
-  basculer Fit Height ↔ Fit Width (`fitMode` inchangé).
+Un seul module, `src/shared/page-view-transform.js` (fonctions pures, sans DOM).
+La vue (`PageReaderStage.vue`) **mesure** et injecte dans le store ; le store
+**applique**. Plus de fit CSS `width/height`, plus d’ancrage écran, plus de
+clamp dupliqué : l’échelle vient intégralement du `scale()` CSS.
+
+| Grandeur | Définition |
+|----------|------------|
+| `stageW` / `stageH` | `clientWidth` / `clientHeight` du stage — dimensions **locales**, c.-à-d. avant le `rotate(90deg)` du plan. `computeFit({ rotate90: true })` transpose des mesures prises en espace écran. |
+| `pageW` / `pageH` | `naturalWidth` / `naturalHeight` de la page (rendue à sa taille naturelle). |
+| `fitScale` | `min(stageW / pageW, stageH / pageH)` — **contain**, page entière bord à bord. |
+| `zoom` | facteur ∈ `[1, 4]`. `1` = page entière, `4` = plafond. |
+| `scale` | `fitScale × zoom` — **minimum = `fitScale`**, donc jamais de dézoom sous la page entière. |
+| `offset {x, y}` | pan en px stage. Clampé à `±débordement/2` par axe ; axe qui tient dans le stage ⇒ `0` (centré). |
+
+Transform appliquée au calque `.reader__pan` (origin centre) :
+
+```css
+transform: translate(-50%, -50%) translate3d(offsetX, offsetY, 0) scale(fitScale × zoom);
+```
+
+`translate3d` précède `scale` dans la liste : l’offset reste exprimé en px stage,
+il n’est pas mis à l’échelle.
+
+**Garanties**
+
+- **L3 / R3 = reset** → `zoom = 1`, `offset = 0` ⇒ page entière bord à bord **par
+  construction**, sans dépendre d’une mesure DOM au moment de l’appui.
+- **Pas de dézoom sous la page entière** : `clampZoom` plancher à `1`. Répéter
+  D-Pad ↓ converge vers la page entière, jamais en-dessous.
+- **Stick jamais inerte** : tant qu’un axe déborde, le stick fait du pan ;
+  dès que la page tient entièrement à l’écran (pan sans objet), l’horizontale
+  utilisateur du stick **tourne les pages** (edge + repeat ~450/320 ms). La
+  verticale reste neutre pour éviter les pages tournées par accident.
+- **Redimensionnement** (rotation, resize fenêtre) : le `zoom` est conservé,
+  `fitScale` recalculé, l’offset reclampé aux nouvelles bornes.
+- **Nouvelle page** : refit automatique en page entière à la mesure suivante.
+
+**Presets** (tous ≥ `fitScale`, donc toujours dans les bornes)
+
+- **Fit Page** (défaut, L3) : `zoom = 1` → page entière.
+- **Fit Width** (LB) : `zoom = widthScale / fitScale` → bord à bord en largeur,
+  débordement vertical pannable.
+- **Fit Height** : `zoom = heightScale / fitScale` → bord à bord en hauteur.
+
+La préférence profil `defaultFitMode` n’est appliquée à l’ouverture que si elle
+vaut explicitement `fit-width` ; sinon le lecteur ouvre sur la page entière.
 
 ### Menu pause ouvert *(même plan tourné que le stage)*
 
