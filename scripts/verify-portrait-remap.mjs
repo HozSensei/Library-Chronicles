@@ -23,6 +23,7 @@ import {
 import { detectFromFilename } from '../src/main/metadata/parse-filename.js';
 import { naturalCompare, detectChapters } from '../src/main/extractors/cbz.js';
 import { GamepadButtons } from '../src/shared/gamepad-codes.js';
+import { epubActionForPhysicalDpad } from '../src/shared/reader-epub-controls.js';
 
 let failed = 0;
 
@@ -135,6 +136,24 @@ assert(readingActionForLogicalDpad('left') === 'page-prev', '← écran = page p
 assert(readingActionForLogicalDpad('right') === 'page-next', '→ écran = page next');
 assert(readingActionForLogicalDpad('up') === 'zoom-in', '↑ écran = zoom +');
 assert(readingActionForLogicalDpad('down') === 'zoom-out', '↓ écran = zoom −');
+
+// Ally physique → EPUB : axes libres (phys ←→) = zoom police
+assert(
+  epubActionForPhysicalDpad(o, 'up') === 'page-prev',
+  'EPUB phys ↑ → page-prev',
+);
+assert(
+  epubActionForPhysicalDpad(o, 'down') === 'page-next',
+  'EPUB phys ↓ → page-next',
+);
+assert(
+  epubActionForPhysicalDpad(o, 'left') === 'zoom-out',
+  'EPUB phys ← (libre) → zoom-out',
+);
+assert(
+  epubActionForPhysicalDpad(o, 'right') === 'zoom-in',
+  'EPUB phys → (libre) → zoom-in',
+);
 
 const bindings = resolveKeyBindings(null);
 assert(

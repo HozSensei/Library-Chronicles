@@ -16,7 +16,10 @@ import {
 } from '../../../shared/portrait-remap.js';
 import { applyPageReaderAction } from '../../../shared/reader-page-controls.js';
 import { applyStripReaderAction } from '../../../shared/reader-strip-controls.js';
-import { applyEpubReaderAction } from '../../../shared/reader-epub-controls.js';
+import {
+  applyEpubReaderAction,
+  epubActionForPhysicalDpad,
+} from '../../../shared/reader-epub-controls.js';
 import { actionForBinding, GamepadButtons } from '../../../shared/controls.js';
 import { hasHaptics, pulseHaptic } from './useHaptics.js';
 import { markProfileSelected, clearProfileSelected, clearSetupGate } from '../router';
@@ -1269,6 +1272,8 @@ function createLoop(ctx) {
       // Chemins strictement séparés — pas de flag partagé zoom/page.
       if (reader.isEpubMode) {
         // EPUB minimal : D-Pad ←→ page, ↑↓ police — stick / L3 / LT·RT = no-op.
+        if (action === 'zoom-in' || action === 'zoom-out') vibe('light');
+        if (action === 'page-prev' || action === 'page-next') vibe('light');
         applyEpubReaderAction(
           reader,
           action,
@@ -1308,6 +1313,16 @@ function createLoop(ctx) {
       const menuAction = uiActionForLogicalDpad(logical);
       if (menuAction) dispatch(menuAction);
       return;
+    }
+
+    // EPUB : chaîner physique → remap portrait → page/zoom (axes libres = font).
+    // Ne pas dépendre d’un override remap Settings qui laisserait ↑↓ morts.
+    if (ui.routeName === 'reader' && reader.isEpubMode) {
+      const epubAction = epubActionForPhysicalDpad(orientation, physical);
+      if (epubAction) {
+        dispatch(epubAction);
+        return;
+      }
     }
 
     const action = resolveAction(key);

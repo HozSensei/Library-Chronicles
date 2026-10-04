@@ -150,6 +150,10 @@ export function buildEpubJsThemeRules(opts = {}) {
       'line-height': '1.55',
       'overflow-wrap': 'anywhere',
     },
+    /* Héritage forcé : certains EPUB posent font-size absolu sur p/span. */
+    'p, div, span, li, td, th': {
+      'font-size': 'inherit',
+    },
     a: { color: EPUB_LINK },
     'a:visited': { color: EPUB_LINK },
     'h1, h2, h3, h4, h5, h6': {
@@ -180,6 +184,7 @@ html, body {
   overflow-wrap: anywhere !important;
 }
 a, a:visited { color: ${EPUB_LINK} !important; }
+p, div, span, li, td, th { font-size: inherit !important; }
 ${EPUB_CHAPTER_BREAK_SELECTORS} {
   break-before: page !important;
   page-break-before: always !important;

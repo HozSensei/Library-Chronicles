@@ -28,8 +28,11 @@ import {
 } from '../src/shared/reader-strip-controls.js';
 import {
   applyEpubReaderAction,
+  epubActionForPhysicalDpad,
+  isEpubDpadAction,
   isEpubZoomNoop,
 } from '../src/shared/reader-epub-controls.js';
+import { DeviceOrientation } from '../src/shared/portrait-remap.js';
 import { applyStickToStripScroll } from '../src/shared/reader-stick.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -321,6 +324,49 @@ assert(
   assert(
     calls.join('|') === 'font:1|font:-1|page:next|page:prev',
     'epub path : font± + page± uniquement',
+  );
+
+  // Physique → logique → font : axes libres après remap +90° / portrait-ccw
+  const o = DeviceOrientation.PORTRAIT_CCW;
+  assert(
+    epubActionForPhysicalDpad(o, 'left') === 'zoom-out' &&
+      epubActionForPhysicalDpad(o, 'right') === 'zoom-in',
+    'phys ←→ (libres) → zoom font ±',
+  );
+  assert(
+    epubActionForPhysicalDpad(o, 'up') === 'page-prev' &&
+      epubActionForPhysicalDpad(o, 'down') === 'page-next',
+    'phys ↑↓ → page ±',
+  );
+  assert(isEpubDpadAction('zoom-in') && isEpubDpadAction('zoom-out'), 'zoom est action D-Pad epub');
+
+  const freeCalls = [];
+  const freeReader = {
+    adjustFontSize: (n) => freeCalls.push(`font:${n}`),
+    stepPage: (w) => freeCalls.push(`page:${w}`),
+  };
+  assert(
+    applyEpubReaderAction(
+      freeReader,
+      epubActionForPhysicalDpad(o, 'right'),
+    ),
+    'phys → → zoom-in consommé',
+  );
+  assert(
+    applyEpubReaderAction(
+      freeReader,
+      epubActionForPhysicalDpad(o, 'left'),
+    ),
+    'phys ← → zoom-out consommé',
+  );
+  assert(
+    freeCalls.join('|') === 'font:1|font:-1',
+    'axes libres : adjustFontSize ± uniquement',
+  );
+
+  assert(
+    gamepad.includes('epubActionForPhysicalDpad'),
+    'useGamepad branche epubActionForPhysicalDpad (zoom axes libres)',
   );
 }
 

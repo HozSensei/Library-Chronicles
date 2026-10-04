@@ -47,9 +47,12 @@ import {
 import {
   applyEpubReaderAction,
   applyEpubStickPage,
+  epubActionForPhysicalDpad,
+  isEpubDpadAction,
   isEpubZoomNoop,
   resetEpubStickPageClock,
 } from '../src/shared/reader-epub-controls.js';
+import { DeviceOrientation } from '../src/shared/portrait-remap.js';
 
 const require = createRequire(import.meta.url);
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -246,6 +249,41 @@ assert.equal(stickToEpubPageWhich(0.1, 0.1), null);
     2,
     'stick ne tourne pas de page',
   );
+
+  // Physique Ally portrait-ccw : axes libres (←→) → zoom font réel
+  const o = DeviceOrientation.PORTRAIT_CCW;
+  assert.equal(epubActionForPhysicalDpad(o, 'up'), 'page-prev');
+  assert.equal(epubActionForPhysicalDpad(o, 'down'), 'page-next');
+  assert.equal(epubActionForPhysicalDpad(o, 'left'), 'zoom-out', 'phys ← libre → font−');
+  assert.equal(epubActionForPhysicalDpad(o, 'right'), 'zoom-in', 'phys → libre → font+');
+  assert.equal(isEpubDpadAction('zoom-in'), true);
+  assert.equal(isEpubDpadAction('page-next'), true);
+
+  const physCalls = [];
+  const physReader = {
+    adjustFontSize: (n) => physCalls.push(`font:${n}`),
+    zoomBy: (n) => physCalls.push(`zoomBy:${n}`),
+    stepPage: (w) => physCalls.push(`page:${w}`),
+  };
+  for (const phys of ['up', 'down', 'left', 'right']) {
+    const action = epubActionForPhysicalDpad(o, phys);
+    assert.equal(applyEpubReaderAction(physReader, action), true, `phys ${phys} consommé`);
+  }
+  assert.deepEqual(
+    physCalls,
+    ['page:prev', 'page:next', 'font:-1', 'font:1'],
+    '4 directions : page± + font± (pas de zoomBy image)',
+  );
+
+  // zoomBy seul (sans adjustFontSize) doit quand même zoomer la police
+  const zoomOnly = [];
+  const zoomReader = {
+    zoomBy: (n) => zoomOnly.push(n),
+    stepPage: () => {},
+  };
+  assert.equal(applyEpubReaderAction(zoomReader, 'zoom-in'), true);
+  assert.equal(applyEpubReaderAction(zoomReader, 'zoom-out'), true);
+  assert.deepEqual(zoomOnly, [1, -1], 'fallback zoomBy ± pour font');
 }
 
 // Dépendance npm epubjs + licence BSD-2-Clause
@@ -308,11 +346,19 @@ assert.equal(stickToEpubPageWhich(0.1, 0.1), null);
   assert.match(controlsDoc, /Stick L[\s\S]*No-op/);
   assert.match(controlsDoc, /LT \/ RT[\s\S]*No-op/);
   assert.match(controlsDoc, /L3 \/ R3[\s\S]*No-op/);
+  assert.match(controlsDoc, /axe libre|zoom police/);
   assert.match(controlsDoc, /h1.*h2|\.chapter/);
 
+  assert.match(
+    stage,
+    /themes\.override\(\s*['"]font-size['"]/,
+    'EPUB font-size via themes.override !important',
+  );
+  assert.match(stage, /reflow:\s*true/, 'reflow après fontSize');
+
   const i18n = fs.readFileSync(path.join(root, 'src/shared/i18n.js'), 'utf8');
-  assert.match(i18n, /hintEpub:\s*'A valider · B fermer · Select pause · ←→ page · ↑↓ police'/);
-  assert.match(i18n, /hintEpub:\s*'A confirm · B close · Select pause · ←→ page · ↑↓ font'/);
+  assert.match(i18n, /hintEpub:\s*'A valider · B fermer · Select pause · ←→ page · ↑↓ zoom police'/);
+  assert.match(i18n, /hintEpub:\s*'A confirm · B close · Select pause · ←→ page · ↑↓ font zoom'/);
   const hintEpubBlocks = [...i18n.matchAll(/hintEpub:\s*'([^']*)'/g)].map((m) => m[1]);
   assert.equal(hintEpubBlocks.length, 2, 'hintEpub FR + EN');
   for (const h of hintEpubBlocks) {
@@ -324,6 +370,7 @@ assert.equal(stickToEpubPageWhich(0.1, 0.1), null);
     'utf8',
   );
   assert.match(gamepad, /isEpubMode[\s\S]*?stepChapter/);
+  assert.match(gamepad, /epubActionForPhysicalDpad/);
   assert.match(
     gamepad,
     /EPUB minimal|stick \/ L3 \/ LT|D-Pad ←→ page/,
