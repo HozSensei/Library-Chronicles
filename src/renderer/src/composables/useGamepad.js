@@ -275,12 +275,13 @@ function createLoop(ctx) {
         if (action === 'confirm' || action === 'open-book') {
           const input = document.querySelector('.profiles__create input');
           const btn = document.querySelector('.profiles__create .btn-primary');
-          const colorsFocused = document
-            .querySelector('.profiles__colors')
-            ?.classList.contains('is-focused');
-          const localesFocused = document
-            .querySelector('.profiles__locales')
-            ?.classList.contains('is-focused');
+          // Focus zone sur pastille/drapeau (pas sur le conteneur) — un seul is-focused
+          const colorsFocused = Boolean(
+            document.querySelector('.profiles__colors .is-focused'),
+          );
+          const localesFocused = Boolean(
+            document.querySelector('.profiles__locales .is-focused'),
+          );
           const onValidate =
             document.activeElement === btn ||
             (btn?.classList.contains('is-focused') &&
