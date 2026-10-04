@@ -651,6 +651,47 @@ function createLoop(ctx) {
     }
 
     if (isImportUiRoute(route)) {
+      // ——— Modal apply champs méta ———
+      if (imp.isApplyModalOpen) {
+        if (action === 'back') {
+          vibe('light');
+          imp.cancelApplyEnrich();
+          return;
+        }
+        if (action === 'cursor-up' || action === 'cursor-left') {
+          imp.setApplyModalFocus(imp.applyModalFocus - 1);
+          afterFocusMove();
+          return;
+        }
+        if (action === 'cursor-down' || action === 'cursor-right') {
+          imp.setApplyModalFocus(imp.applyModalFocus + 1);
+          afterFocusMove();
+          return;
+        }
+        if (action === 'confirm' || action === 'open-book') {
+          const focus = clampMetaApplyFocus(imp.applyModalFocus);
+          if (focus === META_APPLY_FOCUS.APPLY) {
+            vibe('confirm');
+            const cur = router.currentRoute.value;
+            const bookId =
+              cur.name === ROUTE.IMPORT_BOOK_META ||
+              cur.name === ROUTE.LIBRARY_BOOK_META
+                ? cur.params.id
+                : (imp.metaReturnBookId ?? imp.selected?.existingBookId ?? null);
+            imp.confirmApplyEnrich({ bookId });
+            afterFocusMove();
+            return;
+          }
+          const field = META_APPLY_FIELDS[focus];
+          if (field) {
+            imp.toggleApplyField(field.id);
+            vibe('light');
+          }
+          return;
+        }
+        return;
+      }
+
       // ——— Fiche détail : flows sheet / meta-search ———
       if (imp.isDetail) {
         const resultCount = imp.enrichResults.length;
