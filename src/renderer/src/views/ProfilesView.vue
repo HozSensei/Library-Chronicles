@@ -3,6 +3,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import ControlHint from '../components/ControlHint.vue';
 import AppBrandLogo from '../components/AppBrandLogo.vue';
+import FocusButton from '../components/FocusButton.vue';
 import { useProfilesStore } from '../stores/profiles';
 import { useUiStore } from '../stores/ui';
 import { useI18n } from '../composables/useI18n';
@@ -340,7 +341,7 @@ async function syncFormDomFocus() {
     return;
   }
   if (formFocus.value === FORM_ZONE.SUBMIT) {
-    document.querySelector('.profiles__create .btn-primary')?.focus?.();
+    document.querySelector('.profiles__create .focus-btn--primary')?.focus?.();
     return;
   }
   // color | lang : anneau via is-focused, pas via :focus-visible natif
@@ -597,16 +598,26 @@ defineExpose({
           </button>
         </div>
 
-        <button
-          type="submit"
-          class="btn-primary"
-          :class="{ 'is-focused': formFocus === FORM_ZONE.SUBMIT }"
-          :disabled="creating"
-          @focus="formFocus = FORM_ZONE.SUBMIT"
-        >
-          {{ submitLabel }}
-        </button>
-        <button type="button" class="ghost" @click="cancelNaming">{{ t('profiles.cancel') }}</button>
+        <div class="profiles__actions">
+          <FocusButton
+            compact
+            tone="primary"
+            class="profiles__submit"
+            :focused="formFocus === FORM_ZONE.SUBMIT"
+            :disabled="creating"
+            @focus="formFocus = FORM_ZONE.SUBMIT"
+            @select="submitName"
+          >
+            {{ submitLabel }}
+          </FocusButton>
+          <FocusButton
+            compact
+            class="profiles__cancel"
+            @select="cancelNaming"
+          >
+            {{ t('profiles.cancel') }}
+          </FocusButton>
+        </div>
       </form>
     </div>
 
@@ -961,16 +972,26 @@ footer {
   border-color: var(--brass-bright);
 }
 
-.profiles__create .btn-primary:focus,
-.profiles__create .btn-primary:focus-visible {
-  outline: none;
-  box-shadow: none;
-  border-color: var(--brass);
+.profiles__actions {
+  flex: 0 0 100%;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: stretch;
+  gap: 0.75rem;
 }
 
-.profiles__create .btn-primary.is-focused {
-  box-shadow: 0 0 0 3px var(--focus-glow);
-  border-color: var(--brass-bright);
+.profiles__actions :deep(.focus-btn--compact) {
+  /* Même gabarit Créer / Annuler (hauteur, padding, radius via FocusButton). */
+  flex: 1 1 8rem;
+  max-width: 12rem;
+  align-items: center;
+  text-align: center;
+}
+
+.profiles__actions :deep(.focus-btn--compact .focus-btn__label) {
+  width: 100%;
+  text-align: center;
 }
 
 footer {

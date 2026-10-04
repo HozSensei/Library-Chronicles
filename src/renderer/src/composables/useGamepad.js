@@ -274,7 +274,9 @@ function createLoop(ctx) {
         }
         if (action === 'confirm' || action === 'open-book') {
           const input = document.querySelector('.profiles__create input');
-          const btn = document.querySelector('.profiles__create .btn-primary');
+          const btn = document.querySelector(
+            '.profiles__create .focus-btn--primary',
+          );
           // Focus zone sur pastille/drapeau (pas sur le conteneur) — un seul is-focused
           const colorsFocused = Boolean(
             document.querySelector('.profiles__colors .is-focused'),
@@ -292,7 +294,8 @@ function createLoop(ctx) {
             colorsFocused ||
             localesFocused;
           if (onValidate) {
-            document.querySelector('.profiles__create')?.requestSubmit?.();
+            // FocusButton Créer n’est pas type=submit — clic / select
+            btn?.click?.();
             vibe('confirm');
             return;
           }
@@ -303,7 +306,9 @@ function createLoop(ctx) {
         }
         if (action === 'back') {
           // Annuler sans forcer le nom par défaut
-          document.querySelector('.profiles__create .ghost')?.click();
+          document
+            .querySelector('.profiles__create .profiles__cancel')
+            ?.click();
           vibe('light');
         }
         return;
