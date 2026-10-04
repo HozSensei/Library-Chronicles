@@ -1,10 +1,12 @@
 /**
  * Smoke EPUB : archive minimale (container + OPF + spine XHTML + cover PNG).
+ * + garde-fou CSP : iframe chapitre = blob: (frame-src / child-src).
  */
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import zlib from 'node:zlib';
 import JSZip from 'jszip';
 import {
@@ -16,6 +18,7 @@ import {
 } from '../src/main/extractors/epub.js';
 import { detectFormat, openBook } from '../src/main/extractors/index.js';
 import { SUPPORTED } from '../src/main/library/scanner.js';
+import { t, setLocale } from '../src/shared/i18n.js';
 import {
   READING_MODE,
   isEpubFormat,
@@ -28,6 +31,57 @@ import {
   applyEpubReaderAction,
   isEpubZoomNoop,
 } from '../src/shared/reader-epub-controls.js';
+
+const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
+const indexHtml = fs.readFileSync(
+  path.join(root, 'src/renderer/index.html'),
+  'utf8',
+);
+const cspMatch = indexHtml.match(
+  /http-equiv="Content-Security-Policy"\s+content="([^"]+)"/,
+);
+assert.ok(cspMatch, 'meta CSP présente dans index.html');
+const csp = cspMatch[1];
+assert.match(csp, /img-src[^;]*blob:/, 'CSP img-src autorise blob: (pages images)');
+assert.match(csp, /img-src[^;]*data:/, 'CSP img-src autorise data: (assets EPUB)');
+assert.match(
+  csp,
+  /frame-src[^;]*blob:/,
+  'CSP frame-src autorise blob: (iframe chapitre EPUB)',
+);
+assert.match(
+  csp,
+  /child-src[^;]*blob:/,
+  'CSP child-src autorise blob: (Chromium legacy frames)',
+);
+assert.match(
+  csp,
+  /style-src[^;]*'unsafe-inline'/,
+  'CSP style-src unsafe-inline (CSS inliné EPUB)',
+);
+assert.match(csp, /media-src[^;]*blob:/, 'CSP media-src autorise blob:');
+assert.match(csp, /media-src[^;]*data:/, 'CSP media-src autorise data:');
+
+const readerStoreSrc = fs.readFileSync(
+  path.join(root, 'src/renderer/src/stores/reader.js'),
+  'utf8',
+);
+assert.match(
+  readerStoreSrc,
+  /reader\.chapterOf|chapterOf/,
+  'HUD EPUB utilise chapterOf (pas « pages » trompeur)',
+);
+assert.match(
+  readerStoreSrc,
+  /READING_MODE\.EPUB|isEpubFormat/,
+  'pageLabel branche EPUB',
+);
+
+setLocale('fr');
+assert.equal(t('reader.chapterOf', { cur: 3, total: 43 }), 'Chapitre 3 / 43');
+setLocale('en');
+assert.equal(t('reader.chapterOf', { cur: 3, total: 43 }), 'Chapter 3 / 43');
+setLocale('fr');
 
 function tinyPng(r, g, b) {
   const signature = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
@@ -169,6 +223,8 @@ try {
   assert.equal(book.title, 'Demo EPUB');
   assert.equal(book.author, 'VDR Tester');
   assert.ok(book.chapters.length >= 2);
+  // pageCount = longueur spine (= chapitres), pas pagination visuelle reflow
+  assert.equal(book.pageCount, book.chapters.length);
 
   const page0 = await book.getPage(0);
   assert.ok(page0.buffer?.length);
@@ -204,4 +260,4 @@ try {
   fs.unlinkSync(tmp);
 }
 
-console.log('OK  EPUB extracteur (spine, cover OPF, rewrite HTML, strip disabled)');
+console.log('OK  EPUB extracteur + CSP blob iframe + compteur chapitres');

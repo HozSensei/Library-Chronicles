@@ -88,6 +88,10 @@ const pageSupported = computed(() => supportsPageReading(book.value?.format));
 const stripSupported = computed(() => supportsStripReading(book.value?.format));
 const epubSupported = computed(() => supportsEpubReading(book.value?.format));
 
+/** EPUB : pageTotal = spine (chapitres), pas pages images. */
+const pagesFieldLabel = computed(() =>
+  epubSupported.value ? t('book.chapters') : t('book.pages'),
+);
 const pageDisabled = computed(
   () => !book.value?.filePath || !pageSupported.value,
 );
@@ -612,7 +616,7 @@ function onEditableKeydown(ev) {
                     data-book-field="pages"
                     @click="focusField(BOOK_FOCUS.PAGES)"
                   >
-                    <label for="book-field-pages">Pages</label>
+                    <label for="book-field-pages">{{ pagesFieldLabel }}</label>
                     <input
                       id="book-field-pages"
                       type="text"

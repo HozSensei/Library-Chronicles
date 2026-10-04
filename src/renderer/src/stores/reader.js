@@ -27,6 +27,7 @@ import {
   zoomStep,
 } from '../../../shared/page-view-transform.js';
 import { findAdjacentVolume } from '../../../shared/series.js';
+import { t as i18nT } from '../../../shared/i18n.js';
 import { useLibraryStore } from './library.js';
 
 const NIGHT_PRESET = { brightness: 0.78, contrast: 1.12, sepia: 0.35 };
@@ -115,7 +116,18 @@ export const useReaderStore = defineStore('reader', {
     _pagePending: {},
   }),
   getters: {
-    pageLabel: (s) => `${s.pageCount ? s.pageIndex + 1 : 0} / ${s.pageCount}`,
+    /**
+     * Compteur HUD : pages images (CBZ/PDF) ou chapitres spine (EPUB).
+     * EPUB pageCount = items spine, pas pagination visuelle.
+     */
+    pageLabel(s) {
+      const cur = s.pageCount ? s.pageIndex + 1 : 0;
+      const total = s.pageCount;
+      if (s.readingMode === READING_MODE.EPUB || isEpubFormat(s.format)) {
+        return i18nT('reader.chapterOf', { cur, total });
+      }
+      return `${cur} / ${total}`;
+    },
     progress: (s) => (s.pageCount ? ((s.pageIndex + 1) / s.pageCount) * 100 : 0),
     currentChapter: (s) => s.chapters[s.chapterIndex] || null,
     isStripMode: (s) => s.readingMode === READING_MODE.STRIP,

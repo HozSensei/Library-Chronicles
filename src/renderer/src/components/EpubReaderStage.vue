@@ -3,6 +3,7 @@
  * Chemin EPUB — texte reflow (spine = chapitres).
  * Stick scroll sur le stage ; D-Pad ←→ chapitre ; ↑↓ taille police ; L3 reset.
  * Pas de zoom/pan image ni strip vertical « pages images ».
+ * Contenu : iframe sandbox + src blob: (ObjectURL) — CSP frame-src blob: obligatoire.
  */
 import { nextTick, onBeforeUnmount, ref, watch } from 'vue';
 import { useReaderStore } from '../stores/reader';

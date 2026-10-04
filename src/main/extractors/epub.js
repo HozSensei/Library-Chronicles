@@ -2,6 +2,7 @@
  * Extracteur EPUB (OEBPS) — JSZip + parse OPF/spine.
  * Représentation : spine item = « page » (chapitre XHTML), pas une image.
  * Ressources (img/css) inlinées en data-URL pour rendu iframe/blob côté renderer.
+ * Le chapitre lui-même est servi via ObjectURL blob: → CSP frame-src/child-src blob: requis.
  */
 import path from 'path';
 import fs from 'fs';
