@@ -288,6 +288,12 @@ export const MESSAGES = Object.freeze({
       keyPlaceholder: 'Stockée localement (userData)',
       saveKey: 'Enregistrer',
       clearKey: 'Effacer',
+      testProvider: 'Tester',
+      testingProvider: 'Test…',
+      testOk: 'OK — {label} répond',
+      testFail: 'Échec — {label}',
+      testNeedKey: 'Ajoute une clé avant de tester {label}',
+      configuredOk: 'Configuré',
       docs: 'Documentation',
       secretsHint:
         'Les secrets restent dans userData/vdr-secrets.json — jamais commités.',
@@ -425,6 +431,8 @@ export const MESSAGES = Object.freeze({
       scanFail: 'Échec du scan',
       sheetSaved: 'Fiche enregistrée',
       sheetSaveFail: 'Échec de l’enregistrement',
+      providerTestOk: 'Test OK · {label}',
+      providerTestFail: 'Test échoué · {label}',
     },
     bind: {
       'toggle-direction': 'Sens LTR / RTL',
@@ -649,6 +657,12 @@ export const MESSAGES = Object.freeze({
       keyPlaceholder: 'Stored locally (userData)',
       saveKey: 'Save',
       clearKey: 'Clear',
+      testProvider: 'Test',
+      testingProvider: 'Testing…',
+      testOk: 'OK — {label} responds',
+      testFail: 'Failed — {label}',
+      testNeedKey: 'Add a key before testing {label}',
+      configuredOk: 'Configured',
       docs: 'Documentation',
       secretsHint:
         'Secrets stay in userData/vdr-secrets.json — never committed.',
@@ -786,6 +800,8 @@ export const MESSAGES = Object.freeze({
       scanFail: 'Scan failed',
       sheetSaved: 'Sheet saved',
       sheetSaveFail: 'Failed to save',
+      providerTestOk: 'Test OK · {label}',
+      providerTestFail: 'Test failed · {label}',
     },
     bind: {
       'toggle-direction': 'LTR / RTL direction',

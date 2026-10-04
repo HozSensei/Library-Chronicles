@@ -6,6 +6,7 @@ import FocusButton from '../components/FocusButton.vue';
 import { useUiStore } from '../stores/ui';
 import { useI18n } from '../composables/useI18n';
 import { useProfilesStore } from '../stores/profiles';
+import { useToastStore } from '../stores/toast';
 import {
   BINDABLE_ACTIONS,
   REMAP_UI_CONTEXT,
@@ -21,6 +22,7 @@ import {
 const router = useRouter();
 const ui = useUiStore();
 const profiles = useProfilesStore();
+const toast = useToastStore();
 const { t } = useI18n();
 
 const section = ref('general'); // general | profiles | bindings | api
@@ -30,6 +32,7 @@ const newProfileName = ref('');
 const profileMsg = ref('');
 const providers = ref([]);
 const activeProvider = ref('stub');
+const testingProvider = ref(false);
 const accents = ACCENTS;
 
 const sections = computed(() => [
@@ -70,6 +73,10 @@ function syncApiStatus() {
   const p = selectedProvider.value;
   if (!p) {
     apiStatus.value = '';
+    return;
+  }
+  if (p.configuredOk) {
+    apiStatus.value = t('settings.testOk', { label: p.label });
     return;
   }
   if (!p.requiresApiKey) {
@@ -182,6 +189,39 @@ async function clearApiKey() {
   if (!p?.requiresApiKey) return;
   await window.vdr.metadata.setApiKey(p.id, '');
   await refreshProviders();
+}
+
+async function testSelectedProvider() {
+  const p = selectedProvider.value;
+  if (!p || testingProvider.value) return;
+  if (p.requiresApiKey && !p.hasKey && !apiKeyInput.value.trim()) {
+    toast.error(t('settings.testNeedKey', { label: p.label }));
+    return;
+  }
+  // Si une clé est saisie mais pas encore enregistrée, l’enregistrer d’abord.
+  if (p.requiresApiKey && apiKeyInput.value.trim()) {
+    await window.vdr.metadata.setApiKey(p.id, apiKeyInput.value);
+    apiKeyInput.value = '';
+  }
+  testingProvider.value = true;
+  try {
+    const result = await window.vdr.metadata.testProvider(p.id);
+    if (result?.providers) providers.value = result.providers;
+    else await refreshProviders();
+    syncApiStatus();
+    if (result?.ok) {
+      toast.success(t('toast.providerTestOk', { label: p.label }));
+    } else {
+      const detail = result?.error ? ` — ${result.error}` : '';
+      toast.error(`${t('toast.providerTestFail', { label: p.label })}${detail}`);
+    }
+  } catch (err) {
+    toast.error(
+      `${t('toast.providerTestFail', { label: p.label })} — ${err?.message || err}`,
+    );
+  } finally {
+    testingProvider.value = false;
+  }
 }
 
 async function openProviderHelp(provider) {
@@ -410,7 +450,15 @@ const listeningLabel = computed(() => {
             :aria-selected="p.id === activeProvider"
             @click="selectProvider(p.id)"
           >
-            <span class="provider-card__label">{{ p.label }}</span>
+            <span class="provider-card__label">
+              <span
+                v-if="p.configuredOk"
+                class="provider-ok"
+                :aria-label="t('settings.configuredOk')"
+                :title="t('settings.configuredOk')"
+              >✓</span>
+              {{ p.label }}
+            </span>
             <span
               class="provider-card__badge"
               :class="p.requiresApiKey ? 'is-key' : 'is-free'"
@@ -420,7 +468,7 @@ const listeningLabel = computed(() => {
           </button>
         </div>
 
-        <p class="api-status">{{ apiStatus }}</p>
+        <p class="api-status" :class="{ 'is-ok': selectedProvider?.configuredOk }">{{ apiStatus }}</p>
 
         <template v-if="selectedProvider">
           <p v-if="selectedProvider.helpText" class="hint">{{ selectedProvider.helpText }}</p>
@@ -456,6 +504,22 @@ const listeningLabel = computed(() => {
             </button>
           </div>
         </template>
+
+        <div v-if="selectedProvider && selectedProvider.id !== 'stub'" class="row">
+          <button
+            type="button"
+            class="btn-primary"
+            data-settings-item
+            :disabled="testingProvider"
+            @click="testSelectedProvider"
+          >
+            {{
+              testingProvider
+                ? t('settings.testingProvider')
+                : t('settings.testProvider')
+            }}
+          </button>
+        </div>
 
         <p class="hint">{{ t('settings.secretsHint') }}</p>
       </template>
@@ -650,6 +714,10 @@ h1 {
 
 .api-status {
   margin: 0;
+  color: var(--paper-dim);
+}
+
+.api-status.is-ok {
   color: var(--success);
 }
 
@@ -685,8 +753,26 @@ h1 {
 }
 
 .provider-card__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
   font-family: var(--font-display);
   font-weight: 700;
+}
+
+.provider-ok {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--success) 22%, transparent);
+  color: var(--success);
+  font-size: 0.75rem;
+  font-weight: 800;
+  line-height: 1;
+  flex-shrink: 0;
 }
 
 .provider-card__badge {
@@ -701,6 +787,11 @@ h1 {
 
 .provider-card__badge.is-key {
   color: var(--brass-bright);
+}
+
+.btn-primary:disabled {
+  opacity: 0.55;
+  cursor: wait;
 }
 
 .link-btn {

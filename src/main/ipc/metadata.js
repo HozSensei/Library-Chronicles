@@ -9,6 +9,7 @@ import {
   setMetadataProvider,
   getActiveProviderId,
   getProvider,
+  testProvider,
 } from '../metadata/provider.js';
 
 const ALLOWED_HELP_HOSTS = new Set([
@@ -62,6 +63,10 @@ export function registerMetadataIpc() {
     providers: listProviders(),
     activeProvider: getActiveProviderId(),
   }));
+
+  ipcMain.handle(IpcChannels.METADATA_TEST_PROVIDER, async (_e, provider) =>
+    testProvider(provider),
+  );
 
   ipcMain.handle(IpcChannels.METADATA_OPEN_HELP, async (_e, { provider, url } = {}) => {
     let target = url;

@@ -29,6 +29,11 @@ const DEFAULTS = {
    * Ex. { comicvine: 'xxx' }
    */
   apiKeys: {},
+  /**
+   * Dernier statut de test par provider (public, pas secret).
+   * Ex. { comicvine: { ok: true, testedAt: 1710000000000, error: null } }
+   */
+  providerTestStatus: {},
   /** Provider métadonnées actif (AniList par défaut — gratuit, sans clé). */
   metadataProvider: 'anilist',
   /**
