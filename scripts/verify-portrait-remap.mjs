@@ -167,12 +167,42 @@ assert(
   'biblio Start = paramètres',
 );
 assert(
-  actionForBinding(bindings, 'settings', `button:${GamepadButtons.LT}`) === 'tab-prev',
-  'settings LT = section précédente',
+  actionForBinding(bindings, 'settings', `button:${GamepadButtons.LB}`) === 'tab-prev',
+  'settings LB = section précédente',
+);
+assert(
+  actionForBinding(bindings, 'settings', `button:${GamepadButtons.RB}`) === 'tab-next',
+  'settings RB = section suivante',
+);
+assert(
+  actionForBinding(bindings, 'settings', `button:${GamepadButtons.LT}`) == null,
+  'settings LT = no-op (plus sections)',
 );
 assert(
   actionForBinding(bindings, 'settings', 'dpad:left') === 'cursor-left',
   'settings dpad:left = focus (pas section)',
+);
+
+const legacySettings = resolveKeyBindings({
+  settings: {
+    [`button:${GamepadButtons.LT}`]: 'tab-prev',
+    [`button:${GamepadButtons.RT}`]: 'tab-next',
+  },
+});
+assert(
+  actionForBinding(legacySettings, 'settings', `button:${GamepadButtons.LB}`) ===
+    'tab-prev',
+  'migration settings LT→LB tab-prev',
+);
+assert(
+  actionForBinding(legacySettings, 'settings', `button:${GamepadButtons.RB}`) ===
+    'tab-next',
+  'migration settings RT→RB tab-next',
+);
+assert(
+  actionForBinding(legacySettings, 'settings', `button:${GamepadButtons.LT}`) ==
+    null,
+  'migration settings retire LT tab-prev',
 );
 
 const custom = resolveKeyBindings({

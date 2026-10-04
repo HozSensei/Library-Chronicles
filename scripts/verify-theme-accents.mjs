@@ -63,7 +63,7 @@ assert(
 );
 
 const prefs = setupFocusRows(1);
-assert(prefs.length === 4, 'prefs : mode + accents + langue + next');
+assert(prefs.length === 3, 'prefs : mode + accents + next');
 assert(prefs[0].join(',') === 'theme-dark,theme-light', 'mode côte à côte');
 assert(prefs[1].join(',') === accentFocusIds().join(','), 'rangée accents');
 let idx = moveSetupFocus(prefs, 0, 'down');
@@ -82,19 +82,41 @@ assert(
 const setupView = read('src/renderer/src/views/SetupView.vue');
 assert(
   setupView.includes('watch(focusedId') &&
+    setupView.includes("id === 'theme-dark'") &&
     setupView.includes("startsWith('accent-')") &&
-    /watch\(focusedId[\s\S]{0,200}setAccent/.test(setupView),
-  'setup : accent appliqué au focus (watch focusedId)',
+    setupView.includes('fromAppearance') &&
+    /watch\(focusedId[\s\S]{0,500}setAccent[\s\S]{0,500}setTheme/.test(
+      setupView,
+    ),
+  'setup : thème + accent appliqués au focus (watch focusedId)',
 );
 
 const settingsView = read('src/renderer/src/views/SettingsView.vue');
 assert(
-  settingsView.includes('accentOffset') &&
+  settingsView.includes("key: 'LB/RB'") &&
+    !settingsView.includes("key: 'LT/RT'"),
+  'settings hints : LB/RB sections (pas LT/RT)',
+);
+assert(
+  settingsView.includes('void setTheme') &&
     settingsView.includes('void setAccent') &&
-    /settingsFocusIndex[\s\S]{0,400}accentOffset[\s\S]{0,200}setAccent/.test(
+    settingsView.includes('prevSec') &&
+    /settingsFocusIndex[\s\S]{0,600}setAccent[\s\S]{0,400}setTheme/.test(
       settingsView,
     ),
-  'settings : accent appliqué au focus (watch settingsFocusIndex)',
+  'settings : thème + accent appliqués au focus (watch settingsFocusIndex)',
+);
+
+const keys = read('src/shared/key-bindings.js');
+assert(
+  keys.includes("GamepadButtons.LB}`]: 'tab-prev'") &&
+    keys.includes("GamepadButtons.RB}`]: 'tab-next'") &&
+    /settings:[\s\S]{0,400}GamepadButtons\.LB[\s\S]{0,80}tab-prev/.test(keys),
+  'settings défauts : LB/RB = sections',
+);
+assert(
+  !/settings:[\s\S]{0,400}GamepadButtons\.LT[\s\S]{0,80}tab-prev/.test(keys),
+  'settings défauts : plus de LT = tab-prev',
 );
 
 if (failed) {
