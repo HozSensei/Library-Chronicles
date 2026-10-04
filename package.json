@@ -21,6 +21,7 @@
     "test:provider-test": "node scripts/verify-provider-test-status.mjs",
     "test:bounds": "node scripts/verify-window-bounds.mjs",
     "test:setup-focus": "node scripts/verify-setup-focus.mjs",
+    "test:settings-focus": "node scripts/verify-settings-focus.mjs",
     "test:theme-accents": "node scripts/verify-theme-accents.mjs",
     "test:i18n": "node scripts/verify-i18n.mjs",
     "test:focus-scroll": "node scripts/verify-focus-scroll.mjs",

@@ -23,6 +23,10 @@ import {
   SETUP_CONFIRM_FOCUS_SELECTOR,
 } from '../../../shared/setup-focus.js';
 import {
+  moveSettingsFocus,
+  settingsFocusRowsFromElements,
+} from '../../../shared/settings-focus.js';
+import {
   focusRootForRoute,
   scheduleScrollFocusedIntoView,
 } from '../../../shared/focus-scroll.js';
@@ -1062,16 +1066,24 @@ function createLoop(ctx) {
       const focusItems = [
         ...document.querySelectorAll('.settings [data-settings-item]'),
       ];
-      const maxSettings = Math.max(0, focusItems.length - 1);
-      if (action === 'cursor-up' || action === 'cursor-left') {
-        ui.setSettingsFocus(Math.max(0, ui.settingsFocusIndex - 1));
-        navVibe();
-        afterFocusMove();
-      }
-      if (action === 'cursor-down' || action === 'cursor-right') {
-        ui.setSettingsFocus(Math.min(maxSettings, ui.settingsFocusIndex + 1));
-        navVibe();
-        afterFocusMove();
+      const settingsRows = settingsFocusRowsFromElements(focusItems);
+      if (
+        action === 'cursor-up' ||
+        action === 'cursor-down' ||
+        action === 'cursor-left' ||
+        action === 'cursor-right'
+      ) {
+        const dir = action.replace('cursor-', '');
+        const next = moveSettingsFocus(
+          settingsRows,
+          ui.settingsFocusIndex,
+          /** @type {'up'|'down'|'left'|'right'} */ (dir),
+        );
+        if (next !== ui.settingsFocusIndex) {
+          ui.setSettingsFocus(next);
+          navVibe();
+          afterFocusMove();
+        }
       }
       /** LB / RB → sections Paramètres (comme catalogue / import) */
       if (action === 'tab-prev') {
