@@ -359,16 +359,16 @@ defineExpose({
       </header>
 
       <div
+        v-if="!isNaming"
         class="profiles__grid"
         role="list"
-        :aria-hidden="isNaming ? 'true' : undefined"
       >
         <button
           v-for="(p, index) in profiles.profiles"
           :key="p.id"
           type="button"
           class="avatar"
-          :class="{ 'is-focused': !isNaming && index === focused }"
+          :class="{ 'is-focused': index === focused }"
           role="listitem"
           @click="choose(index)"
         >
@@ -392,7 +392,7 @@ defineExpose({
         <button
           type="button"
           class="avatar avatar--add"
-          :class="{ 'is-focused': !isNaming && isAddFocused }"
+          :class="{ 'is-focused': isAddFocused }"
           role="listitem"
           aria-label="Ajouter un profil"
           @click="onAddClick"
@@ -567,20 +567,20 @@ footer {
 
 .profiles__grid {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: center;
+  align-items: flex-start;
   gap: 1.35rem 1.85rem;
-  width: 100%;
-  max-width: 52rem;
+  width: auto;
+  max-width: 100%;
   min-height: 0;
-  max-height: min(42vh, 22rem);
-  align-content: center;
   /*
-   * Cause bug : overflow-x:hidden + padding serré clippaient le scale focus
-   * → disque tronqué (plus parfaitement rond). Padding + overflow-y seuls.
+   * Rangée unique profils + « + » : pas de wrap / max-height / overflow-y
+   * (sinon + et aperçu « ? » du naming se empilaient avec scroll parasite).
+   * overflow-x:visible pour ne pas clipper le scale focus / anneau.
    */
   overflow-x: visible;
-  overflow-y: auto;
+  overflow-y: visible;
   padding: 1.1rem 1.25rem 1.35rem;
 }
 
