@@ -1,5 +1,4 @@
 import { defineStore } from 'pinia';
-import { ZOOM_STEP } from '../../../shared/gamepad-codes.js';
 import {
   stripPrefetchRange,
   stripWindowRange,
@@ -8,35 +7,32 @@ import {
   normalizeReadingMode,
   READING_MODE,
 } from '../../../shared/reading-mode.js';
-import { READER_STICK_SPEED } from '../../../shared/reader-stick.js';
 import {
-  clampPageScale,
-  nextPageTargetScale,
-  PAGE_ZOOM_ANIM_MS,
-  PAGE_ZOOMED_EPS,
-} from '../../../shared/reader-page-zoom.js';
+  PAGE_PAN_SPEED,
+  STICK_INTENT,
+  clampOffset,
+  clampZoom,
+  computeFit,
+  hasOverflow,
+  overflowFor,
+  pageTransform,
+  panBy,
+  resetView,
+  resolveStickIntent,
+  scaleForZoom,
+  zoomForFitHeight,
+  zoomForFitWidth,
+  zoomStep,
+} from '../../../shared/page-view-transform.js';
 import { findAdjacentVolume } from '../../../shared/series.js';
-import {
-  clampPanToPage,
-  measureReaderZoomGeometry,
-  panForZoomToCenter,
-  panForZoomToScreenCenter,
-  pinReaderOverflow,
-} from '../../../shared/zoom-anchor.js';
 import { useLibraryStore } from './library.js';
 
 const NIGHT_PRESET = { brightness: 0.78, contrast: 1.12, sepia: 0.35 };
 const RESET_FILTERS = { brightness: 1, contrast: 1, sepia: 0 };
-/** Durée d’interpolation zoom D-Pad / L3 (ms), ease-out — b7d1f81. */
-const ZOOM_ANIM_MS = PAGE_ZOOM_ANIM_MS;
-/** Seuil « zoomé » pour pan stick — b7d1f81. */
-const ZOOMED_EPS = PAGE_ZOOMED_EPS;
+/** Durée de la transition CSS transform (zoom D-Pad / L3 / LB). */
+const ZOOM_ANIM_MS = 180;
 /** Voisines gardées en cache ObjectURL (prefetch page ±N) — mode page. */
 const PAGE_CACHE_RADIUS = 2;
-
-function clampScale(value) {
-  return clampPageScale(value);
-}
 
 export const useReaderStore = defineStore('reader', {
   state: () => ({
@@ -49,20 +45,28 @@ export const useReaderStore = defineStore('reader', {
     pageIndex: 0,
     pageCount: 0,
     direction: 'ltr',
-    fitMode: 'fit-height',
+    /** Libellé du preset page courant : fit-page | fit-width | fit-height | zoom. */
+    fitMode: 'fit-page',
+    /** Préférence profil (`defaultFitMode`) appliquée à la 1re mesure de page. */
+    defaultFitMode: 'fit-page',
     /**
      * Mode d’ouverture : page (défaut) | strip (continu vertical).
      * Posé à open() depuis la fiche ; pas de préférence globale.
      */
     readingMode: READING_MODE.PAGE,
-    /** Échelle affichée (interpolée). */
-    scale: 1,
-    /** Cible logique du zoom (±15 % par pas). */
-    targetScale: 1,
-    /** Pulse CSS pour transition fit / reset zoom L3 (width/height). */
+    /** Facteur de zoom ∈ [1, 4] — 1 = page entière (fitScale). */
+    zoom: 1,
+    /** Offset de pan en px stage locaux (centré = 0). */
+    offsetX: 0,
+    offsetY: 0,
+    /** Dimensions locales du stage page (clientWidth/Height, pré-rotation). */
+    stageW: 0,
+    stageH: 0,
+    /** Dimensions naturelles de la page affichée. */
+    pageW: 0,
+    pageH: 0,
+    /** Pulse CSS pour la transition transform (zoom D-Pad / L3 / LB). */
     zoomTransition: false,
-    panX: 0,
-    panY: 0,
     /** Modal pause Select (persistante jusqu’à B / Select). */
     hudVisible: false,
     hudPanel: 'main', // main | bookmarks | filters
@@ -90,9 +94,9 @@ export const useReaderStore = defineStore('reader', {
     error: null,
     renderEngine: null,
     _hudTimer: null,
-    _zoomRaf: null,
-    _zoomFallbackTimer: null,
     _zoomTransitionTimer: null,
+    /** Prochaine mesure de page → reset vue (nouvelle page / nouveau livre). */
+    _refitPending: true,
     /** Demande scrollIntoView après nav programmatique (pas scroll utilisateur). */
     stripScrollToken: 0,
     /** Cache ObjectURL pages { index → url } (courante + prefetch). */
@@ -103,21 +107,54 @@ export const useReaderStore = defineStore('reader', {
   getters: {
     pageLabel: (s) => `${s.pageCount ? s.pageIndex + 1 : 0} / ${s.pageCount}`,
     progress: (s) => (s.pageCount ? ((s.pageIndex + 1) / s.pageCount) * 100 : 0),
-    transform: (s) => `scale(${s.scale})`,
     currentChapter: (s) => s.chapters[s.chapterIndex] || null,
     isStripMode: (s) => s.readingMode === READING_MODE.STRIP,
     filterCss(s) {
       return `brightness(${s.brightness}) contrast(${s.contrast}) sepia(${s.sepia})`;
     },
-    isZoomed: (s) => s.scale >= ZOOMED_EPS,
-    imageStyle(s) {
-      // Fit height/width : CSS [data-fit] sur .reader__stage.
-      // Scale seul ici — le pan est sur .reader__pan (évite double translate).
+    /** Fit courant (contain + fit-width/height) — source unique des bornes. */
+    fit: (s) =>
+      computeFit({
+        stageW: s.stageW,
+        stageH: s.stageH,
+        pageW: s.pageW,
+        pageH: s.pageH,
+      }),
+    /** Page mesurée : tant que false, la vue masque le stage (pas de flash). */
+    isPageMeasured() {
+      return this.fit.valid;
+    },
+    /** Échelle CSS absolue = fitScale × zoom. */
+    scale() {
+      return scaleForZoom(this.zoom, this.fit);
+    },
+    /** Débordement px stage par axe (0 = l’axe tient entièrement). */
+    pageOverflow() {
+      return overflowFor(this.zoom, this.fit);
+    },
+    canPan() {
+      return hasOverflow(this.zoom, this.fit);
+    },
+    isZoomed: (s) => s.zoom > 1.001,
+    zoomLabel: (s) => `${Math.round(s.zoom * 100)} %`,
+    /** Transform du calque de pan — unique source du rendu page. */
+    pageTransformCss() {
+      return pageTransform(
+        { zoom: this.zoom, x: this.offsetX, y: this.offsetY },
+        this.fit,
+      );
+    },
+    pageLayerStyle() {
       return {
-        transform: s.transform,
+        transform: this.pageTransformCss,
         transformOrigin: 'center center',
         willChange: 'transform',
+      };
+    },
+    imageStyle(s) {
+      return {
         filter: `brightness(${s.brightness}) contrast(${s.contrast}) sepia(${s.sepia})`,
+        willChange: 'filter',
       };
     },
     isFinished(s) {
@@ -175,7 +212,7 @@ export const useReaderStore = defineStore('reader', {
       try {
         const prefs = await window.vdr.profiles.getPrefs();
         this.direction = prefs.readingDirection || 'ltr';
-        this.fitMode = prefs.defaultFitMode || 'fit-height';
+        this.defaultFitMode = prefs.defaultFitMode || 'fit-page';
         this.brightness = prefs.brightness ?? 1;
         this.contrast = prefs.contrast ?? 1;
         this.sepia = prefs.sepia ?? 0;
@@ -190,7 +227,7 @@ export const useReaderStore = defineStore('reader', {
         this.contrast = prefs.contrast ?? this.contrast;
         this.sepia = prefs.sepia ?? this.sepia;
         if (prefs.readingDirection) this.direction = prefs.readingDirection;
-        if (prefs.defaultFitMode) this.fitMode = prefs.defaultFitMode;
+        if (prefs.defaultFitMode) this.defaultFitMode = prefs.defaultFitMode;
       } catch {
         // ignore
       }
@@ -220,7 +257,8 @@ export const useReaderStore = defineStore('reader', {
         this.renderEngine = meta.renderEngine || meta.format || null;
         this.resetTransform();
         // Strip = fit-width bord à bord (pas de zoom CSS scale — voir docs).
-        // Page : fitMode restauré par loadPrefs (jamais forcé par un strip antérieur).
+        // Page : toujours page entière à l’ouverture (la préférence `fit-width`
+        // est réappliquée après mesure, cf. setPageMetrics).
         if (this.isStripMode) this.fitMode = 'fit-width';
 
         // Métadonnées série déjà fournies par reader.open (plus de listBooks)
@@ -498,8 +536,11 @@ export const useReaderStore = defineStore('reader', {
       await this.persistProgress();
       this.closeHud();
       this.clearZoomAnim();
-      this.scale = 1;
-      this.targetScale = 1;
+      this.resetTransform();
+      this.stageW = 0;
+      this.stageH = 0;
+      this.pageW = 0;
+      this.pageH = 0;
       this.revokePageCache();
       this.pageUrl = null;
       this.stripPages = [];
@@ -529,139 +570,13 @@ export const useReaderStore = defineStore('reader', {
       }
     },
     clearZoomAnim() {
-      if (this._zoomRaf != null && typeof cancelAnimationFrame === 'function') {
-        cancelAnimationFrame(this._zoomRaf);
-      }
-      this._zoomRaf = null;
-      if (this._zoomFallbackTimer != null) {
-        clearTimeout(this._zoomFallbackTimer);
-        this._zoomFallbackTimer = null;
-      }
       if (this._zoomTransitionTimer) {
         clearTimeout(this._zoomTransitionTimer);
         this._zoomTransitionTimer = null;
       }
       this.zoomTransition = false;
     },
-    /**
-     * Ancre pan au centre écran pour un changement d’échelle.
-     * Mesure stage/page (fit + rotate) ; fallback centre image si pas de DOM.
-     */
-    panAnchoredForScale(fromPanX, fromPanY, fromScale, toScale) {
-      pinReaderOverflow();
-      const geom = measureReaderZoomGeometry();
-      if (geom && geom.stageW > 0 && geom.stageH > 0) {
-        const anchored = panForZoomToScreenCenter(
-          fromPanX,
-          fromPanY,
-          fromScale,
-          toScale,
-          geom,
-        );
-        return clampPanToPage(anchored.panX, anchored.panY, toScale, geom);
-      }
-      return panForZoomToCenter(fromPanX, fromPanY, fromScale, toScale);
-    },
-    /** Clamp pan courant aux bords de page (DOM stage/page). */
-    clampPan() {
-      const geom = measureReaderZoomGeometry();
-      if (!geom || geom.stageW <= 0 || geom.stageH <= 0) return;
-      const clamped = clampPanToPage(this.panX, this.panY, this.scale, geom);
-      this.panX = clamped.panX;
-      this.panY = clamped.panY;
-    },
-    /**
-     * Applique une échelle en ancrant le point sous le centre du viewport
-     * (écran → local image → nouveau pan ; voir `panForZoomToScreenCenter`).
-     */
-    applyScaleAtCenter(nextScale) {
-      const to = clampScale(nextScale);
-      const from = this.scale;
-      if (from !== 0 && Math.abs(to - from) >= 1e-9) {
-        const anchored = this.panAnchoredForScale(this.panX, this.panY, from, to);
-        this.panX = anchored.panX;
-        this.panY = anchored.panY;
-      }
-      this.scale = to;
-      this.clampPan();
-      pinReaderOverflow();
-    },
-    /**
-     * Interpole `scale` → `targetScale` en ~200 ms ease-out (rAF).
-     * Chaque frame ancre le zoom au centre écran (pas de dérive / faux scroll).
-     * Pipeline = b7d1f81 ; secours timeout si rAF throttle (fenêtre arrière-plan).
-     */
-    animateScaleTo(target, { duration = ZOOM_ANIM_MS } = {}) {
-      const to = clampScale(target);
-      this.targetScale = to;
-      if (typeof requestAnimationFrame !== 'function') {
-        this.applyScaleAtCenter(to);
-        return;
-      }
-      if (this._zoomRaf != null) cancelAnimationFrame(this._zoomRaf);
-      if (this._zoomFallbackTimer != null) {
-        clearTimeout(this._zoomFallbackTimer);
-        this._zoomFallbackTimer = null;
-      }
-      const fromScale = this.scale;
-      const fromPanX = this.panX;
-      const fromPanY = this.panY;
-      // Géométrie figée au départ (fit CSS stable pendant le lerp scale).
-      const geom = measureReaderZoomGeometry();
-      const anchor = (panX, panY, from, s) => {
-        pinReaderOverflow();
-        if (geom && geom.stageW > 0 && geom.stageH > 0) {
-          const next = panForZoomToScreenCenter(panX, panY, from, s, geom);
-          return clampPanToPage(next.panX, next.panY, s, geom);
-        }
-        return panForZoomToCenter(panX, panY, from, s);
-      };
-      if (Math.abs(to - fromScale) < 0.0005) {
-        this.applyScaleAtCenter(to);
-        this._zoomRaf = null;
-        return;
-      }
-      const finish = () => {
-        const finalPan = anchor(fromPanX, fromPanY, fromScale, to);
-        this.panX = finalPan.panX;
-        this.panY = finalPan.panY;
-        this.scale = to;
-        this._zoomRaf = null;
-        if (this._zoomFallbackTimer != null) {
-          clearTimeout(this._zoomFallbackTimer);
-          this._zoomFallbackTimer = null;
-        }
-        pinReaderOverflow();
-      };
-      const t0 = performance.now();
-      const step = (now) => {
-        const t = Math.min(1, (now - t0) / duration);
-        const ease = 1 - (1 - t) ** 3;
-        const s = fromScale + (to - fromScale) * ease;
-        // Ancre depuis l’état de départ (évite la dérive flottante frame à frame).
-        const anchored = anchor(fromPanX, fromPanY, fromScale, s);
-        this.panX = anchored.panX;
-        this.panY = anchored.panY;
-        this.scale = s;
-        if (t < 1) {
-          this._zoomRaf = requestAnimationFrame(step);
-        } else {
-          finish();
-        }
-      };
-      this._zoomRaf = requestAnimationFrame(step);
-      // Garantit scale → cible même si rAF est gelé (b7d1f81 + robustesse post-strip).
-      this._zoomFallbackTimer = setTimeout(() => {
-        this._zoomFallbackTimer = null;
-        if (Math.abs(this.scale - to) > 1e-4 || this._zoomRaf != null) {
-          if (this._zoomRaf != null && typeof cancelAnimationFrame === 'function') {
-            cancelAnimationFrame(this._zoomRaf);
-          }
-          finish();
-        }
-      }, duration + 80);
-    },
-    /** Transition CSS width/height pour reset / fit (L3, LB). */
+    /** Transition CSS transform pour zoom / reset / fit (D-Pad, L3, LB). */
     pulseZoomTransition(ms = ZOOM_ANIM_MS + 40) {
       this.zoomTransition = true;
       if (this._zoomTransitionTimer) clearTimeout(this._zoomTransitionTimer);
@@ -670,64 +585,137 @@ export const useReaderStore = defineStore('reader', {
         this._zoomTransitionTimer = null;
       }, ms);
     },
+    /**
+     * Dimensions locales du stage page (`clientWidth/Height`, pré-rotation CSS).
+     * Conserve le facteur de zoom et reclampe l’offset aux nouvelles bornes.
+     */
+    setStageMetrics(width, height) {
+      const w = Number(width);
+      const h = Number(height);
+      if (!Number.isFinite(w) || !Number.isFinite(h)) return;
+      if (w === this.stageW && h === this.stageH) return;
+      this.stageW = Math.max(0, w);
+      this.stageH = Math.max(0, h);
+      this.applyView({ zoom: this.zoom, x: this.offsetX, y: this.offsetY });
+    },
+    /**
+     * Dimensions naturelles de la page affichée (`naturalWidth/Height`).
+     * Une page fraîchement chargée repart systématiquement en page entière.
+     */
+    setPageMetrics(width, height) {
+      const w = Number(width);
+      const h = Number(height);
+      if (!Number.isFinite(w) || !Number.isFinite(h) || w <= 0 || h <= 0) return;
+      const changed = w !== this.pageW || h !== this.pageH;
+      this.pageW = w;
+      this.pageH = h;
+      if (this._refitPending || changed) {
+        this._refitPending = false;
+        // Préférence explicite « bord à bord largeur » ; sinon page entière.
+        if (this.defaultFitMode === 'fit-width') {
+          this.applyView({ zoom: zoomForFitWidth(this.fit), x: 0, y: 0 });
+          this.fitMode = 'fit-width';
+          return;
+        }
+        this.applyView(resetView());
+        this.fitMode = 'fit-page';
+        return;
+      }
+      this.applyView({ zoom: this.zoom, x: this.offsetX, y: this.offsetY });
+    },
+    /**
+     * Point d’entrée unique du modèle : borne le zoom puis clampe l’offset.
+     * Toute écriture de `zoom` / `offset*` passe par ici (pas de clamp dupliqué).
+     */
+    applyView(view) {
+      const fit = this.fit;
+      const zoom = clampZoom(view?.zoom ?? this.zoom, fit);
+      const offset = clampOffset(
+        { x: view?.x ?? this.offsetX, y: view?.y ?? this.offsetY },
+        zoom,
+        fit,
+      );
+      this.zoom = zoom;
+      this.offsetX = offset.x;
+      this.offsetY = offset.y;
+    },
+    /** Vue neutre — page entière centrée ; la prochaine mesure refit. */
     resetTransform() {
       this.clearZoomAnim();
-      this.panX = 0;
-      this.panY = 0;
-      this.scale = 1;
-      this.targetScale = 1;
+      this.zoom = 1;
+      this.offsetX = 0;
+      this.offsetY = 0;
+      this.fitMode = 'fit-page';
+      this._refitPending = true;
     },
     /**
-     * Pan en repère local du plan lecteur (après visualPanToLocal = +90° CW
-     * si CSS rotate). Sous rotate(90deg) : local(+X)→bas écran, local(+Y)→gauche.
-     * Clamp strict : pas de pan hors des bords de page.
+     * Pan stick en px stage locaux (axes déjà passés par `visualPanToLocal`).
+     * Clampé à ±débordement/2 ; no-op si la page tient entièrement.
+     * Strip = no-op (scroll dédié).
+     * @returns {boolean} true si l’offset a bougé
      */
-    /**
-     * Pan page — b7d1f81 (speed 14, clamp bords). Strip = no-op (scroll dédié).
-     */
-    pan(dx, dy, speed = READER_STICK_SPEED) {
-      if (this.isStripMode) return;
-      if (this.fitMode === 'fit-width') {
-        this.panY += dy * speed * 1.4;
-        this.panX += dx * speed * 0.4;
-      } else {
-        this.panX += dx * speed;
-        this.panY += dy * speed;
-      }
-      this.clampPan();
+    pan(dx, dy, speed = PAGE_PAN_SPEED) {
+      if (this.isStripMode) return false;
+      const next = panBy(
+        { x: this.offsetX, y: this.offsetY },
+        { x: dx, y: dy },
+        this.zoom,
+        this.fit,
+        speed,
+      );
+      this.offsetX = next.x;
+      this.offsetY = next.y;
+      return next.moved;
     },
     /**
-     * Zoom D-Pad page — b7d1f81 : ±ZOOM_STEP sur targetScale + animateScaleTo.
+     * Intention du stick : pan tant qu’il y a du débordement, sinon pages.
+     * Jamais `none` sur un axe horizontal franc → pas d’état bloqué.
+     * @param {{ x: number, y: number } | null} stickLocal
+     */
+    stickIntent(stickLocal) {
+      if (this.isStripMode) return STICK_INTENT.NONE;
+      return resolveStickIntent(stickLocal, this.zoom, this.fit);
+    },
+    /**
+     * Zoom D-Pad : ±15 % multiplicatif, borné [page entière, ×4].
      * Strip = no-op (pas de scale CSS).
      */
     zoomBy(steps) {
       if (this.isStripMode) return;
-      this.animateScaleTo(nextPageTargetScale(this.targetScale, steps));
+      const next = zoomStep(this.zoom, steps, this.fit);
+      if (Math.abs(next - this.zoom) < 1e-6) return;
+      this.pulseZoomTransition();
+      this.applyView({ zoom: next, x: this.offsetX, y: this.offsetY });
+      this.fitMode = this.zoom > 1.001 ? 'zoom' : 'fit-page';
     },
     /**
-     * L3 / R3 — reset zoom unique : page entière (fit stage), pan recentré.
-     * Ne bascule PAS Fit Height ↔ Fit Width (fitMode stable) — b7d1f81 / #39.
-     * No-op en strip (pas de zoom CSS).
+     * L3 / R3 — reset : page entière bord à bord, recentrée.
+     * Garanti par construction (`zoom = 1`, `offset = 0`), sans mesure DOM.
+     * No-op en strip.
      */
     resetZoom() {
       if (this.isStripMode) return;
       this.pulseZoomTransition();
-      this.panX = 0;
-      this.panY = 0;
-      this.animateScaleTo(1);
+      this.applyView(resetView());
+      this.fitMode = 'fit-page';
     },
     /** @deprecated alias — préférer resetZoom() */
     toggleZoom() {
       this.resetZoom();
     },
-    /** LB — Fit Width direct (mode page) — b7d1f81. No-op en strip. */
+    /** LB — page bord à bord en largeur (déborde éventuellement en hauteur). */
     setFitWidth() {
       if (this.isStripMode) return;
       this.pulseZoomTransition();
+      this.applyView({ zoom: zoomForFitWidth(this.fit), x: 0, y: 0 });
       this.fitMode = 'fit-width';
-      this.panX = 0;
-      this.panY = 0;
-      this.animateScaleTo(1);
+    },
+    /** Page bord à bord en hauteur (déborde éventuellement en largeur). */
+    setFitHeight() {
+      if (this.isStripMode) return;
+      this.pulseZoomTransition();
+      this.applyView({ zoom: zoomForFitHeight(this.fit), x: 0, y: 0 });
+      this.fitMode = 'fit-height';
     },
     toggleDirection() {
       this.direction = this.direction === 'ltr' ? 'rtl' : 'ltr';
