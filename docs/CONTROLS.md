@@ -45,7 +45,7 @@ Pan plan +90° CSS : mêmes axes **physiques**, puis `visualPanToLocal` = **mêm
 
 | Contrôle | Action |
 |----------|--------|
-| Stick L | **Pan** si la page déborde (axes physiques → `visualPanToLocal` +90°) · **Page ±1** (←→ utilisateur) si la page tient entièrement à l’écran |
+| Stick L | **Pan** si la page déborde (clampé ; au bord / page entière = no-op) — **pas** de page |
 | L3 / R3 | **Reset zoom** — page entière bord à bord, recentrée |
 | D-Pad **↑** | **Zoom +** (×1.15, plafond ×4 de la page entière) |
 | D-Pad **↓** | **Zoom −** (plancher = page entière) |
@@ -90,13 +90,14 @@ il n’est pas mis à l’échelle.
   construction**, sans dépendre d’une mesure DOM au moment de l’appui.
 - **Pas de dézoom sous la page entière** : `clampZoom` plancher à `1`. Répéter
   D-Pad ↓ converge vers la page entière, jamais en-dessous.
-- **Stick jamais inerte** : tant qu’un axe déborde, le stick fait du pan ;
-  dès que la page tient entièrement à l’écran (pan sans objet), l’horizontale
-  utilisateur du stick **tourne les pages** (edge + repeat ~450/320 ms). La
-  verticale reste neutre pour éviter les pages tournées par accident.
+- **Stick = pan seulement** : tant qu’un axe déborde, le stick fait du pan
+  clampé ; au bord (ou page entière visible) ⇒ **no-op** — jamais de
+  changement de page. Les pages se tournent uniquement au D-Pad ←/→.
 - **Redimensionnement** (rotation, resize fenêtre) : le `zoom` est conservé,
   `fitScale` recalculé, l’offset reclampé aux nouvelles bornes.
-- **Nouvelle page** : refit automatique en page entière à la mesure suivante.
+- **Changement de page** (D-Pad ←/→) : le `zoom` est **conservé** ; l’offset
+  est reclampé aux bornes du nouveau fit (recentré si un axe ne déborde plus).
+  Ouverture / signet / chapitre / L3 → refit page entière.
 - **Zoom ancré au centre** : `zoomAboutCenter` multiplie l’offset par le ratio
   de zoom, ce qui garde fixe le point de la page sous le centre du stage. La
   page étant toujours centrée par construction, aucune géométrie d’écran n’est

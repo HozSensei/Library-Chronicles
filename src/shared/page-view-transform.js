@@ -28,7 +28,8 @@
  * 3. `offset` clampé à ±débordement/2 par axe ; axe sans débordement ⇒ 0 (centré).
  * 4. Reset (L3) = `{ zoom: 1, x: 0, y: 0 }` — indépendant des mesures, donc
  *    toujours exactement la page entière une fois le stage mesuré.
- * 5. Stick sans débordement ⇒ `page-prev` / `page-next` : aucun état inerte.
+ * 5. Stick = pan seulement ; sans débordement ou au bord ⇒ no-op (pas de page).
+ * 6. Changement de page (D-Pad) conserve `zoom` + offset clampé au nouveau fit.
  */
 
 import { ZOOM_STEP } from './gamepad-codes.js';
@@ -45,15 +46,10 @@ export const PAGE_PAN_SPEED = 14;
 /** Tolérance de débordement (px) — sous ce seuil l’axe est considéré « tient ». */
 export const PAGE_OVERFLOW_EPS = 0.5;
 
-/** Seuil d’activation du stick pour tourner la page (hors débordement). */
-export const PAGE_STICK_TURN_THRESHOLD = 0.45;
-
 /** Intentions possibles d’un stick en mode page. */
 export const STICK_INTENT = Object.freeze({
   NONE: 'none',
   PAN: 'pan',
-  PAGE_PREV: 'page-prev',
-  PAGE_NEXT: 'page-next',
 });
 
 /** Fit neutre tant que le stage ou la page n’est pas mesuré. */
@@ -289,31 +285,21 @@ export function panBy(offset, delta, zoom, fit = EMPTY_FIT, speed = PAGE_PAN_SPE
 /**
  * Intention d’un stick en mode page.
  *
- * - au moins un axe déborde ⇒ `pan` (jamais de page tournée par accident) ;
- * - page entièrement visible ⇒ l’horizontale **utilisateur** tourne les pages,
- *   la verticale reste neutre. Le stick n’est donc jamais inerte au reset.
- *
- * `stickLocal` est le vecteur de pan (sortie de `visualPanToLocal`), qui est
- * l’opposé du repère utilisateur : pousser à droite ramène la page à gauche.
+ * - au moins un axe déborde ⇒ `pan` (clampé ; au bord = no-op via `panBy`) ;
+ * - page entièrement visible ⇒ `none` — **pas** de changement de page.
+ *   Les pages se tournent uniquement au D-Pad ←/→.
  *
  * @param {{ x?: number, y?: number } | null} stickLocal
  * @param {unknown} zoom
  * @param {typeof EMPTY_FIT} [fit]
- * @param {{ threshold?: number }} [opts]
  * @returns {typeof STICK_INTENT[keyof typeof STICK_INTENT]}
  */
-export function resolveStickIntent(stickLocal, zoom, fit = EMPTY_FIT, opts = {}) {
+export function resolveStickIntent(stickLocal, zoom, fit = EMPTY_FIT) {
   const x = num(stickLocal?.x);
   const y = num(stickLocal?.y);
   if (x === 0 && y === 0) return STICK_INTENT.NONE;
   if (hasOverflow(zoom, fit)) return STICK_INTENT.PAN;
-
-  const threshold = num(opts?.threshold, PAGE_STICK_TURN_THRESHOLD);
-  const userX = -x;
-  const userY = -y;
-  if (Math.abs(userX) < threshold) return STICK_INTENT.NONE;
-  if (Math.abs(userX) < Math.abs(userY)) return STICK_INTENT.NONE;
-  return userX > 0 ? STICK_INTENT.PAGE_NEXT : STICK_INTENT.PAGE_PREV;
+  return STICK_INTENT.NONE;
 }
 
 function round(value, decimals) {

@@ -6,8 +6,9 @@
  *  2. zoom borné [1, 4] × fitScale — **jamais** de dézoom sous la page entière ;
  *  3. offset clampé à ±débordement/2, 0 sur un axe qui tient ;
  *  4. reset (L3) = page entière centrée, sans dépendre d’une mesure ;
- *  5. stick : pan tant qu’il y a du débordement, pages sinon → aucun état inerte ;
- *  6. câblage store / vue (un seul module, plus d’ancrage ni de clamp dupliqué).
+ *  5. stick = pan tant qu’il y a du débordement, sinon no-op (pas de page) ;
+ *  6. stepPage conserve zoom + offset clampé (pas de reset fit) ;
+ *  7. câblage store / vue (un seul module, plus d’ancrage ni de clamp dupliqué).
  */
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -263,24 +264,29 @@ assert(PAGE_PAN_SPEED === READER_STICK_SPEED, 'vitesse de pan page = vitesse str
     resolveStickIntent({ x: 0, y: 1 }, 2, fit) === STICK_INTENT.PAN,
     'zoomé : stick vertical = pan',
   );
-  // Page entière : horizontale utilisateur → pages (jamais inerte)
-  // stickLocal = inverse du repère utilisateur (visualPanToLocal).
+  // Page entière : stick = no-op (pages uniquement via D-Pad)
   assert(
-    resolveStickIntent({ x: -1, y: 0 }, 1, fit) === STICK_INTENT.PAGE_NEXT,
-    'page entière + stick utilisateur droite → page suivante',
+    resolveStickIntent({ x: -1, y: 0 }, 1, fit) === STICK_INTENT.NONE,
+    'page entière + stick horizontal → none (pas de page)',
   );
   assert(
-    resolveStickIntent({ x: 1, y: 0 }, 1, fit) === STICK_INTENT.PAGE_PREV,
-    'page entière + stick utilisateur gauche → page précédente',
+    resolveStickIntent({ x: 1, y: 0 }, 1, fit) === STICK_INTENT.NONE,
+    'page entière + stick gauche → none',
   );
   assert(
     resolveStickIntent({ x: 0, y: 1 }, 1, fit) === STICK_INTENT.NONE,
-    'page entière + stick vertical → none (pas de page accidentelle)',
+    'page entière + stick vertical → none',
   );
-  assert(
-    resolveStickIntent({ x: -0.2, y: 0 }, 1, fit) === STICK_INTENT.NONE,
-    'page entière + poussée sous le seuil → none',
-  );
+  // Au bord d’un axe zoomé : intent reste pan, panBy no-op (moved=false)
+  {
+    const lim = offsetLimits(2, fit);
+    const edge = panBy({ x: lim.maxX, y: 0 }, { x: 1, y: 0 }, 2, fit);
+    assert(
+      !edge.moved &&
+        resolveStickIntent({ x: 1, y: 0 }, 2, fit) === STICK_INTENT.PAN,
+      'au bord : intent=pan, panBy no-op (pas de page)',
+    );
+  }
 }
 
 // ——— pageTransform ————————————————————————————————————————————————
@@ -343,12 +349,12 @@ assert(
   'store L3 : la page entière tient dans le stage',
 );
 
-// Dézoom répété depuis la page entière : jamais sous le fit, jamais figé.
+// Dézoom répété depuis la page entière : jamais sous le fit ; stick = no-op.
 for (let i = 0; i < 20; i += 1) reader.zoomBy(-1);
 assert(nearly(reader.zoom, 1), 'store : 20 dézooms → toujours la page entière');
 assert(
-  reader.stickIntent({ x: -1, y: 0 }) === STICK_INTENT.PAGE_NEXT,
-  'store : stick non bloqué après dézoom (→ page suivante)',
+  reader.stickIntent({ x: -1, y: 0 }) === STICK_INTENT.NONE,
+  'store : stick page entière → none (pas de page)',
 );
 
 // LB fit-width puis reset
@@ -381,23 +387,52 @@ assert(
   'store resize : offset reclampé aux nouvelles bornes',
 );
 
-// Nouvelle page (dimensions différentes) → refit page entière.
+// Nouvelle page avec _refitPending → refit page entière.
 reader.zoomBy(3);
+reader.resetTransform();
 reader.setPageMetrics(1600, 2400);
 assert(
   nearly(reader.zoom, 1) && reader.offsetX === 0 && reader.offsetY === 0,
-  'store : nouvelle page → refit page entière',
+  'store : refit pending → page entière',
+);
+
+// Nav page-à-page (sans _refitPending) : zoom + offset conservés / clampés.
+reader.setPageMetrics(1400, 2000);
+reader.zoomBy(2);
+for (let i = 0; i < 50; i += 1) reader.pan(1, -1);
+const zoomBeforeStep = reader.zoom;
+const offBefore = { x: reader.offsetX, y: reader.offsetY };
+assert(offBefore.x !== 0 || offBefore.y !== 0, 'précond : offset non nul avant nav');
+// Simule stepPage : pas de resetTransform, puis mesure de la page suivante.
+reader.pageIndex = 1;
+reader.setPageMetrics(1600, 2400);
+assert(
+  nearly(reader.zoom, zoomBeforeStep),
+  'store nav page : zoom conservé malgré nouvelles dimensions',
+);
+const limNav = offsetLimits(reader.zoom, reader.fit);
+assert(
+  reader.offsetX <= limNav.maxX + 1e-9 &&
+    reader.offsetX >= limNav.minX - 1e-9 &&
+    reader.offsetY <= limNav.maxY + 1e-9 &&
+    reader.offsetY >= limNav.minY - 1e-9,
+  'store nav page : offset reclampé aux nouvelles bornes',
+);
+assert(
+  !(nearly(reader.zoom, 1) && reader.offsetX === 0 && reader.offsetY === 0),
+  'store nav page : pas de reset fit (zoom≠1 ou offset non nul)',
 );
 
 // Strip : zoom / pan no-op
 reader.readingMode = READING_MODE.STRIP;
 reader.zoomBy(2);
-assert(nearly(reader.zoom, 1), 'store strip : zoomBy no-op');
+assert(nearly(reader.zoom, zoomBeforeStep), 'store strip : zoomBy no-op (zoom inchangé)');
 assert(reader.pan(1, 1) === false, 'store strip : pan no-op');
 assert(reader.stickIntent({ x: 1, y: 0 }) === STICK_INTENT.NONE, 'store strip : stickIntent none');
 reader.readingMode = READING_MODE.PAGE;
+reader.resetZoom();
 
-// ——— Contrôles manette : stick → pan ou page ————————————————————————
+// ——— Contrôles manette : stick → pan seulement (jamais page) ——————————
 {
   const calls = [];
   const stub = {
@@ -411,23 +446,24 @@ reader.readingMode = READING_MODE.PAGE;
   applyPageReaderAction(stub, 'pan', { x: 1, y: 0 });
   assert(calls.join('|') === 'pan:1,0', 'controls : intention pan → reader.pan');
 
-  const turns = [];
-  const stub2 = {
-    ...stub,
-    stickIntent: () => STICK_INTENT.PAGE_NEXT,
-  };
-  applyPageReaderAction(stub2, 'pan', { x: -1, y: 0 }, {
-    onStickPage: (w) => turns.push(w),
-  });
-  assert(turns.join('|') === 'next', 'controls : intention page → onStickPage(next)');
-
-  const fallback = [];
+  const noPage = [];
   applyPageReaderAction(
-    { ...stub2, stepPage: (w) => fallback.push(w) },
+    {
+      ...stub,
+      stickIntent: () => STICK_INTENT.NONE,
+      stepPage: (w) => noPage.push(w),
+    },
     'pan',
     { x: -1, y: 0 },
   );
-  assert(fallback.join('|') === 'next', 'controls : sans callback → stepPage direct');
+  assert(noPage.length === 0, 'controls : stick sans débordement → pas de stepPage');
+
+  const dpad = [];
+  applyPageReaderAction(
+    { ...stub, stepPage: (w) => dpad.push(w) },
+    'page-next',
+  );
+  assert(dpad.join('|') === 'next', 'controls : D-Pad page-next → stepPage');
 }
 
 // ——— Câblage : un seul module, plus de couches ———————————————————————
@@ -505,12 +541,36 @@ assert(
   'vue : page à taille naturelle (max-width none)',
 );
 assert(
-  controlsSrc.includes('stickIntent') && controlsSrc.includes('onStickPage'),
-  'controls : stick → pan ou page (jamais inerte)',
+  controlsSrc.includes('stickIntent') &&
+    !controlsSrc.includes('onStickPage') &&
+    !controlsSrc.includes('PAGE_PREV') &&
+    !controlsSrc.includes('PAGE_NEXT'),
+  'controls : stick → pan seulement (plus de fallback page)',
 );
 assert(
-  gamepadSrc.includes('stickPageNav') && gamepadSrc.includes('onStickPage'),
-  'gamepad : edge + repeat sur les pages tournées au stick',
+  !gamepadSrc.includes('stickPageNav') && !gamepadSrc.includes('onStickPage'),
+  'gamepad : plus de stickPageNav / onStickPage',
+);
+assert(
+  /async stepPage\(which\)\s*\{[\s\S]*?this\.pageIndex = next;\s*\n\s*\/\/ Zoom[\s\S]*?await this\.loadCurrentPage/.test(
+    storeSrc,
+  ),
+  'store stepPage : pas de resetTransform (zoom persisté)',
+);
+{
+  const m = storeSrc.match(
+    /async stepPage\(which\)\s*\{([\s\S]*?)\n\s*async stepChapter/,
+  );
+  assert(
+    m && !m[1].includes('resetTransform'),
+    'store stepPage : resetTransform absent du corps',
+  );
+}
+assert(
+  /setPageMetrics\([\s\S]*?_refitPending[\s\S]*?applyView\(\{ zoom: this\.zoom/.test(
+    storeSrc,
+  ),
+  'store setPageMetrics : hors refit → conserve zoom',
 );
 
 if (failed) {

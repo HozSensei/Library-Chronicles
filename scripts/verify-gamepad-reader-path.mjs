@@ -280,8 +280,17 @@ assert(
 );
 assert(
   store.includes('stickIntent(stickLocal)'),
-  'store expose stickIntent (stick jamais inerte)',
+  'store expose stickIntent (stick = pan ou none)',
 );
+{
+  const m = store.match(
+    /async stepPage\(which\)\s*\{([\s\S]*?)\n\s*async stepChapter/,
+  );
+  assert(
+    m && !m[1].includes('resetTransform'),
+    'store stepPage : zoom persisté (pas de resetTransform)',
+  );
+}
 
 // --- Covers grille / rails uniformes -------------------------------------
 assert(
