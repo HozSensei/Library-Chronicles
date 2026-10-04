@@ -450,6 +450,8 @@ async function onStripScroll() {
 
 .reader__next-title {
   display: block;
+  font-family: var(--font-display);
+  font-weight: 600;
   font-size: 0.72rem;
   color: var(--paper-dim);
   overflow: hidden;

@@ -522,6 +522,7 @@ function backFocused() {
 .series-detail__vol-title {
   display: block;
   margin-top: 0.5rem;
+  font-family: var(--font-display);
   font-size: 0.88rem;
   font-weight: 600;
   overflow: hidden;
@@ -584,6 +585,7 @@ function backFocused() {
 
 .series-detail__action-label {
   display: block;
+  font-family: var(--font-display);
   font-weight: 700;
 }
 

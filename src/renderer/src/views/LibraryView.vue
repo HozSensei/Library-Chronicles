@@ -622,7 +622,8 @@ function selectTab(tab) {
   border: none;
   color: var(--paper-dim);
   font: inherit;
-  font-weight: 600;
+  font-family: var(--font-display);
+  font-weight: 700;
   font-size: 0.92rem;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -910,6 +911,7 @@ function selectTab(tab) {
   margin-top: 0.55rem;
   width: 100%;
   max-width: 100%;
+  font-family: var(--font-display);
   font-size: 0.88rem;
   font-weight: 600;
   overflow: hidden;
@@ -962,6 +964,7 @@ function selectTab(tab) {
   border-radius: 14px;
   padding: 0.85rem 1.6rem;
   font: inherit;
+  font-family: var(--font-display);
   font-weight: 700;
   cursor: pointer;
 }

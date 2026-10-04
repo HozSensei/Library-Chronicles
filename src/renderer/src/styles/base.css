@@ -26,6 +26,18 @@ body {
   transition: background-color 220ms var(--ease-soft), color 220ms var(--ease-soft);
 }
 
+/* Titres UI → Grenze (--font-display). Poids 600–900 uniquement (faces vendored). */
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  font-weight: 700;
+}
+
+.font-display {
+  font-family: var(--font-display);
+}
+
 button {
   font: inherit;
   color: inherit;

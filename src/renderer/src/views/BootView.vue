@@ -188,8 +188,8 @@ function select(index) {
 
 .boot__headline {
   margin: 0;
-  font-family: var(--font-body);
-  font-weight: 500;
+  font-family: var(--font-display);
+  font-weight: 700;
   font-size: clamp(1.15rem, 3.6vw, 1.35rem);
   color: var(--brass-bright);
   letter-spacing: 0.01em;
