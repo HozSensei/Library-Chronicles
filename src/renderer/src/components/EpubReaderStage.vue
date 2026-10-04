@@ -3,11 +3,11 @@
  * Chemin EPUB — pagination viewport via **epub.js** (pas de colonnes CSS maison).
  *
  * - Charge l’archive `.epub` (ArrayBuffer IPC) une fois.
- * - `rendition.next()` / `prev()` pour les pages-écran ; spine pour les chapitres.
+ * - `rendition.next()` / `prev()` pour les pages-écran (D-Pad ←→).
  * - Dimensions = `clientWidth` / `clientHeight` du stage (repère local pré-rotate(+90°)).
  * - Thème encre/papier + sauts de page avant titres chapitre (themes.default).
- * - Police → themes.fontSize (reflow géré par epub.js).
- * - LT/RT (store.stepChapter) = spine ±1 ; pages via rendition next/prev.
+ * - Police → themes.fontSize (reflow) via D-Pad ↑↓.
+ * - Manette minimale : pas de stick / LT·RT chapitre / L3 en mode EPUB.
  */
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import ePubMod from 'epubjs';

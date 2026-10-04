@@ -89,13 +89,15 @@ Changement de taille police → **re-pagination** (reflow). Contenu isolé des f
 `page-break-before: always` sur `h1`, `h2`, `.chapter`, `section[epub|type~="chapter"]`
 (sauf `body > :first-child` pour éviter une page blanche en tête de spine).
 
+**Contrôles manette minimaux** — seulement flèches (page) + zoom police :
+
 | Contrôle | Action |
 |----------|--------|
-| Stick L | **Page-écran** ±1 (discret + cooldown) ; en bout de chapitre → chapitre voisin |
-| D-Pad ← / → | **Page-écran** ±1 ; en bout → chapitre / spine ±1 |
+| D-Pad ← / → | **Page-écran** ±1 (rendition next/prev ; en bout → spine voisin) |
 | D-Pad **↑** / **↓** | Taille police ±10 % (70–200 %) → reflow |
-| L3 / R3 | Reset taille police (100 %) |
-| LT / RT | **Chapitre spine ±1** (RT début du suivant · LT fin du précédent) |
+| Stick L | **No-op** |
+| L3 / R3 | **No-op** |
+| LT / RT | **No-op** (pas de saut chapitre dédié) |
 | LB Fit Width | **No-op** (pas d’image à fitter) |
 | A / B / X / Y / Select | Sens, quitter, signet, HUD, pause (comme page) |
 
@@ -104,18 +106,21 @@ Changement de taille police → **re-pagination** (reflow). Contenu isolé des f
 | Import / scan / watcher | oui | oui |
 | Lire depuis fiche | oui | oui |
 | Progression | index page | spine + écran viewport |
-| Page ± | page image | **écran** puis chapitre |
-| Stick | pan (zoom) | page-écran |
+| Page ± | page image | **écran** (D-Pad ←→) |
+| Stick | pan (zoom) | **no-op** |
 | Thème / filtres image | oui | **non** (encre `#1a1a1a` sur papier `#f4efe6`) |
-| Taille police | non | oui (reflow) |
+| Taille police | non | oui (reflow, D-Pad ↑↓) |
 | Zoom image + pan clamp | oui | **non** |
 | Strip vertical pages | oui | **non** (CTA disabled) |
 | Fit-width image | oui | **non** |
+| LT/RT chapitre | oui | **non** |
+| L3 reset | oui (zoom) | **non** |
 | Jaquette à l’import | page 0 | OPF cover / cover-image |
 
 Implémentation : **epub.js** (`epubjs`, BSD-2-Clause) dans `EpubReaderStage.vue`
-(rendition paginée viewport). Helpers thème / stick : `src/shared/epub-pagination.js`
-(plus de colonnes CSS + `translateX` maison — cause de décalage cumulatif).
+(rendition paginée viewport). Helpers thème : `src/shared/epub-pagination.js` ;
+manette : `src/shared/reader-epub-controls.js` (plus de colonnes CSS + `translateX`
+maison — cause de décalage cumulatif).
 Géométrie : `clientWidth`/`clientHeight` **locaux** du stage (pré-`rotate(90deg)`)
 passés à `rendition.resize(w, h)` — pas d’AABB post-rotation.
 

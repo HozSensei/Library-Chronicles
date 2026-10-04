@@ -1244,13 +1244,18 @@ function createLoop(ctx) {
           }
         });
       }
+      // LT/RT chapitre : page / strip seulement — no-op en EPUB (D-Pad page ±).
       if (action === 'chapter-prev') {
-        vibe('confirm');
-        reader.stepChapter(-1);
+        if (!reader.isEpubMode) {
+          vibe('confirm');
+          reader.stepChapter(-1);
+        }
       }
       if (action === 'chapter-next') {
-        vibe('confirm');
-        reader.stepChapter(1);
+        if (!reader.isEpubMode) {
+          vibe('confirm');
+          reader.stepChapter(1);
+        }
       }
 
       // Stick : même mapping physique→local (visualPanToLocal sous +90°).
@@ -1263,6 +1268,7 @@ function createLoop(ctx) {
 
       // Chemins strictement séparés — pas de flag partagé zoom/page.
       if (reader.isEpubMode) {
+        // EPUB minimal : D-Pad ←→ page, ↑↓ police — stick / L3 / LT·RT = no-op.
         applyEpubReaderAction(
           reader,
           action,
