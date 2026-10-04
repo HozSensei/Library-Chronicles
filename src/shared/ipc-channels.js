@@ -32,6 +32,8 @@ export const IpcChannels = Object.freeze({
 
   READER_OPEN: 'reader:open',
   READER_GET_PAGE: 'reader:get-page',
+  /** Archive binaire du livre ouvert (EPUB → epub.js ArrayBuffer). */
+  READER_GET_BYTES: 'reader:get-bytes',
   READER_CLOSE: 'reader:close',
   READER_GET_CHAPTERS: 'reader:get-chapters',
 

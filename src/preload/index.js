@@ -76,6 +76,7 @@ contextBridge.exposeInMainWorld('vdr', {
   reader: {
     open: (filePath) => ipcRenderer.invoke(IpcChannels.READER_OPEN, filePath),
     getPage: (index) => ipcRenderer.invoke(IpcChannels.READER_GET_PAGE, index),
+    getBytes: () => ipcRenderer.invoke(IpcChannels.READER_GET_BYTES),
     getChapters: () => ipcRenderer.invoke(IpcChannels.READER_GET_CHAPTERS),
     close: () => ipcRenderer.invoke(IpcChannels.READER_CLOSE),
   },

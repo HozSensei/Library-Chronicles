@@ -139,7 +139,9 @@ const epubStage = readFileSync(
 assert.match(epubStage, /data-reader-path="epub"/);
 assert.match(epubStage, /reader__epub/);
 assert.match(epubStage, /data-epub-paginated/);
-assert.match(epubStage, /epub-pagination|buildEpubThemeCss/);
+assert.match(epubStage, /epubjs|epub-pagination|buildEpubJsThemeRules/);
+assert.match(epubStage, /data-epub-engine|data-epub-paginated/);
+assert.doesNotMatch(epubStage, /translateX\(|column-width/);
 assert.doesNotMatch(epubStage, /reader\.filterCss/);
 assert.match(store, /isEpubMode/);
 assert.match(store, /adjustFontSize/);

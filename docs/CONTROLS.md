@@ -109,9 +109,11 @@ Changement de taille police → **re-pagination** (reflow). Contenu isolé des f
 | Fit-width image | oui | **non** |
 | Jaquette à l’import | page 0 | OPF cover / cover-image |
 
-Implémentation : `src/shared/epub-pagination.js` + `EpubReaderStage.vue` (multi-colonnes + `translateX`).
-Géométrie : `clientWidth`/`clientHeight` **locaux** du stage (pré-`rotate(90deg)`) ;
-`column-width + column-gap === pageWidth` (stride) — évite liseré colonne suivante / pages blanches.
+Implémentation : **epub.js** (`epubjs`, BSD-2-Clause) dans `EpubReaderStage.vue`
+(rendition paginée viewport). Helpers thème / stick : `src/shared/epub-pagination.js`
+(plus de colonnes CSS + `translateX` maison — cause de décalage cumulatif).
+Géométrie : `clientWidth`/`clientHeight` **locaux** du stage (pré-`rotate(90deg)`)
+passés à `rendition.resize(w, h)` — pas d’AABB post-rotation.
 
 ### Modèle de transform — mode page
 
