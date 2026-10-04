@@ -3,9 +3,11 @@ import { onMounted, onUnmounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import AppToast from './components/AppToast.vue';
 import { useGamepad } from './composables/useGamepad';
+import { useBrandFavicon } from './composables/useBrandFavicon';
 import { useUiStore } from './stores/ui';
 import { useLibraryStore } from './stores/library';
 import { useImportStore } from './stores/import';
+import { useProfilesStore } from './stores/profiles';
 import { markSetupCompleted } from './router';
 import { sessionOrientationForRoute } from '../../shared/portrait-remap.js';
 import { installVirtualKeyboardOnFocus } from '../../shared/virtual-keyboard.js';
@@ -15,7 +17,9 @@ const router = useRouter();
 const ui = useUiStore();
 const library = useLibraryStore();
 const imp = useImportStore();
+const profiles = useProfilesStore();
 const { start, stop, refreshOrientation } = useGamepad();
+useBrandFavicon();
 
 /** @type {Array<() => void>} */
 let unsubs = [];
@@ -61,8 +65,8 @@ onMounted(async () => {
     refreshOrientation();
     if (config.setupCompleted) markSetupCompleted();
     try {
-      const active = await window.vdr.profiles.getActive();
-      if (active?.prefs?.setupCompleted) markSetupCompleted();
+      await profiles.refresh();
+      if (profiles.prefs?.setupCompleted) markSetupCompleted();
     } catch {
       // ignore
     }

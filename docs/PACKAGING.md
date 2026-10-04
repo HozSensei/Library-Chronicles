@@ -1,4 +1,4 @@
-# Packaging Windows — Vertical Deck Reader
+# Packaging Windows — Library Chronicles
 
 Cible principale : **ROG Ally X** (Windows 11, x64).
 
@@ -29,14 +29,16 @@ npm run dist:win
 
 Artefacts typiques :
 
-- `Vertical Deck Reader-<version>-win-x64.exe` — setup NSIS
-- `Vertical Deck Reader-<version>-portable.exe` — portable
+- `Library Chronicles-<version>-win-x64.exe` — setup NSIS
+- `Library Chronicles-<version>-portable.exe` — portable
 
 ## Configuration electron-builder
 
 Déclarée dans `package.json` → clé `"build"` :
 
-- `appId` : `com.librarychronicles.verticaldeckreader`
+- `appId` : `com.librarychronicles.app`
+- `productName` / raccourci : **Library Chronicles**
+- Icônes : `build/icon.png` (1024), `build/icon.ico` (Win), `build/icon.icns` (macOS)
 - Cibles Win : `nsis` + `portable` (x64)
 - `asarUnpack` : `**/*.{node,dll}` + `**/better-sqlite3/**/*`
 - `npmRebuild: true` au packaging (filet de sécurité)
@@ -57,5 +59,8 @@ Déclarée dans `package.json` → clé `"build"` :
 
 ## Notes
 
-- Pas d’icône custom commitée pour l’instant (`build/` optionnel).
+- Favicon renderer : `src/renderer/public/favicon.png` + teinte dynamique (`useBrandFavicon`) selon `profile.color`.
+- Wordmark UI : `AppBrandLogo` ← `library-chronicles-logo.png`.
+- Marque « C » teintable : `AppBrandMark` (mask CSS sur `library-chronicles-mark-glyph.png`).
+- Path SVG calligraphique pur : non fourni (masque PNG embarqué dans `library-chronicles-mark.svg`).
 - PDF & natifs : [`NATIVE.md`](./NATIVE.md).

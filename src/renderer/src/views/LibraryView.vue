@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router';
 import ControlHint from '../components/ControlHint.vue';
 import LazyCover from '../components/LazyCover.vue';
 import AppBrandLogo from '../components/AppBrandLogo.vue';
+import AppBrandMark from '../components/AppBrandMark.vue';
 import { useLibraryStore } from '../stores/library';
 import { useUiStore } from '../stores/ui';
 import { useI18n } from '../composables/useI18n';
@@ -278,11 +279,12 @@ function selectTab(tab) {
               :title="library.profileName || t('library.profile')"
               @click="library.focusNav(library.headerNav.findIndex((n) => n.id === 'profile')); switchProfile()"
             >
-              <span
-                class="catalog__avatar"
-                :style="{ background: profiles.activeProfile?.color || 'var(--brass)' }"
-              >
-                {{ (library.profileName || '?').slice(0, 1).toUpperCase() }}
+              <span class="catalog__avatar">
+                <AppBrandMark
+                  :color="profiles.activeProfile?.color || '#c4a35a'"
+                  shape="circle"
+                  size="fill"
+                />
               </span>
               <span class="catalog__profile-name">{{ library.profileName || t('library.profile') }}</span>
             </button>
@@ -788,9 +790,9 @@ function selectTab(tab) {
   border-radius: 50%;
   display: grid;
   place-items: center;
-  font-weight: 800;
-  font-size: 0.85rem;
-  color: #0e1419;
+  overflow: hidden;
+  background: #0a0a0a;
+  flex-shrink: 0;
 }
 
 .catalog__profile-name {
