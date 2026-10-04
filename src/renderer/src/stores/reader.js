@@ -431,6 +431,10 @@ export const useReaderStore = defineStore('reader', {
         for (let i = center - 1; i <= center + 1; i += 1) {
           if (i >= 0 && i < this.pageCount) keep.add(i);
         }
+        // Ne jamais révoquer le blob encore affiché dans l’iframe.
+        if (this.pageIndex >= 0 && this.pageIndex < this.pageCount) {
+          keep.add(this.pageIndex);
+        }
       } else if (this.isStripMode) {
         const { start, end } = stripPrefetchRange(center, this.pageCount);
         for (let i = start; i <= end; i += 1) keep.add(i);
@@ -941,7 +945,10 @@ export const useReaderStore = defineStore('reader', {
           }
           this.epubLandOn = step.landOn;
           this.pageIndex = next;
-          this.epubScreenIndex = step.landOn === 'end' ? Math.max(0, this.epubScreenCount - 1) : 0;
+          // Index provisoire : l’ancien screenCount ne s’applique pas au nouveau
+          // chapitre (sinon index hors range → page blanche jusqu’à re-mesure).
+          this.epubScreenIndex = 0;
+          this.epubScreenCount = 1;
           await this.loadCurrentPage({ scrollToCurrent: false });
           this.flashHud(900);
           return true;
@@ -965,6 +972,8 @@ export const useReaderStore = defineStore('reader', {
     async stepChapter(dir) {
       if (this.isEpubMode) {
         this.epubLandOn = dir < 0 ? 'end' : 'start';
+        this.epubScreenIndex = 0;
+        this.epubScreenCount = 1;
       }
       if (!this.chapters.length) {
         const next = Math.min(
@@ -974,9 +983,6 @@ export const useReaderStore = defineStore('reader', {
         if (next === this.pageIndex) return false;
         this.pageIndex = next;
         this.resetTransform();
-        if (this.isEpubMode) {
-          this.epubScreenIndex = dir < 0 ? Math.max(0, this.epubScreenCount - 1) : 0;
-        }
         await this.loadCurrentPage({ scrollToCurrent: this.isStripMode });
         this.flashHud(900);
         return true;
@@ -986,9 +992,6 @@ export const useReaderStore = defineStore('reader', {
       this.chapterIndex = nextIdx;
       this.pageIndex = this.chapters[nextIdx].startIndex;
       this.resetTransform();
-      if (this.isEpubMode) {
-        this.epubScreenIndex = dir < 0 ? Math.max(0, this.epubScreenCount - 1) : 0;
-      }
       await this.loadCurrentPage({ scrollToCurrent: this.isStripMode });
       this.flashHud(900);
       return true;

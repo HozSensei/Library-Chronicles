@@ -1,8 +1,17 @@
 /**
  * Pagination EPUB type liseuse — une « page » = un viewport (colonne CSS).
  *
- * Le stage mesure scrollWidth / pageWidth après reflow multi-colonnes ;
- * la navigation applique translateX (ou scrollLeft) d’un cran viewport.
+ * Géométrie (critique avec `rotate(90deg)` sur `.reader__plane`)
+ * ---------------------------------------------------------------
+ * - `pageWidth` / `pageHeight` = dimensions **locales** du stage
+ *   (`clientWidth` / `clientHeight`), *avant* la rotation CSS. Ne pas
+ *   utiliser getBoundingClientRect (AABB post-rotation = axes échangés).
+ * - Une colonne CSS + son `column-gap` (= 2× pad horizontal) doit faire
+ *   exactement `pageWidth` (stride). Sinon : liseré de la colonne
+ *   suivante + dérive → pages blanches.
+ *
+ * Le stage mesure scrollWidth / stride après reflow multi-colonnes ;
+ * la navigation applique translateX d’un cran stride.
  * Changement de police → re-mesure (reflow) + clamp / conservation ratio.
  */
 
@@ -13,22 +22,74 @@ export const EPUB_INK = '#1a1a1a';
 export const EPUB_INK_MUTED = '#4a453f';
 export const EPUB_LINK = '#2f5f8f';
 
+/** Marge intérieure horizontale / verticale (px), hors flux colonne. */
+export const EPUB_PAD_X = 22;
+export const EPUB_PAD_Y = 18;
+
 /** Seuil stick pour tourner une page écran. */
 export const EPUB_STICK_PAGE_THRESHOLD = 0.55;
 /** Cooldown entre deux pages stick (ms). */
 export const EPUB_STICK_PAGE_COOLDOWN_MS = 280;
 
 /**
+ * Géométrie page-écran : colonne + gap = stride = largeur viewport locale.
+ *
+ * Astuce CSS : pad horizontal via `padding-left` + `column-gap = 2×padX`
+ * (pas de padding-right sur le conteneur multi-colonnes), ainsi chaque
+ * « fenêtre » [n×stride, (n+1)×stride] montre pad | texte | pad.
+ *
+ * @param {{
+ *   pageWidth: number,
+ *   pageHeight: number,
+ *   padX?: number,
+ *   padY?: number,
+ * }} opts
+ */
+export function resolveEpubPageGeometry(opts = {}) {
+  const pageWidth = Math.max(1, Math.floor(Number(opts?.pageWidth) || 1));
+  const pageHeight = Math.max(1, Math.floor(Number(opts?.pageHeight) || 1));
+  const padX = Math.max(
+    0,
+    Math.min(
+      Math.floor(pageWidth / 4),
+      Math.floor(Number(opts?.padX ?? EPUB_PAD_X) || 0),
+    ),
+  );
+  const padY = Math.max(
+    0,
+    Math.min(
+      Math.floor(pageHeight / 4),
+      Math.floor(Number(opts?.padY ?? EPUB_PAD_Y) || 0),
+    ),
+  );
+  const colW = Math.max(1, pageWidth - 2 * padX);
+  const columnGap = 2 * padX;
+  const stride = colW + columnGap; // === pageWidth
+  return {
+    pageWidth,
+    pageHeight,
+    padX,
+    padY,
+    colW,
+    columnGap,
+    stride,
+  };
+}
+
+/**
  * Nombre de pages-écran dans un chapitre paginé en colonnes.
+ * Ignore une queue &lt; 2 % du stride (pad / subpixel) pour ne pas
+ * inventer une page blanche en fin de chapitre.
+ *
  * @param {number} scrollWidth
- * @param {number} pageWidth
+ * @param {number} pageWidth stride (= largeur viewport locale)
  */
 export function computeScreenCount(scrollWidth, pageWidth) {
   const w = Number(pageWidth);
   const sw = Number(scrollWidth);
   if (!Number.isFinite(w) || w <= 0) return 1;
   if (!Number.isFinite(sw) || sw <= 0) return 1;
-  return Math.max(1, Math.round(sw / w));
+  return Math.max(1, Math.ceil((sw - w * 0.02) / w));
 }
 
 /**
@@ -59,7 +120,7 @@ export function remapScreenIndex(prevIndex, prevCount, nextCount) {
 /**
  * Offset horizontal (px) pour afficher l’écran `index`.
  * @param {number} index
- * @param {number} pageWidth
+ * @param {number} pageWidth stride
  */
 export function screenOffsetX(index, pageWidth) {
   const i = Math.max(0, Number(index) || 0);
@@ -124,18 +185,26 @@ export function stickToEpubPageWhich(
  * CSS injecté dans l’iframe chapitre — pagination colonnes + encre lisible.
  * Pas de filtres brightness/sepia (réservés images manga).
  *
+ * Invariant : `column-width + column-gap === pageWidth` (stride viewport).
+ *
  * @param {{
  *   fontPct?: number,
  *   pageWidth: number,
  *   pageHeight: number,
+ *   padX?: number,
+ *   padY?: number,
  *   columnGap?: number,
  * }} opts
  */
 export function buildEpubThemeCss(opts) {
   const pct = Math.min(200, Math.max(70, Number(opts?.fontPct) || 100));
-  const w = Math.max(1, Math.floor(Number(opts?.pageWidth) || 1));
-  const h = Math.max(1, Math.floor(Number(opts?.pageHeight) || 1));
-  const gap = Math.max(0, Math.floor(Number(opts?.columnGap) || 0));
+  const geo = resolveEpubPageGeometry({
+    pageWidth: opts?.pageWidth,
+    pageHeight: opts?.pageHeight,
+    padX: opts?.padX,
+    padY: opts?.padY,
+  });
+  const { pageWidth: w, pageHeight: h, padX, padY, colW, columnGap: gap } = geo;
   return `
 html {
   height: ${h}px !important;
@@ -146,16 +215,21 @@ html {
 body {
   box-sizing: border-box !important;
   margin: 0 !important;
-  padding: 1.1rem 1.35rem !important;
+  /* Pad vertical + inset gauche ; le gap (= 2×padX) fournit l’inset droit. */
+  padding: ${padY}px 0 ${padY}px ${padX}px !important;
   height: ${h}px !important;
-  width: ${w}px !important;
+  /* Pas de width fixe : les colonnes overflowent horizontalement (scrollWidth). */
+  width: auto !important;
+  min-width: 0 !important;
   max-width: none !important;
-  overflow: hidden !important;
-  column-width: ${w}px !important;
+  overflow: visible !important;
+  column-width: ${colW}px !important;
   column-gap: ${gap}px !important;
   column-fill: auto !important;
-  -webkit-column-width: ${w}px !important;
+  column-count: auto !important;
+  -webkit-column-width: ${colW}px !important;
   -webkit-column-gap: ${gap}px !important;
+  -webkit-column-fill: auto !important;
   font-family: Georgia, 'Times New Roman', serif !important;
   font-size: ${pct}% !important;
   line-height: 1.55 !important;
@@ -168,6 +242,7 @@ body {
 }
 body * {
   color: inherit;
+  max-width: none !important;
 }
 a, a:visited {
   color: ${EPUB_LINK} !important;
