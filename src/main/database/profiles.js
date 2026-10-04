@@ -16,22 +16,19 @@ import {
   normalizeAccent,
   normalizeTheme,
 } from '../../shared/theme-accents.js';
+import {
+  AVATAR_COLORS,
+  normalizeAvatarColor,
+} from '../../shared/avatar-colors.js';
 
-const AVATAR_COLORS = [
-  '#c4a35a',
-  '#6b8f71',
-  '#b85c38',
-  '#4a7c9b',
-  '#8b6b9e',
-  '#c4785a',
-];
+export { AVATAR_COLORS, normalizeAvatarColor };
 
 function mapProfile(row) {
   if (!row) return null;
   return {
     id: row.id,
     name: row.name,
-    color: row.color || '#c4a35a',
+    color: normalizeAvatarColor(row.color),
     avatarPath: row.avatar_path || null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -96,8 +93,9 @@ export function getProfile(id) {
 
 export function createProfile({ name, color, avatarPath } = {}) {
   const trimmed = String(name || '').trim() || 'Lecteur';
-  const col =
-    color || AVATAR_COLORS[listProfiles().length % AVATAR_COLORS.length];
+  const col = normalizeAvatarColor(
+    color || AVATAR_COLORS[listProfiles().length % AVATAR_COLORS.length],
+  );
   const mode = getDbMode();
   if (mode === 'sqlite') {
     const db = getDb();
@@ -164,7 +162,7 @@ export function updateProfile(id, patch = {}) {
     }
     if (patch.color !== undefined) {
       fields.push('color = @color');
-      params.color = patch.color;
+      params.color = normalizeAvatarColor(patch.color);
     }
     if (patch.avatarPath !== undefined) {
       fields.push('avatar_path = @avatarPath');
@@ -181,7 +179,7 @@ export function updateProfile(id, patch = {}) {
   const row = store.profiles.find((p) => p.id === id);
   if (!row) return null;
   if (patch.name !== undefined) row.name = String(patch.name).trim() || 'Lecteur';
-  if (patch.color !== undefined) row.color = patch.color;
+  if (patch.color !== undefined) row.color = normalizeAvatarColor(patch.color);
   if (patch.avatarPath !== undefined) row.avatar_path = patch.avatarPath;
   row.updated_at = new Date().toISOString();
   persistJsonStore();
@@ -473,5 +471,3 @@ function clamp(n, min, max) {
   const v = Number.isFinite(n) ? n : min;
   return Math.min(max, Math.max(min, v));
 }
-
-export { AVATAR_COLORS };

@@ -24,8 +24,12 @@ const phase = ref('pick');
 /** null = création · id = renommage */
 const editingId = ref(null);
 const nameInput = ref(null);
-/** Focus dans le formulaire : 0 = input, 1 = valider */
+/**
+ * Focus formulaire : 0 = pseudo, 1 = palette couleur, 2 = valider.
+ */
 const formFocus = ref(0);
+/** Couleur d’icône choisie (création / édition). */
+const selectedColor = ref('#c4a35a');
 
 /** Focus : 0..n-1 = profils, n = bouton + */
 const totalSlots = computed(() => profiles.profiles.length + 1);
@@ -35,25 +39,47 @@ const focused = computed(() =>
 const isAddFocused = computed(() => focused.value === profiles.profiles.length);
 const isNaming = computed(() => phase.value === 'naming');
 const formTitle = computed(() =>
-  editingId.value != null ? 'Renommer le profil' : 'Nouveau profil',
+  editingId.value != null ? 'Modifier le profil' : 'Nouveau profil',
 );
 const submitLabel = computed(() =>
   editingId.value != null ? 'Enregistrer' : 'Créer',
 );
+const previewInitial = computed(() => {
+  const n = newName.value.trim();
+  if (n) return n.slice(0, 1).toUpperCase();
+  if (editingId.value != null) {
+    const p = profiles.profiles.find((x) => x.id === editingId.value);
+    return (p?.name || '?').slice(0, 1).toUpperCase();
+  }
+  return '?';
+});
+const colorOptions = computed(() =>
+  profiles.colors?.length
+    ? profiles.colors
+    : ['#c4a35a', '#4a7eb5', '#d4843a', '#4a9b6e', '#c47a8a', '#8b6b9e'],
+);
 
 const hints = computed(() => {
   if (isNaming.value) {
+    if (formFocus.value === 1) {
+      return [
+        { key: '←→', label: 'couleur' },
+        { key: '↑↓', label: 'champ / valider' },
+        { key: 'A', label: 'valider' },
+        { key: 'B', label: 'annuler' },
+      ];
+    }
     return [
-      { key: '←→', label: 'champ / valider' },
-      { key: 'A', label: formFocus.value === 1 ? 'valider' : 'clavier' },
+      { key: '↑↓', label: 'naviguer' },
+      { key: '←→', label: formFocus.value === 0 ? 'couleur' : 'champ' },
+      { key: 'A', label: formFocus.value === 2 ? 'valider' : 'clavier' },
       { key: 'B', label: 'annuler' },
-      { key: '⏎', label: 'valider' },
     ];
   }
   return [
     { key: '←→', label: 'naviguer' },
     { key: 'A', label: 'choisir' },
-    { key: 'Y', label: 'renommer' },
+    { key: 'Y', label: 'modifier' },
     { key: '+', label: 'créer' },
   ];
 });
@@ -76,8 +102,15 @@ function onRenameEvent() {
   renameFocused();
 }
 
+function onFormNavEvent(ev) {
+  const dir = ev?.detail?.dir;
+  if (!dir || !isNaming.value) return;
+  handleFormNav(dir);
+}
+
 onMounted(async () => {
   window.addEventListener('vdr-profile-rename', onRenameEvent);
+  window.addEventListener('vdr-profile-form-nav', onFormNavEvent);
   await profiles.refresh();
   const idx = profiles.profiles.findIndex((p) => p.id === profiles.activeProfileId);
   profiles.setFocus(idx >= 0 ? idx : 0);
@@ -90,6 +123,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   window.removeEventListener('vdr-profile-rename', onRenameEvent);
+  window.removeEventListener('vdr-profile-form-nav', onFormNavEvent);
 });
 
 async function afterSelect() {
@@ -103,9 +137,15 @@ async function afterSelect() {
   }
 }
 
+function defaultCreateColor() {
+  const colors = colorOptions.value;
+  return colors[profiles.profiles.length % colors.length] || colors[0];
+}
+
 function openCreate() {
   editingId.value = null;
   newName.value = '';
+  selectedColor.value = defaultCreateColor();
   phase.value = 'naming';
   formFocus.value = 0;
   profiles.setFocus(profiles.profiles.length);
@@ -116,6 +156,7 @@ function openRename(index) {
   if (!p) return;
   editingId.value = p.id;
   newName.value = p.name || '';
+  selectedColor.value = p.color || defaultCreateColor();
   phase.value = 'naming';
   formFocus.value = 0;
   profiles.setFocus(index);
@@ -148,6 +189,22 @@ async function choose(index) {
   await afterSelect();
 }
 
+function setColor(color) {
+  if (!color) return;
+  selectedColor.value = color;
+  formFocus.value = 1;
+}
+
+function cycleColor(delta) {
+  const colors = colorOptions.value;
+  if (!colors.length) return;
+  const cur = colors.indexOf(selectedColor.value);
+  const idx = cur >= 0 ? cur : 0;
+  const next = (idx + delta + colors.length) % colors.length;
+  selectedColor.value = colors[next];
+  formFocus.value = 1;
+}
+
 async function submitName() {
   creating.value = true;
   try {
@@ -159,15 +216,17 @@ async function submitName() {
       `Lecteur ${profiles.profiles.length + 1}`;
 
     if (editingId.value != null) {
-      await profiles.update(editingId.value, { name });
+      await profiles.update(editingId.value, {
+        name,
+        color: selectedColor.value,
+      });
       phase.value = 'pick';
       editingId.value = null;
       newName.value = '';
       return;
     }
 
-    const color = profiles.colors[profiles.profiles.length % profiles.colors.length];
-    const created = await profiles.create(name, color);
+    const created = await profiles.create(name, selectedColor.value);
     newName.value = '';
     phase.value = 'pick';
     await profiles.select(created.id);
@@ -181,9 +240,65 @@ function onAddClick() {
   openCreate();
 }
 
-/** API manette / tests */
+/** API manette / tests — focus formulaire 0|1|2 */
 function moveFormFocus(delta) {
-  formFocus.value = delta < 0 ? 0 : 1;
+  if (delta < 0) {
+    formFocus.value = Math.max(0, formFocus.value - 1);
+  } else {
+    formFocus.value = Math.min(2, formFocus.value + 1);
+  }
+  void syncFormDomFocus();
+}
+
+async function syncFormDomFocus() {
+  await nextTick();
+  if (formFocus.value === 0) {
+    await focusTextInputForEdit(nameInput.value);
+  } else if (formFocus.value === 2) {
+    document.querySelector('.profiles__create .btn-primary')?.focus?.();
+  } else {
+    /** @type {HTMLElement} */ (document.activeElement)?.blur?.();
+  }
+}
+
+/**
+ * Navigation formulaire naming (manette).
+ * ↑↓ = champ ↔ couleur ↔ valider ; ←→ = cycle couleurs si focus palette.
+ */
+function handleFormNav(dir) {
+  if (!isNaming.value) return;
+  if (dir === 'left') {
+    if (formFocus.value === 1) {
+      cycleColor(-1);
+      return;
+    }
+    if (formFocus.value === 2) {
+      formFocus.value = 1;
+      void syncFormDomFocus();
+      return;
+    }
+    void syncFormDomFocus();
+    return;
+  }
+  if (dir === 'right') {
+    if (formFocus.value === 1) {
+      cycleColor(1);
+      return;
+    }
+    if (formFocus.value === 0) {
+      formFocus.value = 1;
+      void syncFormDomFocus();
+      return;
+    }
+    return;
+  }
+  if (dir === 'up') {
+    moveFormFocus(-1);
+    return;
+  }
+  if (dir === 'down') {
+    moveFormFocus(1);
+  }
 }
 
 async function activateFocused() {
@@ -191,6 +306,11 @@ async function activateFocused() {
     if (formFocus.value === 0) {
       await nextTick();
       await focusTextInputForEdit(nameInput.value);
+      return;
+    }
+    if (formFocus.value === 1) {
+      // Sur la palette, A valide directement (couleur déjà choisie)
+      await submitName();
       return;
     }
     await submitName();
@@ -216,7 +336,12 @@ defineExpose({
   activateFocused,
   renameFocused,
   moveFormFocus,
+  handleFormNav,
+  cycleColor,
+  setColor,
   phase,
+  formFocus,
+  selectedColor,
 });
 </script>
 
@@ -247,15 +372,19 @@ defineExpose({
           role="listitem"
           @click="choose(index)"
         >
-          <span
-            class="avatar__disk"
-            :style="{
-              background: p.avatarPath
-                ? `center / cover url(${p.avatarPath})`
-                : p.color,
-            }"
-          >
-            <template v-if="!p.avatarPath">{{ (p.name || '?').slice(0, 1).toUpperCase() }}</template>
+          <span class="avatar__halo" aria-hidden="true">
+            <span
+              class="avatar__disk"
+              :style="{
+                background: p.avatarPath
+                  ? `center / cover url(${p.avatarPath})`
+                  : p.color,
+              }"
+            >
+              <template v-if="!p.avatarPath">{{
+                (p.name || '?').slice(0, 1).toUpperCase()
+              }}</template>
+            </span>
           </span>
           <span class="avatar__name">{{ p.name }}</span>
         </button>
@@ -268,7 +397,9 @@ defineExpose({
           aria-label="Ajouter un profil"
           @click="onAddClick"
         >
-          <span class="avatar__disk avatar__disk--add">+</span>
+          <span class="avatar__halo" aria-hidden="true">
+            <span class="avatar__disk avatar__disk--add">+</span>
+          </span>
           <span class="avatar__name">Ajouter</span>
         </button>
       </div>
@@ -278,6 +409,18 @@ defineExpose({
         class="profiles__create"
         @submit.prevent="submitName"
       >
+        <div
+          class="profiles__preview"
+          aria-hidden="true"
+        >
+          <span
+            class="avatar__disk profiles__preview-disk"
+            :style="{ background: selectedColor }"
+          >
+            {{ previewInitial }}
+          </span>
+        </div>
+
         <label>
           {{ formTitle }}
           <input
@@ -293,12 +436,33 @@ defineExpose({
             @focus="formFocus = 0"
           />
         </label>
+
+        <div
+          class="profiles__colors"
+          role="listbox"
+          aria-label="Couleur de l’icône"
+          :class="{ 'is-focused': formFocus === 1 }"
+        >
+          <button
+            v-for="c in colorOptions"
+            :key="c"
+            type="button"
+            class="color-swatch"
+            role="option"
+            :aria-selected="selectedColor === c"
+            :class="{ 'is-active': selectedColor === c }"
+            :style="{ '--swatch': c }"
+            :aria-label="`Couleur ${c}`"
+            @click="setColor(c)"
+          />
+        </div>
+
         <button
           type="submit"
           class="btn-primary"
-          :class="{ 'is-focused': formFocus === 1 }"
+          :class="{ 'is-focused': formFocus === 2 }"
           :disabled="creating"
-          @focus="formFocus = 1"
+          @focus="formFocus = 2"
         >
           {{ submitLabel }}
         </button>
@@ -411,9 +575,13 @@ footer {
   min-height: 0;
   max-height: min(42vh, 22rem);
   align-content: center;
-  overflow: auto;
-  overflow-x: hidden;
-  padding: 0.35rem 0.5rem;
+  /*
+   * Cause bug : overflow-x:hidden + padding serré clippaient le scale focus
+   * → disque tronqué (plus parfaitement rond). Padding + overflow-y seuls.
+   */
+  overflow-x: visible;
+  overflow-y: auto;
+  padding: 1.1rem 1.25rem 1.35rem;
 }
 
 .avatar {
@@ -425,12 +593,27 @@ footer {
   background: transparent;
   color: var(--paper);
   cursor: pointer;
-  border-radius: 999px;
+  border-radius: 0;
+  overflow: visible;
   transition: transform 180ms var(--ease-out);
 }
 
 .avatar.is-focused {
-  transform: translateY(-4px) scale(1.04);
+  transform: translateY(-4px);
+}
+
+/* Halo : zone de scale + anneau hors du flux scroll clipé */
+.avatar__halo {
+  display: grid;
+  place-items: center;
+  width: 5.25rem;
+  height: 5.25rem;
+  overflow: visible;
+}
+
+.avatar.is-focused .avatar__halo {
+  transform: scale(1.08);
+  transition: transform 180ms var(--ease-out);
 }
 
 .avatar.is-focused .avatar__disk {
@@ -440,7 +623,9 @@ footer {
 .avatar__disk {
   width: 5.25rem;
   height: 5.25rem;
+  aspect-ratio: 1 / 1;
   border-radius: 50%;
+  overflow: hidden;
   display: grid;
   place-items: center;
   font-family: var(--font-display);
@@ -448,6 +633,8 @@ footer {
   font-size: 2rem;
   color: #0e1419;
   border: 2px solid color-mix(in srgb, var(--paper) 20%, transparent);
+  flex-shrink: 0;
+  box-sizing: border-box;
 }
 
 .avatar__disk--add {
@@ -473,6 +660,20 @@ footer {
   max-width: 28rem;
   width: 100%;
   min-width: 0;
+}
+
+.profiles__preview {
+  flex: 0 0 100%;
+  display: grid;
+  place-items: center;
+  margin-bottom: 0.15rem;
+}
+
+.profiles__preview-disk {
+  width: 4.5rem;
+  height: 4.5rem;
+  font-size: 1.75rem;
+  transition: background-color 160ms var(--ease-soft);
 }
 
 .profiles__create label {
@@ -504,6 +705,41 @@ footer {
   box-shadow: 0 0 0 3px var(--focus-glow);
 }
 
+.profiles__colors {
+  flex: 0 0 100%;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.55rem;
+  padding: 0.35rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+}
+
+.profiles__colors.is-focused {
+  border-color: var(--brass-bright);
+  box-shadow: 0 0 0 3px var(--focus-glow);
+}
+
+.color-swatch {
+  appearance: none;
+  width: 1.65rem;
+  height: 1.65rem;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--paper) 25%, transparent);
+  background: var(--swatch);
+  cursor: pointer;
+  padding: 0;
+  transition:
+    transform 140ms var(--ease-soft),
+    box-shadow 140ms var(--ease-soft);
+}
+
+.color-swatch.is-active {
+  box-shadow: 0 0 0 2px var(--ink-950), 0 0 0 4px var(--brass-bright);
+  transform: scale(1.08);
+}
+
 .profiles__create .btn-primary.is-focused {
   box-shadow: 0 0 0 3px var(--focus-glow);
   border-color: var(--brass-bright);
@@ -517,7 +753,10 @@ footer {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .avatar {
+  .avatar,
+  .avatar.is-focused .avatar__halo,
+  .color-swatch,
+  .profiles__preview-disk {
     transition: none;
   }
 
