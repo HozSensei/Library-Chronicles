@@ -82,6 +82,10 @@ assert(
     importStore.includes("Échec de l'import"),
   'toast commit import échec',
 );
+assert(
+  importStore.includes('Retiré de la bibliothèque'),
+  'toast retrait bibliothèque',
+);
 
 assert(
   libraryStore.includes('Bibliothèque scannée'),

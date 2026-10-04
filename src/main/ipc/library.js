@@ -6,6 +6,7 @@ import { scanLibraryRoot } from '../library/scanner.js';
 import {
   listBooks,
   updateBook,
+  deleteBook,
   getContinueBook,
   getLastAccessedBook,
   listRecentBooks,
@@ -178,6 +179,15 @@ export function registerLibraryIpc() {
   ipcMain.handle(IpcChannels.LIBRARY_UPDATE_BOOK, async (_e, { id, patch }) =>
     updateBook(id, patch),
   );
+
+  ipcMain.handle(IpcChannels.LIBRARY_DELETE_BOOK, async (_e, id) => {
+    const bookId = Number(id);
+    if (!Number.isFinite(bookId)) return { ok: false, error: 'id invalide' };
+    const existing = getBookById(bookId);
+    if (!existing) return { ok: false, error: 'Livre introuvable' };
+    deleteBook(bookId);
+    return { ok: true, id: bookId };
+  });
 
   ipcMain.handle(IpcChannels.LIBRARY_CONTINUE, async () => getContinueBook());
 
