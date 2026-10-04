@@ -2,7 +2,7 @@
  * Chemin manette — mode page par page.
  *
  * L3 / R3 reset (page entière), LB fit-width, D-Pad ↑/↓ zoom, ←/→ pages,
- * stick = pan tant qu’il y a du débordement, sinon changement de page.
+ * stick = pan tant qu’il y a du débordement, sinon no-op (pas de page).
  * Aucune logique strip ici — branche distincte de `reader-strip-controls.js`.
  */
 
@@ -29,9 +29,9 @@ export function isPageDpadAction(action) {
 /**
  * Applique une action manette en mode page.
  *
- * Le stick ne reste **jamais** inerte : si la page tient entièrement dans le
- * stage (pan sans objet), `reader.stickIntent` renvoie `page-prev` / `page-next`
- * et l’appelant tourne la page via `onStickPage` (edge + repeat côté boucle).
+ * Stick = pan uniquement. Sans débordement (ou au bord clampé), l’intention
+ * est `none` / pan no-op — **jamais** de `stepPage` via le stick.
+ * Les pages se tournent uniquement au D-Pad ←/→.
  *
  * @param {{
  *   resetZoom: () => void,
@@ -43,15 +43,9 @@ export function isPageDpadAction(action) {
  * }} reader
  * @param {string} action
  * @param {{ x: number, y: number } | null} [stickLocal]
- * @param {{ onStickPage?: (which: 'prev'|'next') => unknown }} [opts]
  * @returns {boolean} true si l’action a été consommée
  */
-export function applyPageReaderAction(
-  reader,
-  action,
-  stickLocal = null,
-  opts = {},
-) {
+export function applyPageReaderAction(reader, action, stickLocal = null) {
   if (!reader) return false;
 
   if (action === 'reset-zoom' || action === 'toggle-zoom') {
@@ -87,16 +81,8 @@ export function applyPageReaderAction(
       reader.pan(stickLocal.x, stickLocal.y);
       return true;
     }
-    if (
-      intent === STICK_INTENT.PAGE_PREV ||
-      intent === STICK_INTENT.PAGE_NEXT
-    ) {
-      const which = intent === STICK_INTENT.PAGE_NEXT ? 'next' : 'prev';
-      if (typeof opts?.onStickPage === 'function') opts.onStickPage(which);
-      else reader.stepPage(which);
-      return true;
-    }
-    return false;
+    // Sans débordement : no-op consommé (évite un fallback page).
+    return true;
   }
   return false;
 }

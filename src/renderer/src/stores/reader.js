@@ -602,16 +602,17 @@ export const useReaderStore = defineStore('reader', {
     },
     /**
      * Dimensions naturelles de la page affichée (`naturalWidth/Height`).
-     * Une page fraîchement chargée repart systématiquement en page entière.
+     * `_refitPending` (ouverture / signet / chapitre / reset) → page entière
+     * (ou fit-width si préférence). Sinon (nav D-Pad page ±1) : conserve
+     * `zoom` + offset clampé aux bornes du nouveau fit.
      */
     setPageMetrics(width, height) {
       const w = Number(width);
       const h = Number(height);
       if (!Number.isFinite(w) || !Number.isFinite(h) || w <= 0 || h <= 0) return;
-      const changed = w !== this.pageW || h !== this.pageH;
       this.pageW = w;
       this.pageH = h;
-      if (this._refitPending || changed) {
+      if (this._refitPending) {
         this._refitPending = false;
         // Préférence explicite « bord à bord largeur » ; sinon page entière.
         if (this.defaultFitMode === 'fit-width') {
@@ -672,8 +673,8 @@ export const useReaderStore = defineStore('reader', {
       return next.moved;
     },
     /**
-     * Intention du stick : pan tant qu’il y a du débordement, sinon pages.
-     * Jamais `none` sur un axe horizontal franc → pas d’état bloqué.
+     * Intention du stick : pan s’il y a du débordement, sinon none (no-op).
+     * Le stick ne tourne **jamais** les pages — D-Pad ←/→ seulement.
      * @param {{ x: number, y: number } | null} stickLocal
      */
     stickIntent(stickLocal) {
@@ -814,7 +815,7 @@ export const useReaderStore = defineStore('reader', {
         return false;
       }
       this.pageIndex = next;
-      this.resetTransform();
+      // Zoom + offset survivent : setPageMetrics reclampe au nouveau fit.
       await this.loadCurrentPage({ scrollToCurrent: this.isStripMode });
       this.flashHud(900);
       return true;
