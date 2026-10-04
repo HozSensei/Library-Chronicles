@@ -2,6 +2,7 @@ import { defineStore } from 'pinia';
 import { ZOOM_STEP } from '../../../shared/gamepad-codes.js';
 import { findAdjacentVolume } from '../../../shared/series.js';
 import {
+  clampPanToPage,
   measureReaderZoomGeometry,
   panForZoomToCenter,
   panForZoomToScreenCenter,
@@ -436,15 +437,24 @@ export const useReaderStore = defineStore('reader', {
       pinReaderOverflow();
       const geom = measureReaderZoomGeometry();
       if (geom && geom.stageW > 0 && geom.stageH > 0) {
-        return panForZoomToScreenCenter(
+        const anchored = panForZoomToScreenCenter(
           fromPanX,
           fromPanY,
           fromScale,
           toScale,
           geom,
         );
+        return clampPanToPage(anchored.panX, anchored.panY, toScale, geom);
       }
       return panForZoomToCenter(fromPanX, fromPanY, fromScale, toScale);
+    },
+    /** Clamp pan courant aux bords de page (DOM stage/page). */
+    clampPan() {
+      const geom = measureReaderZoomGeometry();
+      if (!geom || geom.stageW <= 0 || geom.stageH <= 0) return;
+      const clamped = clampPanToPage(this.panX, this.panY, this.scale, geom);
+      this.panX = clamped.panX;
+      this.panY = clamped.panY;
     },
     /**
      * Applique une échelle en ancrant le point sous le centre du viewport
@@ -459,6 +469,7 @@ export const useReaderStore = defineStore('reader', {
         this.panY = anchored.panY;
       }
       this.scale = to;
+      this.clampPan();
       pinReaderOverflow();
     },
     /**
@@ -481,7 +492,8 @@ export const useReaderStore = defineStore('reader', {
       const anchor = (panX, panY, from, s) => {
         pinReaderOverflow();
         if (geom && geom.stageW > 0 && geom.stageH > 0) {
-          return panForZoomToScreenCenter(panX, panY, from, s, geom);
+          const next = panForZoomToScreenCenter(panX, panY, from, s, geom);
+          return clampPanToPage(next.panX, next.panY, s, geom);
         }
         return panForZoomToCenter(panX, panY, from, s);
       };
@@ -532,15 +544,17 @@ export const useReaderStore = defineStore('reader', {
     /**
      * Pan en repère local du plan lecteur (après visualPanToLocal = +90° CW
      * si CSS rotate). Sous rotate(90deg) : local(+X)→bas écran, local(+Y)→gauche.
+     * Clamp strict : pas de pan hors des bords de page.
      */
     pan(dx, dy, speed = 14) {
       if (this.fitMode === 'fit-width') {
         this.panY += dy * speed * 1.4;
         this.panX += dx * speed * 0.4;
-        return;
+      } else {
+        this.panX += dx * speed;
+        this.panY += dy * speed;
       }
-      this.panX += dx * speed;
-      this.panY += dy * speed;
+      this.clampPan();
     },
     zoomBy(steps) {
       this.animateScaleTo(this.targetScale + Number(steps) * ZOOM_STEP);

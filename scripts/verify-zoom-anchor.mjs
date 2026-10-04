@@ -5,10 +5,12 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
+  clampPanToPage,
   measureReaderZoomGeometry,
   panForZoomToCenter,
   panForZoomToPoint,
   panForZoomToScreenCenter,
+  panLimitsForPage,
   pinReaderOverflow,
   screenToStageLocal,
   stageLocalToScreen,
@@ -307,17 +309,92 @@ function nearlyPair(p, x, y, eps = 1e-6) {
   );
 }
 
+// --- Clamp pan aux bords de page ---
+{
+  // Page centrée 800×1200 dans stage 1080×1920, scale 1 → undersized → pan=0
+  const geom = {
+    stageW: 1080,
+    stageH: 1920,
+    imgW: 800,
+    imgH: 1200,
+    imgOffsetX: (1080 - 800) / 2,
+    imgOffsetY: (1920 - 1200) / 2,
+  };
+  const limits = panLimitsForPage(1, geom);
+  assert(
+    nearly(limits.minX, 0) &&
+      nearly(limits.maxX, 0) &&
+      nearly(limits.minY, 0) &&
+      nearly(limits.maxY, 0),
+    'scale 1 undersized : pan verrouillé à 0',
+  );
+  const c = clampPanToPage(40, -30, 1, geom);
+  assert(nearly(c.panX, 0) && nearly(c.panY, 0), 'clamp ramène pan hors limites → 0');
+}
+
+{
+  // Zoom ×2 : scaled 1600×2400 > stage → cover limits
+  const geom = {
+    stageW: 1080,
+    stageH: 1920,
+    imgW: 800,
+    imgH: 1200,
+    imgOffsetX: (1080 - 800) / 2,
+    imgOffsetY: (1920 - 1200) / 2,
+  };
+  const s = 2;
+  const limits = panLimitsForPage(s, geom);
+  // maxX = (scaledW - stageW) / 2 = (1600-1080)/2 = 260
+  assert(nearly(limits.maxX, 260) && nearly(limits.minX, -260), 'zoom×2 : ±260 en X');
+  // maxY = (2400-1920)/2 = 240
+  assert(nearly(limits.maxY, 240) && nearly(limits.minY, -240), 'zoom×2 : ±240 en Y');
+  const over = clampPanToPage(999, -999, s, geom);
+  assert(
+    nearly(over.panX, 260) && nearly(over.panY, -240),
+    'clamp coupe le pan hors page',
+  );
+  const ok = clampPanToPage(100, -50, s, geom);
+  assert(nearly(ok.panX, 100) && nearly(ok.panY, -50), 'pan interne inchangé');
+}
+
+{
+  // Fit-width-like : largeur = stage, hauteur plus petite
+  const geom = {
+    stageW: 1080,
+    stageH: 1920,
+    imgW: 1080,
+    imgH: 600,
+    imgOffsetX: 0,
+    imgOffsetY: (1920 - 600) / 2,
+  };
+  const l1 = panLimitsForPage(1, geom);
+  assert(
+    nearly(l1.minX, 0) && nearly(l1.maxX, 0) && nearly(l1.minY, 0) && nearly(l1.maxY, 0),
+    'fit-width scale1 : pas de pan',
+  );
+  const l2 = panLimitsForPage(2, geom);
+  // scaledW=2160 → ±(2160-1080)/2 = ±540 ; scaledH=1200 < 1920 → Y lock 0
+  assert(nearly(l2.maxX, 540) && nearly(l2.minX, -540), 'fit-width zoom : pan X');
+  assert(nearly(l2.minY, 0) && nearly(l2.maxY, 0), 'fit-width zoom : Y lock si undersized');
+}
+
 // --- Câblage store / vue ---
 const store = readFileSync(join(root, 'src/renderer/src/stores/reader.js'), 'utf8');
 const view = readFileSync(join(root, 'src/renderer/src/views/ReaderView.vue'), 'utf8');
 
 assert(store.includes('panForZoomToScreenCenter'), 'store importe panForZoomToScreenCenter');
+assert(store.includes('clampPanToPage'), 'store importe clampPanToPage');
 assert(store.includes('measureReaderZoomGeometry'), 'store mesure la géométrie');
 assert(store.includes('pinReaderOverflow'), 'store pin overflow pendant zoom');
 assert(store.includes('applyScaleAtCenter'), 'store applyScaleAtCenter');
+assert(store.includes('this.clampPan()'), 'store.pan / zoom appellent clampPan');
 assert(
   /animateScaleTo[\s\S]*?panForZoomToScreenCenter/.test(store),
   'animateScaleTo ancre via panForZoomToScreenCenter',
+);
+assert(
+  /animateScaleTo[\s\S]*?clampPanToPage/.test(store),
+  'animateScaleTo clampe le pan après ancrage',
 );
 assert(
   /zoomBy\(\s*steps\s*\)\s*\{[\s\S]*?animateScaleTo/.test(store) &&
