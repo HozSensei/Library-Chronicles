@@ -43,6 +43,7 @@ import {
   importFieldDomId,
   resolveImportBackAction,
   resolveImportConfirmAction,
+  resolveImportTabAction,
 } from '../../../shared/import-focus.js';
 import { IMPORT_FLOW } from '../../../shared/import-flow.js';
 import {
@@ -724,26 +725,25 @@ function createLoop(ctx) {
         const current = router.currentRoute.value;
 
         const goToInfos = () => {
-          const parent = resolveParentLocation(current);
-          if (parent) {
-            router.push(parent);
-            return;
-          }
+          // Infos = sheet item uniquement — jamais remonter à /import (liste)
+          if (current.name === ROUTE.IMPORT_ITEM) return;
           const item = imp.selected;
           if (item?.filePath) {
             router.push(importItemLocation(item.filePath));
             return;
           }
-          router.push({ name: ROUTE.IMPORT });
+          const parent = resolveParentLocation(current);
+          if (parent && parent.name !== ROUTE.IMPORT) {
+            router.push(parent);
+          }
         };
 
         const goToSearch = () => {
+          if (current.name === ROUTE.IMPORT_ITEM_META) return;
           const item = imp.selected;
           if (item?.filePath) {
             router.push(importItemLocation(item.filePath, { meta: true }));
-            return;
           }
-          afterFocusMove();
         };
 
         const closeToList = () => {
@@ -784,19 +784,22 @@ function createLoop(ctx) {
           return;
         }
 
-        // LB / RB : bascule sheet ↔ meta-search (routes)
+        // LB / RB : Infos ← / Recherche → (directionnel, pas toggle).
+        // Uniquement fiche item (± meta). Méta livre / déjà sur l’onglet → noop.
         if (action === 'tab-prev' || action === 'tab-next') {
-          if (
-            current.name === ROUTE.IMPORT_BOOK_META ||
-            current.name === ROUTE.LIBRARY_BOOK_META
-          ) {
-            goParentRoute();
+          const tabIntent = resolveImportTabAction({
+            routeName: current.name,
+            direction: action === 'tab-prev' ? -1 : 1,
+            detailTab: tab,
+          });
+          if (tabIntent === 'to-infos') {
+            goToInfos();
             vibe('light');
-            return;
+          } else if (tabIntent === 'to-search') {
+            goToSearch();
+            vibe('light');
           }
-          if (tab === IMPORT_DETAIL_TABS.SEARCH) goToInfos();
-          else goToSearch();
-          vibe('light');
+          // noop : pas de navigation parasite (liste / parent fiche)
           return;
         }
 

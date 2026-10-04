@@ -43,6 +43,40 @@ const afterBook = resolveParentLocation(afterMeta);
 assert(afterBook?.name === ROUTE.LIBRARY, 'fiche biblio B → library');
 assert(afterBook?.name !== ROUTE.IMPORT, 'jamais import depuis fiche biblio');
 
+/** Chaînes B parent complètes (import + biblio). */
+function assertParentChain(start, expectedNames, label) {
+  let cur = start;
+  for (let i = 0; i < expectedNames.length; i += 1) {
+    cur = resolveParentLocation(cur);
+    assert(cur?.name === expectedNames[i], `${label}[${i}] → ${expectedNames[i]} (got ${cur?.name})`);
+  }
+  assert(resolveParentLocation(cur) == null, `${label} fin de chaîne`);
+}
+
+assertParentChain(
+  { name: ROUTE.IMPORT_ITEM_META, params: { itemKey: 'x.cbz' } },
+  [ROUTE.IMPORT_ITEM, ROUTE.IMPORT],
+  'B import-item-meta',
+);
+assertParentChain(
+  { name: ROUTE.IMPORT_BOOK_META, params: { id: '42' } },
+  [ROUTE.IMPORT_BOOK, ROUTE.IMPORT],
+  'B import-book-meta',
+);
+assertParentChain(
+  { name: ROUTE.LIBRARY_BOOK_META, params: { id: '9' } },
+  [ROUTE.LIBRARY_BOOK, ROUTE.LIBRARY],
+  'B library-book-meta',
+);
+assert(
+  resolveParentLocation({ name: ROUTE.IMPORT_BOOK_META, params: { id: '5' } })?.params?.id === '5',
+  'B import-book-meta conserve id',
+);
+assert(
+  resolveParentLocation({ name: ROUTE.IMPORT }) == null,
+  'liste import : pas de parent route (B → library via handler)',
+);
+
 assert(uiContextForRoute(ROUTE.LIBRARY_BOOK) === 'book', 'ctx library-book');
 assert(uiContextForRoute(ROUTE.IMPORT_BOOK) === 'book', 'ctx import-book');
 assert(uiContextForRoute(ROUTE.LIBRARY_BOOK_META) === 'import', 'ctx meta');
@@ -80,6 +114,7 @@ assert(!importView.includes('consumeEntryIntent'), 'plus consumeEntryIntent');
 const gamepad = readFileSync(join(root, 'src/renderer/src/composables/useGamepad.js'), 'utf8');
 assert(gamepad.includes('resolveParentLocation'), 'gamepad B parent');
 assert(gamepad.includes('isImportUiRoute'), 'gamepad import ui routes');
+assert(gamepad.includes('resolveImportTabAction'), 'gamepad LB/RB resolveImportTabAction');
 assert(!gamepad.includes("from: 'import'"), 'gamepad sans from=import');
 assert(!gamepad.includes("query?.from === 'import'"), 'gamepad sans query from');
 

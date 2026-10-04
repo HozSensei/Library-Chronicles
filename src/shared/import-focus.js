@@ -26,12 +26,75 @@ import {
   META_RETURN,
   resolveImportFlowBack,
 } from './import-flow.js';
+import {
+  ROUTE,
+  isImportListRoute,
+  isImportSheetRoute,
+  isMetaSearchRoute,
+} from './app-routes.js';
 
 /** Onglets de la fiche détail. */
 export const IMPORT_DETAIL_TABS = Object.freeze({
   INFOS: 'infos',
   SEARCH: 'search',
 });
+
+/**
+ * LB / RB = onglets Infos ← / Recherche → (directionnels, pas toggle).
+ *
+ * Pertinent uniquement sur fiche brouillon `/import/item/:key` (± `/meta`).
+ * Sur méta livre (`…/book/:id/meta`), liste, ou déjà sur l’onglet cible → noop
+ * (jamais de navigation parasite vers la liste).
+ *
+ * @param {{
+ *   routeName?: string|null,
+ *   direction?: number,
+ *   detailTab?: string,
+ * }} opts
+ * @returns {'to-infos'|'to-search'|'noop'}
+ */
+export function resolveImportTabAction({
+  routeName = null,
+  direction = 1,
+  detailTab,
+} = {}) {
+  const name = String(routeName || '');
+  const dir = Number(direction) < 0 ? -1 : 1;
+
+  // Liste / hors fiche item : LB/RB inertes
+  if (!name || isImportListRoute(name)) return 'noop';
+
+  // Méta depuis fiche livre : pas d’onglets Infos/Recherche — B = parent
+  if (
+    name === ROUTE.IMPORT_BOOK_META ||
+    name === ROUTE.LIBRARY_BOOK_META
+  ) {
+    return 'noop';
+  }
+
+  const onSheet = isImportSheetRoute(name);
+  const onItemMeta = name === ROUTE.IMPORT_ITEM_META;
+  if (!onSheet && !onItemMeta) return 'noop';
+
+  const tab =
+    detailTab != null
+      ? normalizeImportDetailTab(detailTab)
+      : onItemMeta || isMetaSearchRoute(name)
+        ? IMPORT_DETAIL_TABS.SEARCH
+        : IMPORT_DETAIL_TABS.INFOS;
+
+  if (dir < 0) {
+    // LB → Infos
+    if (tab === IMPORT_DETAIL_TABS.INFOS && onSheet) return 'noop';
+    if (onItemMeta || tab === IMPORT_DETAIL_TABS.SEARCH) return 'to-infos';
+    return 'noop';
+  }
+
+  // RB → Recherche
+  if (tab === IMPORT_DETAIL_TABS.SEARCH || onItemMeta) return 'noop';
+  if (onSheet) return 'to-search';
+  return 'noop';
+}
 
 /** Champs onglet Infos (méta éditables). */
 export const IMPORT_INFOS_FIELDS = Object.freeze({

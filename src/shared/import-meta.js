@@ -138,3 +138,50 @@ export function metaSourceLabel(source) {
   if (source === META_SOURCE.DETECTED) return 'Méta détectées';
   return 'Aucune méta trouvée';
 }
+
+/** Longueur max synopsis sur carte résultat recherche API. */
+export const ENRICH_SYNOPSIS_MAX = 160;
+
+/**
+ * Tronque un texte pour extrait carte (espaces normalisés + « … »).
+ * @param {string|null|undefined} text
+ * @param {number} [max]
+ */
+export function truncateExcerpt(text, max = ENRICH_SYNOPSIS_MAX) {
+  const limit = Math.max(24, Number(max) || ENRICH_SYNOPSIS_MAX);
+  const s = String(text || '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!s) return '';
+  if (s.length <= limit) return s;
+  return `${s.slice(0, limit).trimEnd()}…`;
+}
+
+/**
+ * Libellés carte résultat enrichissement (jaquette / titre / série / tome / synopsis).
+ * @param {object|null|undefined} result
+ * @param {{ synopsisMax?: number, volumeLabel?: (n: string|number) => string }} [opts]
+ */
+export function enrichResultCardFields(result, opts = {}) {
+  const title = String(result?.title || '').trim();
+  const seriesRaw = String(result?.series || '').trim();
+  const series = seriesRaw && seriesRaw !== title ? seriesRaw : seriesRaw;
+  const volume = result?.volume;
+  let volumeLabel = '';
+  if (volume != null && volume !== '') {
+    const fmt = opts.volumeLabel;
+    volumeLabel = typeof fmt === 'function' ? String(fmt(volume) || '') : `Tome ${volume}`;
+  }
+  const synopsis = truncateExcerpt(
+    result?.description || result?.synopsis || '',
+    opts.synopsisMax ?? ENRICH_SYNOPSIS_MAX,
+  );
+  return {
+    title,
+    series,
+    volume,
+    volumeLabel,
+    synopsis,
+    coverUrl: result?.coverUrl || null,
+  };
+}

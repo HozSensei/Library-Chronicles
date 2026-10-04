@@ -25,15 +25,20 @@ import {
   normalizeImportFocusZone,
   resolveImportBackAction,
   resolveImportConfirmAction,
+  resolveImportTabAction,
 } from '../src/shared/import-focus.js';
 import {
   META_SOURCE,
   computeMetaSource,
+  enrichResultCardFields,
   hasDetectedMeta,
   metaSourceLabel,
   metadataPatchFromEnrichResult,
   resolveItemMetadata,
+  truncateExcerpt,
+  ENRICH_SYNOPSIS_MAX,
 } from '../src/shared/import-meta.js';
+import { ROUTE } from '../src/shared/app-routes.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 let failed = 0;
@@ -241,6 +246,97 @@ assert(
   }) === 'to-list',
   'Infos B → liste',
 );
+assert(
+  resolveImportBackAction({
+    routeName: ROUTE.IMPORT_ITEM_META,
+  }) === 'to-infos',
+  'B import-item-meta → sheet (route)',
+);
+assert(
+  resolveImportBackAction({
+    routeName: ROUTE.IMPORT_BOOK_META,
+  }) === 'to-book',
+  'B import-book-meta → book (route)',
+);
+
+// LB / RB directionnels (pas toggle) — pas de nav parasite
+assert(
+  resolveImportTabAction({
+    routeName: ROUTE.IMPORT_ITEM,
+    direction: 1,
+    detailTab: 'infos',
+  }) === 'to-search',
+  'RB fiche Infos → Recherche',
+);
+assert(
+  resolveImportTabAction({
+    routeName: ROUTE.IMPORT_ITEM,
+    direction: -1,
+    detailTab: 'infos',
+  }) === 'noop',
+  'LB fiche Infos → noop (déjà Infos)',
+);
+assert(
+  resolveImportTabAction({
+    routeName: ROUTE.IMPORT_ITEM_META,
+    direction: -1,
+    detailTab: 'search',
+  }) === 'to-infos',
+  'LB Recherche item → Infos',
+);
+assert(
+  resolveImportTabAction({
+    routeName: ROUTE.IMPORT_ITEM_META,
+    direction: 1,
+    detailTab: 'search',
+  }) === 'noop',
+  'RB déjà Recherche → noop',
+);
+assert(
+  resolveImportTabAction({
+    routeName: ROUTE.IMPORT_BOOK_META,
+    direction: 1,
+  }) === 'noop',
+  'RB méta livre → noop (pas onglets)',
+);
+assert(
+  resolveImportTabAction({
+    routeName: ROUTE.LIBRARY_BOOK_META,
+    direction: -1,
+  }) === 'noop',
+  'LB méta biblio → noop (B = parent)',
+);
+assert(
+  resolveImportTabAction({
+    routeName: ROUTE.IMPORT,
+    direction: 1,
+  }) === 'noop',
+  'RB liste import → noop',
+);
+
+// Cartes résultat : synopsis tronqué
+assert(ENRICH_SYNOPSIS_MAX >= 140 && ENRICH_SYNOPSIS_MAX <= 200, 'synopsis max 140–200');
+assert(truncateExcerpt('court') === 'court', 'excerpt court intact');
+assert(
+  truncateExcerpt('a'.repeat(300)).endsWith('…'),
+  'excerpt long → ellipsis',
+);
+assert(
+  truncateExcerpt('a'.repeat(300)).length === ENRICH_SYNOPSIS_MAX + 1,
+  'excerpt longueur = max + …',
+);
+const card = enrichResultCardFields({
+  title: 'One Piece T03',
+  series: 'One Piece',
+  volume: 3,
+  description: 'Luffy et son équipage. '.repeat(40),
+  coverUrl: 'https://cdn.example/j.jpg',
+});
+assert(card.title === 'One Piece T03', 'card title');
+assert(card.series === 'One Piece', 'card series');
+assert(card.volumeLabel.includes('3'), 'card volume');
+assert(card.synopsis.endsWith('…'), 'card synopsis trunc');
+assert(card.coverUrl.includes('cdn.example'), 'card cover');
 
 // metaSource helpers
 assert(META_SOURCE.SELECTED === 'selected', 'META_SOURCE.selected');
@@ -345,11 +441,24 @@ assert(store.includes('resolveCoverPreview'), 'store resolveCoverPreview');
 assert(store.includes('enrichCoverPreviews'), 'store jaquettes résultats');
 assert(store.includes('loadEnrichCoverPreviews'), 'store charge jackets résultats');
 
-assert(view.includes('ouvrir fiche'), 'hint A ouvrir fiche');
-assert(view.includes('Importer ce tome'), 'hint X importer ce tome (liste)');
-assert(view.includes('Retirer de la bibliothèque'), 'hint X retirer si ✓');
+assert(
+  view.includes('ouvrir fiche') || view.includes("t('import.hintOpenSheet')"),
+  'hint A ouvrir fiche',
+);
+assert(
+  view.includes('Importer ce tome') || view.includes("t('import.importThis')"),
+  'hint X importer ce tome (liste)',
+);
+assert(
+  view.includes('Retirer de la bibliothèque') ||
+    view.includes("t('import.removeFromLibrary')"),
+  'hint X retirer si ✓',
+);
 assert(view.includes('Importer le livre'), 'CTA / hint X fiche brouillon');
-assert(view.includes('Tout importer'), 'bouton header Tout importer');
+assert(
+  view.includes('Tout importer') || view.includes("t('import.importAll')"),
+  'bouton header Tout importer',
+);
 assert(view.includes('import__import-all'), 'CSS / bouton header import-all');
 assert(view.includes('doImportAll'), 'handler doImportAll');
 assert(view.includes("importFocusZone === 'header'"), 'focus zone header');
@@ -385,8 +494,18 @@ assert(view.includes('import__enrich-cover'), 'carte résultat jaquette');
 assert(view.includes('import__enrich-title'), 'carte résultat titre');
 assert(view.includes('import__enrich-series'), 'carte résultat série');
 assert(view.includes('import__enrich-volume'), 'carte résultat tome');
+assert(view.includes('import__enrich-synopsis'), 'carte résultat synopsis');
+assert(view.includes('enrichSynopsisExcerpt'), 'extrait synopsis');
+assert(view.includes('enrichResultCardFields'), 'helper carte résultat');
 assert(view.includes('enrichVolumeLabel'), 'libellé Tome N');
-assert(view.includes('Série ·'), 'libellé série résultat');
+assert(view.includes("t('import.enrichSeries"), 'libellé série i18n');
+assert(view.includes('import__tabs'), 'onglets recherche');
+assert(view.includes("t('import.searchTab')") || view.includes('Recherche'), 'onglet Recherche');
+assert(
+  view.includes('ROUTE.IMPORT_ITEM_META || route.name === ROUTE.IMPORT_ITEM'),
+  'onglets visibles Infos + Recherche (pas seulement search)',
+);
+assert(view.includes('jamais remonter à la liste') || view.includes('IMPORT_ITEM) return'), 'switchTab Infos sans liste');
 assert(view.includes('shell-scroll'), 'shell-scroll');
 assert(view.includes('import__done'), 'marqueur ✓ importé');
 assert(view.includes('alreadyInLibrary'), 'flag alreadyInLibrary');
@@ -407,6 +526,8 @@ assert(
   gamepad.includes('bookDetailLocation'),
   'gamepad A → BookDetail si déjà importé',
 );
+assert(gamepad.includes('resolveImportTabAction'), 'gamepad LB/RB resolveImportTabAction');
+assert(focusSrc.includes('resolveImportTabAction'), 'focus resolve LB/RB');
 assert(!gamepad.includes("from: 'import'"), 'plus query from=import');
 assert(gamepad.includes("action === 'import-one'"), 'gamepad import-one');
 assert(
