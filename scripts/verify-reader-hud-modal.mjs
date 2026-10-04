@@ -145,6 +145,25 @@ assert(!store.includes('toggleWebtoon'), 'plus de toggleWebtoon');
 assert(!hud.includes('Mode webtoon'), 'HUD sans bouton Mode webtoon');
 assert(!hud.includes('Strip vertical'), 'HUD sans bascule Strip vertical');
 assert(!hud.includes('toggleReadingMode'), 'HUD sans toggleReadingMode');
+assert(
+  hud.includes("t('reader.fullscreen')") &&
+    hud.includes("t('reader.fullscreenExit')"),
+  'HUD option Plein écran (i18n)',
+);
+assert(hud.includes("isFocused('fullscreen')"), 'focus manette fullscreen');
+assert(hud.includes('ui.toggleFullscreen()'), 'HUD toggleFullscreen');
+assert(i18n.includes('fullscreen:'), 'i18n reader.fullscreen');
+assert(i18n.includes('fullscreenExit:'), 'i18n reader.fullscreenExit');
+assert(
+  i18n.includes("readerStartMenu: 'Start · Menu lecteur'") ||
+    i18n.includes('Start · Menu lecteur'),
+  'i18n toast Start · Menu lecteur FR',
+);
+assert(
+  i18n.includes("readerStartMenu: 'Start · Reader menu'") ||
+    i18n.includes('Start · Reader menu'),
+  'i18n toast Start · Reader menu EN',
+);
 assert(i18n.includes('Stick pan'), 'HUD hints manette stick/zoom (i18n)');
 assert(i18n.includes('←→ page'), 'HUD hint pages ←→ (i18n)');
 assert(i18n.includes('↑↓ zoom'), 'HUD hint zoom ↑↓ (i18n)');
@@ -174,6 +193,37 @@ assert(
       gamepad,
     ),
   'tick() : reader depuis handlers (évite ReferenceError / boucle morte)',
+);
+
+const uiStore = readFileSync(
+  join(root, 'src/renderer/src/stores/ui.js'),
+  'utf8',
+);
+const preload = readFileSync(join(root, 'src/preload/index.js'), 'utf8');
+const mainIndex = readFileSync(join(root, 'src/main/index.js'), 'utf8');
+const channels = readFileSync(join(root, 'src/shared/ipc-channels.js'), 'utf8');
+
+assert(uiStore.includes('toggleFullscreen'), 'ui.toggleFullscreen');
+assert(uiStore.includes('setFullscreen'), 'ui.setFullscreen');
+assert(
+  uiStore.includes('exitReaderMode') &&
+    /exitReaderMode[\s\S]*?setFullscreen\(false\)/.test(uiStore),
+  'exitReaderMode quitte le plein écran',
+);
+assert(preload.includes('setFullscreen'), 'preload setFullscreen');
+assert(preload.includes('getFullscreen'), 'preload getFullscreen');
+assert(channels.includes('APP_SET_FULLSCREEN'), 'IPC APP_SET_FULLSCREEN');
+assert(channels.includes('APP_GET_FULLSCREEN'), 'IPC APP_GET_FULLSCREEN');
+assert(mainIndex.includes('setFullScreen'), 'main setFullScreen Electron');
+
+assert(
+  readerView.includes('toast.readerStartMenu') ||
+    readerView.includes("t('toast.readerStartMenu')"),
+  'ReaderView toast Start à l’ouverture',
+);
+assert(
+  readerView.includes('useToastStore') && readerView.includes('duration: 3000'),
+  'toast ouverture ~3s via useToastStore',
 );
 
 if (failed) {

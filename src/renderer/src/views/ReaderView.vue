@@ -6,6 +6,7 @@ import StripReaderStage from '../components/StripReaderStage.vue';
 import ReaderHud from '../components/ReaderHud.vue';
 import { useReaderStore } from '../stores/reader';
 import { useUiStore } from '../stores/ui';
+import { useToastStore } from '../stores/toast';
 import { useI18n } from '../composables/useI18n';
 import {
   normalizeReadingMode,
@@ -16,6 +17,7 @@ const router = useRouter();
 const route = useRoute();
 const reader = useReaderStore();
 const ui = useUiStore();
+const toast = useToastStore();
 const { t } = useI18n();
 
 function modeFromRoute() {
@@ -53,6 +55,10 @@ async function openFromRoute() {
 onMounted(async () => {
   try {
     await openFromRoute();
+    // Une fois par ouverture du lecteur : hint Start → menu pause.
+    if (reader.filePath) {
+      toast.info(t('toast.readerStartMenu'), { duration: 3000 });
+    }
   } catch (err) {
     console.warn('[VDR] open:', err.message);
   }

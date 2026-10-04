@@ -20,6 +20,10 @@ contextBridge.exposeInMainWorld('vdr', {
     }),
   onOrientationChanged: (handler) =>
     subscribe(IpcChannels.APP_ORIENTATION_CHANGED, handler),
+  /** Plein écran Electron (toggle lecteur HUD). */
+  getFullscreen: () => ipcRenderer.invoke(IpcChannels.APP_GET_FULLSCREEN),
+  setFullscreen: (enabled) =>
+    ipcRenderer.invoke(IpcChannels.APP_SET_FULLSCREEN, { enabled: Boolean(enabled) }),
   /** Clavier virtuel Windows (TabTip / osk) — no-op ailleurs. */
   showVirtualKeyboard: () =>
     ipcRenderer.invoke(IpcChannels.APP_SHOW_VIRTUAL_KEYBOARD),
