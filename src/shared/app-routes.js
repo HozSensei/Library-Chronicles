@@ -214,3 +214,45 @@ export function bookRouteContext(routeName) {
   }
   return 'library';
 }
+
+/**
+ * Clé `<RouterView>` stable : garde ImportView monté sur liste/sheet/méta
+ * pour éviter remount + flash de l’écran précédent (out-in + fullPath).
+ *
+ * @param {{ name?: string, params?: Record<string, unknown>, fullPath?: string }|null|undefined} route
+ * @returns {string}
+ */
+export function viewTransitionKey(route) {
+  const name = route?.name;
+  if (
+    name === ROUTE.IMPORT ||
+    name === ROUTE.IMPORT_ITEM ||
+    name === ROUTE.IMPORT_ITEM_META ||
+    name === ROUTE.IMPORT_BOOK_META ||
+    name === ROUTE.LIBRARY_BOOK_META
+  ) {
+    return 'import-shell';
+  }
+  if (name === ROUTE.LIBRARY_BOOK || name === ROUTE.IMPORT_BOOK) {
+    return `book-detail:${String(route?.params?.id ?? '')}:${name}`;
+  }
+  return route?.fullPath || String(name || '');
+}
+
+/**
+ * Compare name + params (ignore query/hash) — évite navigations idempotentes.
+ *
+ * @param {{ name?: string, params?: Record<string, unknown> }|null|undefined} a
+ * @param {{ name?: string, params?: Record<string, unknown> }|null|undefined} b
+ */
+export function isSameAppLocation(a, b) {
+  if (!a || !b) return false;
+  if (a.name !== b.name) return false;
+  const ap = a.params || {};
+  const bp = b.params || {};
+  const keys = new Set([...Object.keys(ap), ...Object.keys(bp)]);
+  for (const key of keys) {
+    if (String(ap[key] ?? '') !== String(bp[key] ?? '')) return false;
+  }
+  return true;
+}

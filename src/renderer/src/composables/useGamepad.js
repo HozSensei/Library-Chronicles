@@ -56,6 +56,7 @@ import {
   bookDetailLocation,
   importItemLocation,
   isImportUiRoute,
+  isSameAppLocation,
   resolveParentLocation,
   uiContextForRoute,
 } from '../../../shared/app-routes.js';
@@ -133,6 +134,15 @@ function createLoop(ctx) {
 
   function bind(next) {
     handlers = next;
+  }
+
+  /** push sans navigation idempotente (name+params déjà courants). */
+  function pushRoute(location) {
+    const { router } = handlers;
+    if (!location || isSameAppLocation(router.currentRoute.value, location)) {
+      return Promise.resolve();
+    }
+    return router.push(location);
   }
 
   /**
@@ -729,12 +739,12 @@ function createLoop(ctx) {
           if (current.name === ROUTE.IMPORT_ITEM) return;
           const item = imp.selected;
           if (item?.filePath) {
-            router.push(importItemLocation(item.filePath));
+            pushRoute(importItemLocation(item.filePath));
             return;
           }
           const parent = resolveParentLocation(current);
           if (parent && parent.name !== ROUTE.IMPORT) {
-            router.push(parent);
+            pushRoute(parent);
           }
         };
 
@@ -742,18 +752,18 @@ function createLoop(ctx) {
           if (current.name === ROUTE.IMPORT_ITEM_META) return;
           const item = imp.selected;
           if (item?.filePath) {
-            router.push(importItemLocation(item.filePath, { meta: true }));
+            pushRoute(importItemLocation(item.filePath, { meta: true }));
           }
         };
 
         const closeToList = () => {
-          router.push({ name: ROUTE.IMPORT });
+          pushRoute({ name: ROUTE.IMPORT });
         };
 
         const goParentRoute = () => {
           const parent = resolveParentLocation(current);
           if (parent) {
-            router.push(parent);
+            pushRoute(parent);
             return;
           }
           closeToList();
@@ -1018,11 +1028,11 @@ function createLoop(ctx) {
         void (async () => {
           const item = imp.selected;
           if (item?.existingBookId != null) {
-            router.push(bookDetailLocation(item.existingBookId, 'import'));
+            await pushRoute(bookDetailLocation(item.existingBookId, 'import'));
             return;
           }
           if (item?.filePath) {
-            router.push(importItemLocation(item.filePath));
+            await pushRoute(importItemLocation(item.filePath));
           }
         })();
       }
