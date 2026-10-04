@@ -3,19 +3,28 @@ import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import ControlHint from '../components/ControlHint.vue';
 import LazyCover from '../components/LazyCover.vue';
+import { useImportStore } from '../stores/import';
 import { useLibraryStore } from '../stores/library';
 import { useUiStore } from '../stores/ui';
 import {
   BOOK_FOCUS,
   isBookEditableFocus,
 } from '../../../shared/book-focus.js';
+import {
+  IMPORT_DETAIL_TABS,
+  IMPORT_SEARCH_FIELDS,
+} from '../../../shared/import-focus.js';
 import { scheduleScrollFocusedIntoView } from '../../../shared/focus-scroll.js';
 import { focusTextInputForEdit } from '../../../shared/virtual-keyboard.js';
 
 const route = useRoute();
 const router = useRouter();
 const library = useLibraryStore();
+const imp = useImportStore();
 const ui = useUiStore();
+
+/** Ouvert depuis la liste import — B revient à l’import, pas la biblio. */
+const fromImport = computed(() => route.query.from === 'import');
 
 const book = ref(null);
 const loading = ref(true);
@@ -87,11 +96,11 @@ const seriesRail = computed(() => {
     });
 });
 
-const hints = [
+const hints = computed(() => [
   { key: '↑↓', label: 'champ' },
   { key: 'A', label: 'éditer / lire' },
-  { key: 'B', label: 'retour' },
-];
+  { key: 'B', label: fromImport.value ? 'retour liste' : 'retour biblio' },
+]);
 
 function syncDraftFromBook(b) {
   if (!b) {
@@ -209,12 +218,44 @@ function read() {
 
 function back() {
   void saveDraft().then(() => {
+    if (fromImport.value) {
+      imp.closeDetail();
+      ui.setImportFocusZone('list');
+      ui.setImportFocus(0);
+      router.push({ name: 'import' });
+      return;
+    }
     router.push({ name: 'library' });
   });
 }
 
-function goImport() {
-  void saveDraft().then(() => {
+/** Ouvre la recherche API méta (onglet Recherche import). */
+function goImportMeta() {
+  void saveDraft().then(async () => {
+    const bookId = book.value?.id;
+    const filePath = book.value?.filePath;
+    try {
+      if (!imp.items.length) await imp.scan();
+      const idx = imp.items.findIndex(
+        (item) =>
+          (bookId != null && String(item.existingBookId) === String(bookId)) ||
+          (filePath &&
+            (item.filePath === filePath ||
+              item.detected?.title === book.value?.title)),
+      );
+      if (idx >= 0) {
+        const ok = await imp.openDetail(idx);
+        if (ok) {
+          imp.setDetailTab(IMPORT_DETAIL_TABS.SEARCH);
+          ui.setImportFocusZone('fields');
+          ui.setImportFocus(IMPORT_SEARCH_FIELDS.QUERY);
+          router.push({ name: 'import' });
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn('[VDR] ouvrir méta import:', err?.message || err);
+    }
     router.push({ name: 'import' });
   });
 }
@@ -279,8 +320,7 @@ function footerFocused(index) {
 function activateFooter(index) {
   ui.setBookFocus(index);
   if (index === BOOK_FOCUS.READ) return read();
-  if (index === BOOK_FOCUS.BACK) return back();
-  if (index === BOOK_FOCUS.OPTIONS) return goImport();
+  if (index === BOOK_FOCUS.META) return goImportMeta();
 }
 
 function display(value) {
@@ -586,22 +626,12 @@ function onEditableKeydown(ev) {
           <button
             type="button"
             class="book-detail__action book-detail__action--ghost"
-            :data-book-action="BOOK_FOCUS.BACK"
-            :class="{ 'is-focused': footerFocused(BOOK_FOCUS.BACK) }"
-            @click="activateFooter(BOOK_FOCUS.BACK)"
+            :data-book-action="BOOK_FOCUS.META"
+            :class="{ 'is-focused': footerFocused(BOOK_FOCUS.META) }"
+            @click="activateFooter(BOOK_FOCUS.META)"
           >
-            <span class="book-detail__action-label">Retour</span>
-            <span class="book-detail__action-sub">Bibliothèque</span>
-          </button>
-          <button
-            type="button"
-            class="book-detail__action book-detail__action--ghost"
-            :data-book-action="BOOK_FOCUS.OPTIONS"
-            :class="{ 'is-focused': footerFocused(BOOK_FOCUS.OPTIONS) }"
-            @click="activateFooter(BOOK_FOCUS.OPTIONS)"
-          >
-            <span class="book-detail__action-label">Options</span>
-            <span class="book-detail__action-sub">Import / meta</span>
+            <span class="book-detail__action-label">Importer des méta</span>
+            <span class="book-detail__action-sub">Recherche API</span>
           </button>
         </div>
       </footer>
@@ -804,32 +834,32 @@ function onEditableKeydown(ev) {
   max-width: 100%;
   box-sizing: border-box;
   margin: 0;
-  padding: 0.15rem 0.35rem;
-  border: 1px solid transparent;
+  padding: 0.45rem 0.65rem;
+  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  background: transparent;
+  background: var(--surface);
   color: var(--paper);
   font-family: var(--font-display);
-  font-size: clamp(1.85rem, 3.4vw, 2.65rem);
+  font-size: clamp(1.55rem, 3vw, 2.25rem);
   font-weight: 800;
   letter-spacing: -0.02em;
-  line-height: 1.1;
+  line-height: 1.15;
   cursor: text;
 }
 
-/* Labels + valeurs type streaming (pas de boîtes formulaire empilées) */
+/* Champs formulaire éditables (label + input boîte) */
 .book-detail__meta {
-  display: grid;
-  grid-template-columns: 5.5rem minmax(0, 1fr);
-  align-items: baseline;
-  gap: 0.35rem 0.75rem;
-  padding: 0.2rem 0.35rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.15rem;
   border: 1px solid transparent;
+  border-radius: var(--radius-sm);
 }
 
 .book-detail__meta label {
   margin: 0;
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -844,10 +874,10 @@ function onEditableKeydown(ev) {
   cursor: text;
   opacity: 1;
   color: var(--paper);
-  background: transparent;
-  border: none;
-  border-radius: 0;
-  padding: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.55rem 0.65rem;
   font: inherit;
   font-size: 0.98rem;
   font-weight: 600;
@@ -856,6 +886,8 @@ function onEditableKeydown(ev) {
 .book-detail__meta input[readonly],
 .book-detail__textarea[readonly] {
   cursor: default;
+  color: var(--paper-dim);
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
 }
 
 .book-detail__meta input[type='number'] {
@@ -872,28 +904,28 @@ function onEditableKeydown(ev) {
 .book-detail__field--synopsis {
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
-  padding: 0.35rem;
+  gap: 0.3rem;
+  padding: 0.15rem;
   border: 1px solid transparent;
+  border-radius: var(--radius-sm);
   margin-top: 0.25rem;
 }
 
 .book-detail__field--synopsis label {
   color: var(--brass);
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
 .book-detail__textarea {
-  resize: none;
+  resize: vertical;
   line-height: 1.55;
   min-height: 6.5rem;
   white-space: pre-wrap;
   font-weight: 400;
   color: var(--paper);
-  opacity: 0.92;
 }
 
 .book-detail__chips {
@@ -918,23 +950,22 @@ function onEditableKeydown(ev) {
 .book-detail__field.is-focused,
 .book-detail__field:focus-within {
   outline: none;
-  transform: translate3d(2px, 0, 0);
 }
 
 .book-detail__field.is-focused .book-detail__headline,
 .book-detail__field:focus-within .book-detail__headline,
-.book-detail__meta.is-focused,
-.book-detail__meta:focus-within,
-.book-detail__field--synopsis.is-focused,
-.book-detail__field--synopsis:focus-within {
+.book-detail__meta.is-focused input,
+.book-detail__meta:focus-within input,
+.book-detail__field--synopsis.is-focused .book-detail__textarea,
+.book-detail__field--synopsis:focus-within .book-detail__textarea {
   border-color: var(--brass-bright);
   box-shadow: 0 0 0 3px var(--focus-glow);
-  border-radius: var(--radius-sm);
 }
 
-.book-detail__field.is-focused .book-detail__headline,
-.book-detail__field:focus-within .book-detail__headline {
-  border-style: solid;
+.book-detail__field.is-focused,
+.book-detail__field:focus-within {
+  background: color-mix(in srgb, var(--brass) 6%, transparent);
+  border-radius: var(--radius-sm);
 }
 
 /* Rail horizontal sous le hero — stacking bas, overflow clip sur les thumbs */
@@ -1179,10 +1210,6 @@ function onEditableKeydown(ev) {
   .book-detail__cover {
     width: min(11rem, 48vw);
     justify-self: center;
-  }
-
-  .book-detail__meta {
-    grid-template-columns: 4.75rem minmax(0, 1fr);
   }
 }
 
