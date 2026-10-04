@@ -47,16 +47,16 @@ assert(
   'pas de cyan Steam Deck dans les swatches',
 );
 
-const prefs = setupFocusRows(2);
+const prefs = setupFocusRows(1);
 assert(prefs.length === 4, 'prefs : mode + accents + langue + next');
 assert(prefs[0].join(',') === 'theme-dark,theme-light', 'mode côte à côte');
 assert(prefs[1].join(',') === accentFocusIds().join(','), 'rangée accents');
 let idx = moveSetupFocus(prefs, 0, 'down');
-assert(setupFocusables(2)[idx] === 'accent-blue', '↓ mode → premier accent');
+assert(setupFocusables(1)[idx] === 'accent-blue', '↓ mode → premier accent');
 idx = moveSetupFocus(prefs, idx, 'right');
-assert(setupFocusables(2)[idx] === 'accent-orange', '←→ accents');
+assert(setupFocusables(1)[idx] === 'accent-orange', '←→ accents');
 idx = moveSetupFocus(prefs, idx, 'right');
-assert(setupFocusables(2)[idx] === 'accent-green', '←→ vert');
+assert(setupFocusables(1)[idx] === 'accent-green', '←→ vert');
 
 if (failed) {
   console.error(`\n${failed} échec(s)`);

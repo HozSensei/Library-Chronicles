@@ -35,8 +35,8 @@ const form = reactive({
   accent: DEFAULT_ACCENT,
 });
 
+/** Dossiers → préférences → prêt (pas d’écran welcome). */
 const steps = [
-  { id: 'welcome', title: 'Bienvenue' },
   { id: 'folders', title: 'Dossiers' },
   { id: 'prefs', title: 'Préférences' },
   { id: 'done', title: 'Prêt' },
@@ -182,26 +182,16 @@ defineExpose({
 
       <div class="setup__body">
         <template v-if="step === 0">
-          <h1>Installons ton espace de lecture</h1>
-          <p class="lead">
-            Profil sélectionné — configure ses dossiers et son thème.
-            Menus en paysage, lecture en portrait : l’app bascule toute seule.
-          </p>
-          <FocusButton :focused="focusedId === 'next'" subtitle="Continuer" @select="next">
-            Commencer
-          </FocusButton>
-        </template>
-
-        <template v-else-if="step === 1">
           <h1>Dossiers</h1>
           <p class="lead">
             Bibliothèque pour les tomes indexés · Import pour les fichiers à trier.
           </p>
-          <div class="choice-row">
+          <div class="folder-stack">
             <div class="field-card">
               <label>Bibliothèque</label>
               <code class="path">{{ form.libraryRoot }}</code>
               <FocusButton
+                compact
                 :focused="focusedId === 'library'"
                 subtitle="Choisir un autre dossier"
                 @select="pickLibrary"
@@ -213,6 +203,7 @@ defineExpose({
               <label>Import</label>
               <code class="path">{{ form.importRoot }}</code>
               <FocusButton
+                compact
                 :focused="focusedId === 'import'"
                 subtitle="Inbox des nouveaux fichiers"
                 @select="pickImport"
@@ -221,12 +212,19 @@ defineExpose({
               </FocusButton>
             </div>
           </div>
-          <FocusButton :focused="focusedId === 'next'" subtitle="Étape suivante" @select="next">
-            Continuer
-          </FocusButton>
+          <div class="setup-actions">
+            <FocusButton
+              compact
+              tone="primary"
+              :focused="focusedId === 'next'"
+              @select="next"
+            >
+              Continuer
+            </FocusButton>
+          </div>
         </template>
 
-        <template v-else-if="step === 2">
+        <template v-else-if="step === 1">
           <h1>Préférences</h1>
           <p class="lead">
             Mode clair/sombre et couleur de contraste. Orientation automatique.
@@ -236,6 +234,7 @@ defineExpose({
             <p class="choice-group__label">Mode</p>
             <div class="choice-row">
               <FocusButton
+                compact
                 :focused="focusedId === 'theme-dark'"
                 :subtitle="form.theme === 'dark' ? 'Actif' : ''"
                 @select="setTheme('dark')"
@@ -243,6 +242,7 @@ defineExpose({
                 Sombre
               </FocusButton>
               <FocusButton
+                compact
                 :focused="focusedId === 'theme-light'"
                 :subtitle="form.theme === 'light' ? 'Actif' : ''"
                 @select="setTheme('light')"
@@ -279,6 +279,7 @@ defineExpose({
           <div class="choice-group">
             <p class="choice-group__label">Langue</p>
             <FocusButton
+              compact
               :focused="focusedId === 'lang-fr'"
               subtitle="Interface"
               @select="form.language = 'fr'"
@@ -287,9 +288,16 @@ defineExpose({
             </FocusButton>
           </div>
 
-          <FocusButton :focused="focusedId === 'next'" subtitle="Dernière étape" @select="next">
-            Continuer
-          </FocusButton>
+          <div class="setup-actions">
+            <FocusButton
+              compact
+              tone="primary"
+              :focused="focusedId === 'next'"
+              @select="next"
+            >
+              Continuer
+            </FocusButton>
+          </div>
         </template>
 
         <template v-else>
@@ -307,9 +315,16 @@ defineExpose({
             </li>
             <li><strong>Orientation</strong> — automatique</li>
           </ul>
-          <FocusButton :focused="focusedId === 'finish'" subtitle="Entrer dans VDR" @select="finish">
-            Terminer
-          </FocusButton>
+          <div class="setup-actions">
+            <FocusButton
+              compact
+              tone="primary"
+              :focused="focusedId === 'finish'"
+              @select="finish"
+            >
+              Terminer
+            </FocusButton>
+          </div>
         </template>
       </div>
 
@@ -431,10 +446,18 @@ h1 {
   color: var(--brass);
 }
 
-.choice-row {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+.folder-stack {
+  display: flex;
+  flex-direction: column;
   gap: 0.75rem;
+  width: 100%;
+  min-width: 0;
+}
+
+.choice-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
   min-width: 0;
   width: 100%;
 }
@@ -498,10 +521,11 @@ h1 {
   border-radius: var(--radius-md);
   border: 1px solid var(--border);
   background: var(--surface);
-  padding: 0.85rem;
+  padding: 0.85rem 1rem;
   display: flex;
   flex-direction: column;
-  gap: 0.55rem;
+  align-items: flex-start;
+  gap: 0.5rem;
 }
 
 .field-card label {
@@ -519,6 +543,13 @@ h1 {
   overflow-wrap: anywhere;
   white-space: normal;
   max-width: 100%;
+}
+
+.setup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-top: 0.25rem;
 }
 
 .summary {
@@ -542,10 +573,6 @@ h1 {
 }
 
 @media (max-width: 640px) {
-  .choice-row {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
   .setup__frame {
     padding: 1.25rem 1rem 1rem;
   }
