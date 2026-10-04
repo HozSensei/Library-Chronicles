@@ -4,7 +4,7 @@
  */
 
 import { fetchJson } from '../fetch.js';
-import { USER_AGENT, METADATA_SEARCH_LIMIT, extractYear } from '../types.js';
+import { USER_AGENT, metadataSearchLimit, extractYear } from '../types.js';
 import { stubProvider } from './stub.js';
 
 /** @type {import('../types.js').MetadataProvider} */
@@ -24,7 +24,7 @@ export const mangadexProvider = {
     try {
       const url = new URL('https://api.mangadex.org/manga');
       url.searchParams.set('title', q);
-      url.searchParams.set('limit', String(METADATA_SEARCH_LIMIT));
+      url.searchParams.set('limit', String(metadataSearchLimit('mangadex')));
       url.searchParams.append('includes[]', 'author');
       url.searchParams.append('includes[]', 'artist');
       url.searchParams.append('includes[]', 'cover_art');

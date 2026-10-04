@@ -4,7 +4,7 @@
  */
 
 import { fetchJson } from '../fetch.js';
-import { USER_AGENT, METADATA_SEARCH_LIMIT, extractYear, parseVolume } from '../types.js';
+import { USER_AGENT, metadataSearchLimit, extractYear, parseVolume } from '../types.js';
 import { stubProvider } from './stub.js';
 
 /** @type {import('../types.js').MetadataProvider} */
@@ -32,7 +32,10 @@ export const googleBooksProvider = {
     try {
       const url = new URL('https://www.googleapis.com/books/v1/volumes');
       url.searchParams.set('q', q);
-      url.searchParams.set('maxResults', String(METADATA_SEARCH_LIMIT));
+      url.searchParams.set(
+        'maxResults',
+        String(metadataSearchLimit('googlebooks')),
+      );
       url.searchParams.set('printType', 'books');
       url.searchParams.set('key', apiKey);
 

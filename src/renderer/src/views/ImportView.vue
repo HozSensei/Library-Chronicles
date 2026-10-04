@@ -218,6 +218,27 @@ function rowVolume(item) {
   return v != null ? v : null;
 }
 
+function enrichCoverSrc(result) {
+  if (!result?.id) return null;
+  return imp.enrichCoverPreviews[result.id] || null;
+}
+
+function enrichSeriesLabel(result) {
+  const series = String(result?.series || '').trim();
+  if (!series) return '';
+  const title = String(result?.title || '').trim();
+  if (series === title) return series;
+  return series;
+}
+
+function enrichVolumeLabel(result) {
+  const v = result?.volume;
+  if (v == null || v === '') return '';
+  const n = Number(v);
+  if (!Number.isFinite(n)) return `Tome ${v}`;
+  return `Tome ${n}`;
+}
+
 function dotLabel(item) {
   return metaSourceLabel(item.metaSource);
 }
@@ -526,15 +547,29 @@ defineExpose({ doSearch, doImportOne, switchTab, backToList });
                 :class="{ 'is-focused': resultFocused(rIndex) }"
                 @click="onResultChoose(rIndex)"
               >
-                <strong>{{ r.title }}</strong>
-                <span>
-                  {{ r.source }} · conf. {{ Math.round((r.confidence || 0) * 100) }}%
-                  <template v-if="r.author"> · {{ r.author }}</template>
-                  <template v-if="r.year"> · {{ r.year }}</template>
-                </span>
-                <span v-if="r.description" class="import__enrich-desc">
-                  {{ r.description }}
-                </span>
+                <div class="import__enrich-cover" aria-hidden="true">
+                  <img
+                    v-if="enrichCoverSrc(r)"
+                    :src="enrichCoverSrc(r)"
+                    alt=""
+                  />
+                  <div v-else class="import__enrich-cover-ph">—</div>
+                </div>
+                <div class="import__enrich-body">
+                  <strong class="import__enrich-title">{{ r.title }}</strong>
+                  <span
+                    v-if="enrichSeriesLabel(r)"
+                    class="import__enrich-series"
+                  >
+                    Série · {{ enrichSeriesLabel(r) }}
+                  </span>
+                  <span
+                    v-if="enrichVolumeLabel(r)"
+                    class="import__enrich-volume"
+                  >
+                    {{ enrichVolumeLabel(r) }}
+                  </span>
+                </div>
               </button>
             </div>
           </div>
@@ -947,11 +982,12 @@ defineExpose({ doSearch, doImportOne, switchTab, backToList });
 .import__enrich-item {
   appearance: none;
   display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 0.75rem;
   width: 100%;
   margin-top: 0.4rem;
-  padding: 0.65rem 0.85rem;
+  padding: 0.5rem 0.65rem;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--surface);
@@ -965,16 +1001,59 @@ defineExpose({ doSearch, doImportOne, switchTab, backToList });
     background 160ms var(--ease-soft);
 }
 
-.import__enrich-item span {
-  font-size: 0.75rem;
-  color: var(--paper-dim);
+.import__enrich-cover {
+  width: 3.1rem;
+  flex-shrink: 0;
 }
 
-.import__enrich-desc {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+.import__enrich-cover img,
+.import__enrich-cover-ph {
+  aspect-ratio: 2 / 3;
+  width: 100%;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  object-fit: cover;
+  background: var(--ink-800);
+}
+
+.import__enrich-cover-ph {
+  display: grid;
+  place-items: center;
+  color: var(--paper-dim);
+  font-size: 0.75rem;
+}
+
+.import__enrich-body {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.2rem;
+}
+
+.import__enrich-title {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.25;
   overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.import__enrich-series,
+.import__enrich-volume {
+  font-size: 0.78rem;
+  color: var(--paper-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.import__enrich-volume {
+  color: var(--brass-bright);
+  font-weight: 600;
 }
 
 .import__enrich-item.is-focused,

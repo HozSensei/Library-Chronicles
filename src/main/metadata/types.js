@@ -28,8 +28,37 @@
 
 export const USER_AGENT = 'VerticalDeckReader/0.1 (Library-Chronicles; +https://github.com/HozSensei/Library-Chronicles)';
 
-/** Nombre max de résultats demandés aux APIs de recherche méta (import). */
-export const METADATA_SEARCH_LIMIT = 16;
+/**
+ * Plafonds techniques par provider (limites API documentées — pas une coupe UX).
+ * - AniList Page.perPage max 50
+ * - MangaDex `limit` max 100
+ * - Open Library `limit` : 100 (défaut / page raisonnable)
+ * - Google Books `maxResults` max 40
+ * - ComicVine `limit` max 100
+ */
+export const METADATA_SEARCH_LIMITS = Object.freeze({
+  anilist: 50,
+  mangadex: 100,
+  openlibrary: 100,
+  googlebooks: 40,
+  comicvine: 100,
+  stub: 50,
+});
+
+/** Alias du plafond AniList (50) — préférer `metadataSearchLimit(id)`. */
+export const METADATA_SEARCH_LIMIT = METADATA_SEARCH_LIMITS.anilist;
+
+/**
+ * @param {string} [providerId]
+ * @returns {number}
+ */
+export function metadataSearchLimit(providerId) {
+  const id = String(providerId || '').trim();
+  if (id && Object.prototype.hasOwnProperty.call(METADATA_SEARCH_LIMITS, id)) {
+    return METADATA_SEARCH_LIMITS[id];
+  }
+  return METADATA_SEARCH_LIMIT;
+}
 
 export function parseVolume(v) {
   if (v == null || v === '') return null;

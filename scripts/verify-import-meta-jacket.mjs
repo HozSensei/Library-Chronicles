@@ -184,10 +184,20 @@ assert(fetchSrc.includes('export async function fetchBuffer'), 'fetchBuffer disp
 assert(importStore.includes('coverUrl'), 'store import draft coverUrl');
 assert(importStore.includes('resolveCoverPreview'), 'store resolveCoverPreview');
 assert(importStore.includes('previewCoverFromUrl'), 'store appelle previewCoverFromUrl');
+assert(importStore.includes('enrichCoverPreviews'), 'store previews résultats search');
+assert(importStore.includes('loadEnrichCoverPreviews'), 'store charge jackets search');
 assert(
   importStore.includes('this.draft.volume != null'),
   'applyEnrich garde volume détecté (pas total série API)',
 );
+const importView = readFileSync(
+  join(root, 'src/renderer/src/views/ImportView.vue'),
+  'utf8',
+);
+assert(importView.includes('import__enrich-cover'), 'UI résultat jaquette');
+assert(importView.includes('enrichCoverSrc'), 'UI lit previewCover résultats');
+assert(importView.includes('import__enrich-series'), 'UI résultat série');
+assert(importView.includes('import__enrich-volume'), 'UI résultat tome');
 assert(libraryStore.includes('async updateBook'), 'library.updateBook action');
 assert(bookView.includes('v-model="draft.title"'), 'fiche titre éditable');
 assert(bookView.includes('v-model="draft.series"'), 'fiche série éditable');

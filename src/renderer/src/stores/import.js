@@ -60,11 +60,14 @@ export const useImportStore = defineStore('import', {
     enrichProvider: null,
     enrichWarning: null,
     enrichError: null,
+    /** data-URL jaquettes résultats (CSP : pas d’img https). */
+    enrichCoverPreviews: {},
     providers: [],
     activeProvider: 'anilist',
     coverPreview: null,
     lastImported: null,
     _providersLoaded: false,
+    _enrichCoverToken: 0,
   }),
   getters: {
     selected: (s) => s.items[s.cursor] || null,
@@ -224,6 +227,7 @@ export const useImportStore = defineStore('import', {
         this.enrichProvider = null;
         this.enrichWarning = null;
         this.enrichError = null;
+        this.clearEnrichCoverPreviews();
       }
       this.coverPreview = null;
       if (d.coverUrl) {
@@ -288,6 +292,46 @@ export const useImportStore = defineStore('import', {
       const n = this.enrichResults.length;
       this.enrichResultCursor = (this.enrichResultCursor + delta + n) % n;
     },
+    clearEnrichCoverPreviews() {
+      this._enrichCoverToken += 1;
+      this.enrichCoverPreviews = {};
+    },
+    /**
+     * Proxy CSP des jaquettes résultats (concurrence limitée).
+     * @param {Array<{ id?: string, coverUrl?: string|null }>} results
+     */
+    async loadEnrichCoverPreviews(results) {
+      const token = ++this._enrichCoverToken;
+      this.enrichCoverPreviews = {};
+      const queue = (results || []).filter(
+        (r) => r?.id && String(r.coverUrl || '').trim(),
+      );
+      if (!queue.length) return;
+      let next = 0;
+      const concurrency = Math.min(6, queue.length);
+      const worker = async () => {
+        while (next < queue.length) {
+          if (token !== this._enrichCoverToken) return;
+          const r = queue[next];
+          next += 1;
+          try {
+            const remote = await window.vdr.import.previewCoverFromUrl(
+              r.coverUrl,
+            );
+            if (token !== this._enrichCoverToken) return;
+            if (remote?.dataUrl) {
+              this.enrichCoverPreviews = {
+                ...this.enrichCoverPreviews,
+                [r.id]: remote.dataUrl,
+              };
+            }
+          } catch {
+            /* jaquette optionnelle */
+          }
+        }
+      };
+      await Promise.all(Array.from({ length: concurrency }, () => worker()));
+    },
     /** Recherche API via le provider actif — query éditable (searchQuery). */
     async enrich() {
       const item = this.selected;
@@ -297,6 +341,7 @@ export const useImportStore = defineStore('import', {
       this.enrichError = null;
       this.enrichResults = [];
       this.enrichResultCursor = 0;
+      this.clearEnrichCoverPreviews();
       try {
         if (this.activeProvider === 'stub') {
           const hasAni = this.providers.some((p) => p.id === 'anilist');
@@ -319,6 +364,9 @@ export const useImportStore = defineStore('import', {
         if (!this.enrichResults.length && !this.enrichWarning) {
           this.enrichWarning =
             'Aucun résultat. Essaie un autre provider ou des mots-clés plus courts.';
+        }
+        if (this.enrichResults.length) {
+          void this.loadEnrichCoverPreviews(this.enrichResults);
         }
       } catch (err) {
         this.enrichError = err?.message || 'Échec recherche métadonnées';

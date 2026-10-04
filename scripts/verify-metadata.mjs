@@ -11,6 +11,8 @@ import {
   normalizeMetadataQuery,
   prepareMetadataSearchQuery,
   METADATA_SEARCH_LIMIT,
+  METADATA_SEARCH_LIMITS,
+  metadataSearchLimit,
 } from '../src/main/metadata/types.js';
 import { stubProvider } from '../src/main/metadata/providers/stub.js';
 import { comicvineProvider } from '../src/main/metadata/providers/comicvine.js';
@@ -50,7 +52,16 @@ assert.equal(
   'Solo Leveling Tome 1',
 );
 assert.equal(prepareMetadataSearchQuery('One Piece Vol. 03'), 'One Piece Vol. 03');
-assert.equal(METADATA_SEARCH_LIMIT, 16);
+assert.equal(METADATA_SEARCH_LIMITS.anilist, 50);
+assert.equal(METADATA_SEARCH_LIMITS.mangadex, 100);
+assert.equal(METADATA_SEARCH_LIMITS.openlibrary, 100);
+assert.equal(METADATA_SEARCH_LIMITS.googlebooks, 40);
+assert.equal(METADATA_SEARCH_LIMITS.comicvine, 100);
+assert.equal(METADATA_SEARCH_LIMIT, 50);
+assert.equal(metadataSearchLimit('anilist'), 50);
+assert.equal(metadataSearchLimit('mangadex'), 100);
+assert.equal(metadataSearchLimit('googlebooks'), 40);
+assert.equal(metadataSearchLimit('unknown'), METADATA_SEARCH_LIMIT);
 
 const parsed = detectFromFilename('/lib/One Piece - Tome 03 (2019).cbz');
 assert.equal(parsed.series, 'One Piece');
@@ -201,7 +212,10 @@ try {
   assert.equal(ol[0].year, 1984);
   assert.ok(ol[0].coverUrl.includes('covers.openlibrary.org'));
   assert.equal(seen.openlibrary.q, 'Akira');
-  assert.equal(seen.openlibrary.limit, String(METADATA_SEARCH_LIMIT));
+  assert.equal(
+    seen.openlibrary.limit,
+    String(metadataSearchLimit('openlibrary')),
+  );
 
   const al = await anilistProvider.search('One Piece');
   assert.equal(al.length, 1);
@@ -210,14 +224,14 @@ try {
   assert.equal(al[0].author, 'Eiichiro Oda');
   assert.equal(al[0].year, 1997);
   assert.equal(seen.anilist.search, 'One Piece');
-  assert.equal(seen.anilist.perPage, METADATA_SEARCH_LIMIT);
+  assert.equal(seen.anilist.perPage, metadataSearchLimit('anilist'));
 
   // Query manuelle « Tome 44 » : l’API reçoit encore le tome (pas de strip)
   const typed = prepareMetadataSearchQuery('Solo Leveling Tome 44');
   assert.equal(typed, 'Solo Leveling Tome 44');
   await anilistProvider.search(typed);
   assert.equal(seen.anilist.search, 'Solo Leveling Tome 44');
-  assert.equal(seen.anilist.perPage, METADATA_SEARCH_LIMIT);
+  assert.equal(seen.anilist.perPage, metadataSearchLimit('anilist'));
 
   const md = await mangadexProvider.search('Fullmetal');
   assert.equal(md.length, 1);
@@ -226,7 +240,7 @@ try {
   assert.equal(md[0].author, 'Hiromu Arakawa');
   assert.ok(md[0].coverUrl.includes('uploads.mangadex.org'));
   assert.equal(seen.mangadex.title, 'Fullmetal');
-  assert.equal(seen.mangadex.limit, String(METADATA_SEARCH_LIMIT));
+  assert.equal(seen.mangadex.limit, String(metadataSearchLimit('mangadex')));
 
   const gb = await googleBooksProvider.search('Watchmen', { apiKey: 'test-key' });
   assert.equal(gb.length, 1);
@@ -234,7 +248,10 @@ try {
   assert.equal(gb[0].title, 'Watchmen');
   assert.equal(gb[0].author, 'Alan Moore');
   assert.equal(seen.googlebooks.q, 'Watchmen');
-  assert.equal(seen.googlebooks.maxResults, String(METADATA_SEARCH_LIMIT));
+  assert.equal(
+    seen.googlebooks.maxResults,
+    String(metadataSearchLimit('googlebooks')),
+  );
 
   const cv = await comicvineProvider.search('Batman', { apiKey: 'cv-key' });
   assert.equal(cv.length, 1);
@@ -242,7 +259,7 @@ try {
   assert.equal(cv[0].title, 'Batman');
   assert.equal(cv[0].year, 1939);
   assert.equal(seen.comicvine.query, 'Batman');
-  assert.equal(seen.comicvine.limit, String(METADATA_SEARCH_LIMIT));
+  assert.equal(seen.comicvine.limit, String(metadataSearchLimit('comicvine')));
 
   // Timeout / réseau → soft fallback stub
   globalThis.fetch = async () => {
