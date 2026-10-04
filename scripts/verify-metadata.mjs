@@ -21,9 +21,91 @@ import { comicvineProvider } from '../src/main/metadata/providers/comicvine.js';
 import { openLibraryProvider } from '../src/main/metadata/providers/openlibrary.js';
 import { anilistProvider } from '../src/main/metadata/providers/anilist.js';
 import { mangadexProvider } from '../src/main/metadata/providers/mangadex.js';
-import { googleBooksProvider } from '../src/main/metadata/providers/googlebooks.js';
+import {
+  googleBooksProvider,
+  parseGoogleBookTitle,
+  upgradeGoogleCover,
+  mapGoogleBooksItem,
+} from '../src/main/metadata/providers/googlebooks.js';
 
 // --- helpers ---
+{
+  const p1 = parseGoogleBookTitle('Solo Leveling, Vol. 9 (comic)');
+  assert.equal(p1.series, 'Solo Leveling');
+  assert.equal(p1.volume, 9);
+  const p2 = parseGoogleBookTitle('Solo Leveling, Vol. 1 (novel)');
+  assert.equal(p2.series, 'Solo Leveling');
+  assert.equal(p2.volume, 1);
+  const p3 = parseGoogleBookTitle('Solo Leveling 04');
+  assert.equal(p3.series, 'Solo Leveling');
+  assert.equal(p3.volume, 4);
+  const p4 = parseGoogleBookTitle('Solo Leveling - Dæmongrotten');
+  assert.equal(p4.series, 'Solo Leveling');
+  assert.equal(p4.volume, null);
+  assert.equal(parseGoogleBookTitle('Akira').series, null);
+
+  const cover = upgradeGoogleCover(
+    'http://books.google.com/books/content?id=abc&printsec=frontcover&img=1&zoom=1&edge=curl&source=gbs_api',
+  );
+  assert.ok(cover.startsWith('https://'), 'cover http→https');
+  assert.ok(/zoom=3/i.test(cover), 'cover zoom↑');
+  assert.ok(!/edge=curl/i.test(cover), 'cover sans edge=curl');
+  assert.equal(upgradeGoogleCover(null), null);
+
+  const mapped = mapGoogleBooksItem({
+    id: 'o1wVEQAAQBAJ',
+    volumeInfo: {
+      title: 'Solo Leveling, Vol. 9 (comic)',
+      publishedDate: '2024-08-20',
+      description: 'Jinwoo returns.',
+      seriesInfo: {
+        bookDisplayNumber: '9',
+        volumeSeries: [{ seriesId: 'SYwsGwAAABBklM', orderNumber: 9 }],
+      },
+      imageLinks: {
+        smallThumbnail:
+          'http://books.google.com/books/content?id=o1wVEQAAQBAJ&printsec=frontcover&img=1&zoom=5&edge=curl&source=gbs_api',
+        thumbnail:
+          'http://books.google.com/books/content?id=o1wVEQAAQBAJ&printsec=frontcover&img=1&zoom=1&edge=curl&source=gbs_api',
+      },
+    },
+  });
+  assert.equal(mapped.source, 'googlebooks');
+  assert.equal(mapped.series, 'Solo Leveling');
+  assert.equal(mapped.volume, 9);
+  assert.ok(mapped.coverUrl?.startsWith('https://'));
+  assert.ok(/zoom=3/i.test(mapped.coverUrl));
+  assert.ok(!mapped.coverUrl.includes('edge=curl'));
+
+  // sans imageLinks → pas de cover fabriquée (placeholder Google)
+  const noCover = mapGoogleBooksItem({
+    id: 'nocover',
+    volumeInfo: { title: 'Solo Leveling 04', authors: ['Chugong'] },
+  });
+  assert.equal(noCover.coverUrl, null);
+  assert.equal(noCover.series, 'Solo Leveling');
+  assert.equal(noCover.volume, 4);
+  assert.equal(noCover.author, 'Chugong');
+
+  // shortSeriesBookTitle = titre complet → ignorer, parser le titre
+  const shortDup = mapGoogleBooksItem({
+    id: 'WCU6',
+    volumeInfo: {
+      title: 'Solo Leveling, Vol. 3 (comic)',
+      seriesInfo: {
+        shortSeriesBookTitle: 'Solo Leveling, Vol. 3 (comic)',
+        bookDisplayNumber: '3',
+      },
+      imageLinks: {
+        thumbnail:
+          'https://books.google.com/books/content?id=WCU6&printsec=frontcover&img=1&zoom=1&source=gbs_api',
+      },
+    },
+  });
+  assert.equal(shortDup.series, 'Solo Leveling');
+  assert.equal(shortDup.volume, 3);
+}
+
 assert.equal(parseVolume('03'), 3);
 assert.equal(parseVolume('Vol. 12'), 12);
 assert.equal(parseVolume(null), null);
@@ -367,7 +449,10 @@ globalThis.fetch = async (url, opts = {}) => {
             authors: ['Alan Moore'],
             publishedDate: '1987',
             description: 'Heroes.',
-            imageLinks: { thumbnail: 'https://example.com/w.jpg' },
+            imageLinks: {
+              thumbnail:
+                'http://books.google.com/books/content?id=gb1&printsec=frontcover&img=1&zoom=1&edge=curl&source=gbs_api',
+            },
           },
         },
       ],
@@ -414,7 +499,10 @@ globalThis.fetch = async (url, opts = {}) => {
           name: 'Batman',
           start_year: '1939',
           deck: 'The Dark Knight',
-          image: { thumb_url: 'https://example.com/b.jpg' },
+          image: {
+            thumb_url: 'http://example.com/b-thumb.jpg',
+            medium_url: 'https://example.com/b.jpg',
+          },
         },
       ],
       number_of_total_results: 1,
@@ -435,6 +523,7 @@ try {
   assert.equal(ol[0].author, 'Katsuhiro Otomo');
   assert.equal(ol[0].year, 1984);
   assert.ok(ol[0].coverUrl.includes('covers.openlibrary.org'));
+  assert.ok(ol[0].coverUrl.endsWith('-L.jpg'), 'Open Library cover large');
   assert.equal(seen.openlibrary.q, 'Akira');
   assert.equal(
     seen.openlibrary.limit,
@@ -447,6 +536,8 @@ try {
   assert.equal(al[0].title, 'One Piece');
   assert.equal(al[0].author, 'Eiichiro Oda');
   assert.equal(al[0].year, 1997);
+  assert.equal(al[0].volume, null, 'AniList volumes≠n° tome');
+  assert.equal(al[0].coverUrl, 'https://example.com/op.jpg');
   assert.equal(seen.anilist.search, 'One Piece');
   assert.equal(seen.anilist.perPage, metadataSearchLimit('anilist'));
 
@@ -463,6 +554,7 @@ try {
   assert.equal(md[0].title, 'Fullmetal Alchemist');
   assert.equal(md[0].author, 'Hiromu Arakawa');
   assert.ok(md[0].coverUrl.includes('uploads.mangadex.org'));
+  assert.ok(md[0].coverUrl.endsWith('.512.jpg'), 'MangaDex cover 512');
   assert.equal(seen.mangadex.title, 'Fullmetal');
   assert.equal(seen.mangadex.limit, String(metadataSearchLimit('mangadex')));
 
@@ -471,6 +563,9 @@ try {
   assert.equal(gb[0].source, 'googlebooks');
   assert.equal(gb[0].title, 'Watchmen');
   assert.equal(gb[0].author, 'Alan Moore');
+  assert.ok(gb[0].coverUrl.startsWith('https://books.google.com/'));
+  assert.ok(/zoom=3/i.test(gb[0].coverUrl));
+  assert.ok(!/edge=curl/i.test(gb[0].coverUrl));
   assert.equal(seen.googlebooks.q, 'Watchmen');
   assert.equal(
     seen.googlebooks.maxResults,
@@ -482,6 +577,8 @@ try {
   assert.equal(cv[0].source, 'comicvine');
   assert.equal(cv[0].title, 'Batman');
   assert.equal(cv[0].year, 1939);
+  assert.equal(cv[0].coverUrl, 'https://example.com/b.jpg');
+  assert.equal(cv[0].volume, null, 'volume resource sans issue_number');
   assert.equal(seen.comicvine.query, 'Batman');
   assert.equal(seen.comicvine.limit, String(metadataSearchLimit('comicvine')));
 

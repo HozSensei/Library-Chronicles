@@ -41,6 +41,35 @@ assert(onlySeries.title === undefined, 'filtre sans titre');
 assert(onlySeries.coverUrl === undefined, 'filtre sans cover');
 const onlyCover = filterMetaPatchBySelection(full, { title: false, cover: true, series: false, volume: false, author: false, year: false, synopsis: false });
 assert(onlyCover.coverUrl === 'https://cdn.example/j.jpg', 'filtre jaquette');
+assert(onlyCover.source === 'anilist', 'source suit jaquette');
+
+// Apply Google Books : coverUrl écrit quand « Jaquette » cochée
+const gbFull = metadataPatchFromEnrichResult(
+  {
+    title: 'Solo Leveling, Vol. 9 (comic)',
+    series: 'Solo Leveling',
+    volume: 9,
+    coverUrl:
+      'https://books.google.com/books/content?id=o1wVEQAAQBAJ&printsec=frontcover&img=1&zoom=3&source=gbs_api',
+    source: 'googlebooks',
+  },
+  { title: 'file', series: 'folder', volume: 9 },
+);
+const gbCover = filterMetaPatchBySelection(gbFull, {
+  ...defaultMetaApplySelection(),
+  title: false,
+  series: false,
+  volume: false,
+  author: false,
+  year: false,
+  synopsis: false,
+  cover: true,
+});
+assert(
+  gbCover.coverUrl?.includes('books.google.com'),
+  'modal cover écrit coverUrl GB',
+);
+assert(gbCover.source === 'googlebooks', 'modal cover propage source');
 assert(clampMetaApplyFocus(-1) === 0, 'clamp bas');
 assert(clampMetaApplyFocus(99) === META_APPLY_FOCUS.MAX, 'clamp haut');
 

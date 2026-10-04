@@ -98,6 +98,29 @@ const fromApiSeries = metadataPatchFromEnrichResult(
 assert(fromApiSeries.series === 'One Piece', 'API series prioritaire');
 assert(fromApiSeries.volume === 3, 'volume détecté > total série API');
 
+// Google Books style : cover + série parsée s’appliquent via modal (tous cochés)
+const gbPatch = metadataPatchFromEnrichResult(
+  {
+    title: 'Solo Leveling, Vol. 9 (comic)',
+    series: 'Solo Leveling',
+    volume: 9,
+    author: null,
+    year: 2024,
+    description: 'Jinwoo returns.',
+    coverUrl:
+      'https://books.google.com/books/content?id=o1wVEQAAQBAJ&printsec=frontcover&img=1&zoom=3&source=gbs_api',
+    source: 'googlebooks',
+  },
+  { title: 'solo-t09.cbz', series: 'solo', volume: 9, coverUrl: null },
+);
+assert(gbPatch.coverUrl?.includes('books.google.com'), 'GB coverUrl dans patch');
+assert(gbPatch.series === 'Solo Leveling', 'GB series dans patch');
+assert(gbPatch.volume === 9, 'GB volume fichier conservé');
+assert(
+  normalizeRemoteCoverUrl(gbPatch.coverUrl).startsWith('https://'),
+  'GB cover normalisée https',
+);
+
 // --- normalisation URL jacket ---
 assert(
   normalizeRemoteCoverUrl('http://covers.example/a.jpg') ===
