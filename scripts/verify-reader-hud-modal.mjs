@@ -95,16 +95,25 @@ assert(store.includes('moveHudFocus'), 'store moveHudFocus');
 assert(store.includes('animateScaleTo'), 'zoom smooth animateScaleTo (rAF)');
 assert(store.includes('targetScale'), 'zoom targetScale');
 assert(readerView.includes('reader__strip'), 'strip vertical DOM');
-assert(readerView.includes('data-strip'), 'reader data-strip défaut');
+assert(readerView.includes('data-strip'), 'reader data-strip');
+assert(readerView.includes('data-reading-mode'), 'reader data-reading-mode');
+assert(readerView.includes('reader__stage'), 'mode page reader__stage');
+assert(readerView.includes('reader__page'), 'mode page reader__page');
 assert(
   /\.reader__strip-page\s*\{[\s\S]*?width:\s*100%/.test(readerView),
   'strip pages fit-width implicite (width 100%)',
 );
 assert(store.includes('loadStripWindow'), 'store loadStripWindow');
 assert(store.includes('setPageFromStripScroll'), 'store setPageFromStripScroll');
+assert(store.includes('readingMode'), 'store readingMode strip|page');
+assert(store.includes('toggleReadingMode'), 'store toggleReadingMode');
+assert(store.includes('zoomBy(steps)'), 'store zoomBy restauré');
 assert(!store.includes('toggleWebtoon'), 'plus de toggleWebtoon');
 assert(!hud.includes('Mode webtoon'), 'HUD sans bouton Mode webtoon');
-assert(hud.includes('strip vertical'), 'HUD meta strip vertical');
+assert(hud.includes('Page par page'), 'HUD bascule Page par page');
+assert(hud.includes('Strip vertical'), 'HUD bascule Strip vertical');
+assert(hud.includes('toggleReadingMode'), 'HUD appelle toggleReadingMode');
+assert(hud.includes('Stick'), 'HUD hints manette stick/zoom');
 
 assert(gamepad.includes('reader.hudVisible'), 'gamepad branche modal pause');
 assert(gamepad.includes('closeHud()'), 'B/Select → closeHud en pause');

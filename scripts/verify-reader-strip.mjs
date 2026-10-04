@@ -1,5 +1,5 @@
 /**
- * Strip vertical défaut : fenêtre ~4–5 pages + prefetch, sans mode webtoon.
+ * Strip vertical défaut + mode page optionnel + zoom/stick restaurés.
  */
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -43,21 +43,36 @@ const gamepad = readFileSync(
   join(root, 'src/renderer/src/composables/useGamepad.js'),
   'utf8',
 );
+const profiles = readFileSync(join(root, 'src/main/database/profiles.js'), 'utf8');
 
 assert.match(store, /stripWindowRange/);
 assert.match(store, /loadStripWindow/);
 assert.match(store, /setPageFromStripScroll/);
 assert.match(store, /stripScrollToken/);
-assert.doesNotMatch(store, /this\.webtoonMode/);
+assert.match(store, /readingMode/);
+assert.match(store, /toggleReadingMode/);
+assert.match(store, /isStripMode/);
+assert.match(store, /zoomBy\(steps\)/);
+assert.match(store, /ZOOM_STEP/);
 assert.doesNotMatch(store, /toggleWebtoon/);
 assert.doesNotMatch(keys, /toggle-webtoon/);
 assert.doesNotMatch(hud, /Mode webtoon/);
 assert.doesNotMatch(gamepad, /toggle-webtoon/);
-assert.doesNotMatch(gamepad, /webtoonMode/);
+assert.match(hud, /Page par page/);
+assert.match(hud, /Strip vertical/);
+assert.match(hud, /toggleReadingMode/);
 assert.match(view, /data-strip/);
+assert.match(view, /data-reading-mode/);
 assert.match(view, /reader__strip/);
+assert.match(view, /reader__stage/);
+assert.match(view, /reader__page/);
 assert.match(view, /setPageFromStripScroll/);
 assert.match(gamepad, /reader__strip/);
-assert.match(gamepad, /zoom-in.*stepPage\('prev'\)/s);
+assert.match(gamepad, /zoomBy\(1\)/);
+assert.match(gamepad, /zoomBy\(-1\)/);
+assert.match(gamepad, /isStripMode/);
+assert.match(gamepad, /isZoomed/);
+assert.match(profiles, /readingMode/);
+assert.match(profiles, /readingModeFromRow|readingMode === 'page'/);
 
 console.log('verify-reader-strip: ok');

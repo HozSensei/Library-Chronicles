@@ -64,7 +64,7 @@ CREATE TABLE IF NOT EXISTS profile_prefs (
   profile_id INTEGER PRIMARY KEY REFERENCES profiles(id) ON DELETE CASCADE,
   reading_direction TEXT DEFAULT 'ltr',
   default_fit_mode TEXT DEFAULT 'fit-height',
-  webtoon_mode INTEGER DEFAULT 0,
+  webtoon_mode INTEGER DEFAULT 0, /* 0=strip (défaut), 1=page — legacy name */
   brightness REAL DEFAULT 1,
   contrast REAL DEFAULT 1,
   sepia REAL DEFAULT 0,

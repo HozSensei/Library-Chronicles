@@ -11,7 +11,7 @@ const ui = useUiStore();
 const focusIds = computed(() => {
   const ids = ['tab-main', 'tab-filters', 'tab-bookmarks'];
   if (reader.hudPanel === 'main') {
-    ids.push('quit', 'direction', 'bookmark');
+    ids.push('quit', 'direction', 'reading-mode', 'bookmark');
     if (reader.prevVolumeOffer) ids.push('prev-volume');
     if (reader.nextVolumeOffer) ids.push('next-volume');
   } else if (reader.hudPanel === 'filters') {
@@ -181,7 +181,8 @@ async function quitReading() {
           <div class="hud__meta">
             <span>
               {{ reader.direction.toUpperCase() }}
-              · strip vertical
+              · {{ reader.isStripMode ? 'strip vertical' : 'page par page' }}
+              <template v-if="reader.isPageMode"> · {{ reader.fitMode }}</template>
               <template v-if="reader.currentChapter">
                 · {{ reader.currentChapter.name }}
               </template>
@@ -209,6 +210,15 @@ async function quitReading() {
               @click="reader.toggleDirection()"
             >
               Sens {{ reader.direction.toUpperCase() }}
+            </button>
+            <button
+              type="button"
+              class="ghost"
+              data-hud-focus
+              :class="{ 'is-focused': isFocused('reading-mode') }"
+              @click="reader.toggleReadingMode()"
+            >
+              {{ reader.isStripMode ? 'Page par page' : 'Strip vertical' }}
             </button>
             <button
               type="button"
@@ -405,7 +415,15 @@ async function quitReading() {
         </div>
       </div>
 
-      <p class="hud__hint">A valider · B fermer · Select pause · ↑↓ focus</p>
+      <p class="hud__hint">
+        A valider · B fermer · Select pause · ↑↓ focus
+        <template v-if="reader.isStripMode">
+          · Stick ↕ scroll · ←→ zoom · L3 zoom
+        </template>
+        <template v-else>
+          · Stick pan · ←→ zoom · L3 fit · ↑↓ page
+        </template>
+      </p>
     </div>
   </aside>
 </template>
