@@ -117,6 +117,14 @@ assert(view.includes("t('book.readStrip')"), 'libellé i18n strip');
 assert(view.includes("t('book.readEpub')"), 'libellé i18n EPUB');
 assert(view.includes("t('book.readEpubSub')"), 'hint lecteur basique EPUB');
 assert(view.includes("t('book.readFormatIncompatible')"), 'reason format non compatible');
+assert(view.includes('book-detail__action-sub--danger'), 'hint incompatible en rouge');
+assert(view.includes('pageHintIncompatible'), 'flag hint page incompatible');
+assert(view.includes('var(--danger)'), 'token --danger pour hint incompatible');
+assert(
+  view.includes('paper-dim) 14%, var(--surface)') ||
+    view.includes('paper-dim) 14%,var(--surface)'),
+  'CTA disabled gris neutre (pas accent)',
+);
 assert(view.includes('pageDisabled'), 'page peut être grisé (EPUB)');
 assert(view.includes('epubDisabled'), 'EPUB peut être grisé (images)');
 assert(view.includes('defaultReadFocus'), 'focus CTA selon format');
