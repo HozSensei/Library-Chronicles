@@ -326,7 +326,7 @@ assert(store.includes("detailTab: 'infos'"), 'store detailTab');
 assert(store.includes('setDetailTab'), 'store setDetailTab');
 assert(store.includes('setFlow'), 'store setFlow (list|sheet|meta-search)');
 assert(store.includes('openMetaSearch'), 'store openMetaSearch');
-assert(store.includes('entryIntent'), 'store entryIntent');
+assert(store.includes('selectByItemKey'), 'store selectByItemKey');
 assert(store.includes('searchQuery'), 'store searchQuery');
 assert(store.includes('async openDetail'), 'store openDetail');
 assert(store.includes('closeDetail'), 'store closeDetail');
@@ -377,9 +377,10 @@ assert(view.includes('import__sheet-hero'), 'hero cover + méta');
 assert(view.includes('import__sheet-headline'), 'titre formulaire');
 assert(view.includes('import__sheet-actions'), 'footer actions fiche');
 assert(view.includes('openMetaSearch'), 'ouvrir recherche méta');
-assert(view.includes('consumeEntryIntent'), 'reprise flow au mount');
+assert(view.includes('syncFromRoute'), 'reprise flow depuis la route');
 assert(view.includes('existingBookId'), 'route vers BookDetail si importé');
-assert(view.includes("from: 'import'"), 'query from=import');
+assert(view.includes('bookDetailLocation'), 'fiche import via bookDetailLocation');
+assert(!view.includes("from: 'import'"), 'plus query from=import');
 assert(view.includes('import__enrich-cover'), 'carte résultat jaquette');
 assert(view.includes('import__enrich-title'), 'carte résultat titre');
 assert(view.includes('import__enrich-series'), 'carte résultat série');
@@ -398,12 +399,15 @@ assert(!view.includes('Retour biblio</span>'), 'plus bouton Retour biblio');
 assert(!view.includes('conf.'), 'plus clutter confiance résultat');
 assert(view.includes('ControlHint'), 'footer = ControlHint');
 
-assert(gamepad.includes('imp.openSheet'), 'gamepad A → openSheet (brouillon)');
 assert(
-  gamepad.includes('existingBookId'),
+  gamepad.includes('importItemLocation'),
+  'gamepad A → importItemLocation (brouillon)',
+);
+assert(
+  gamepad.includes('bookDetailLocation'),
   'gamepad A → BookDetail si déjà importé',
 );
-assert(gamepad.includes("from: 'import'"), 'gamepad query from=import');
+assert(!gamepad.includes("from: 'import'"), 'plus query from=import');
 assert(gamepad.includes("action === 'import-one'"), 'gamepad import-one');
 assert(
   gamepad.includes("action === 'import-all' || action === 'enrich'"),

@@ -10,10 +10,14 @@ import {
   BOOK_FOCUS,
   isBookEditableFocus,
 } from '../../../shared/book-focus.js';
-import { IMPORT_SEARCH_FIELDS } from '../../../shared/import-focus.js';
-import { META_RETURN } from '../../../shared/import-flow.js';
 import { scheduleScrollFocusedIntoView } from '../../../shared/focus-scroll.js';
 import { focusTextInputForEdit } from '../../../shared/virtual-keyboard.js';
+import {
+  ROUTE,
+  bookMetaLocation,
+  bookRouteContext,
+  resolveParentLocation,
+} from '../../../shared/app-routes.js';
 
 const route = useRoute();
 const router = useRouter();
@@ -21,8 +25,10 @@ const library = useLibraryStore();
 const imp = useImportStore();
 const ui = useUiStore();
 
-/** Ouvert depuis la liste import — B revient à l’import, pas la biblio. */
-const fromImport = computed(() => route.query.from === 'import');
+/** Contexte route : import-book → B liste import ; library-book → B biblio. */
+const fromImport = computed(
+  () => bookRouteContext(route.name) === 'import',
+);
 
 const book = ref(null);
 const loading = ref(true);
@@ -216,25 +222,28 @@ function read() {
 
 function back() {
   void saveDraft().then(() => {
-    if (fromImport.value) {
-      imp.goToList();
-      ui.setImportFocusZone('list');
-      ui.setImportFocus(0);
-      router.push({ name: 'import' });
+    const parent = resolveParentLocation(route);
+    if (parent) {
+      if (parent.name === ROUTE.IMPORT) {
+        imp.goToList();
+        ui.setImportFocusZone('list');
+        ui.setImportFocus(0);
+      }
+      router.push(parent);
       return;
     }
-    router.push({ name: 'library' });
+    router.push({ name: ROUTE.LIBRARY });
   });
 }
 
 /**
- * Ouvre le flow meta-search (Recherche API) sans dump vers la liste.
- * Pose entryIntent pour qu’ImportView.onMounted ne closeDetail() pas.
+ * Ouvre la recherche méta en route enfant `…/meta` (B = fiche parent).
  */
 function goImportMeta() {
   void saveDraft().then(async () => {
     const bookId = book.value?.id;
     const filePath = book.value?.filePath;
+    const ctx = bookRouteContext(route.name);
     try {
       if (!imp.items.length) await imp.scan();
       const idx = imp.items.findIndex(
@@ -244,33 +253,27 @@ function goImportMeta() {
             (item.filePath === filePath ||
               item.detected?.title === book.value?.title)),
       );
-      if (idx >= 0) {
-        const ok = await imp.openMetaSearch({
-          index: idx,
-          returnTo: META_RETURN.BOOK,
-          bookId,
-          entryIntent: true,
-        });
-        if (ok) {
-          ui.setImportFocusZone('fields');
-          ui.setImportFocus(IMPORT_SEARCH_FIELDS.QUERY);
-          router.push({ name: 'import' });
-          return;
-        }
+      if (idx >= 0 && bookId != null) {
+        imp.cursor = idx;
+        imp.metaReturnBookId = bookId;
+        router.push(bookMetaLocation(bookId, ctx));
+        return;
       }
     } catch (err) {
       console.warn('[VDR] ouvrir méta import:', err?.message || err);
     }
-    // Fallback : liste import (fichier hors dossier import)
-    imp.goToList();
-    router.push({ name: 'import' });
+    router.push({ name: ROUTE.IMPORT });
   });
 }
 
 function openSibling(id) {
   if (!id || String(id) === String(book.value?.id)) return;
   void saveDraft().then(() => {
-    router.push({ name: 'book', params: { id: String(id) } });
+    const ctx = bookRouteContext(route.name);
+    router.push({
+      name: ctx === 'import' ? ROUTE.IMPORT_BOOK : ROUTE.LIBRARY_BOOK,
+      params: { id: String(id) },
+    });
   });
 }
 
@@ -287,7 +290,10 @@ function openSeriesPage() {
     )?.seriesId;
   if (!sid) return;
   void saveDraft().then(() => {
-    router.push({ name: 'series', params: { seriesId: String(sid) } });
+    router.push({
+      name: ROUTE.LIBRARY_SERIES,
+      params: { seriesId: String(sid) },
+    });
   });
 }
 

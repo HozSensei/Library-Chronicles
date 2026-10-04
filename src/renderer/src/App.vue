@@ -85,7 +85,10 @@ onMounted(async () => {
             ui.routeName === 'library' ||
             ui.routeName === 'boot' ||
             ui.routeName === 'book' ||
-            ui.routeName === 'series'
+            ui.routeName === 'library-book' ||
+            ui.routeName === 'import-book' ||
+            ui.routeName === 'series' ||
+            ui.routeName === 'library-series'
           ) {
             await library.syncFromWatch();
           } else {
@@ -100,7 +103,13 @@ onMounted(async () => {
     unsubs.push(
       window.vdr.watch.onImportChanged(async () => {
         try {
-          if (ui.routeName === 'import') {
+          if (
+            ui.routeName === 'import' ||
+            ui.routeName === 'import-item' ||
+            ui.routeName === 'import-item-meta' ||
+            ui.routeName === 'import-book-meta' ||
+            ui.routeName === 'library-book-meta'
+          ) {
             const prev = imp.selected?.filePath;
             await imp.scan();
             if (prev) {

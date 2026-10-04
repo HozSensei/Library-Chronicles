@@ -130,7 +130,10 @@ function statusBadge(status) {
 
 function openVolume(book) {
   if (!book?.id) return;
-  router.push({ name: 'book', params: { id: String(book.id) } });
+  router.push({
+    name: 'library-book',
+    params: { id: String(book.id) },
+  });
 }
 
 function openFocused() {
