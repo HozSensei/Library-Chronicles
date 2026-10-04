@@ -6,6 +6,7 @@ import LazyCover from '../components/LazyCover.vue';
 import { useImportStore } from '../stores/import';
 import { useLibraryStore } from '../stores/library';
 import { useUiStore } from '../stores/ui';
+import { useI18n } from '../composables/useI18n';
 import {
   BOOK_FOCUS,
   isBookEditableFocus,
@@ -20,6 +21,7 @@ const router = useRouter();
 const library = useLibraryStore();
 const imp = useImportStore();
 const ui = useUiStore();
+const { t } = useI18n();
 
 /** Ouvert depuis la liste import — B revient à l’import, pas la biblio. */
 const fromImport = computed(() => route.query.from === 'import');
@@ -95,9 +97,9 @@ const seriesRail = computed(() => {
 });
 
 const hints = computed(() => [
-  { key: '↑↓', label: 'champ' },
-  { key: 'A', label: 'éditer / lire' },
-  { key: 'B', label: fromImport.value ? 'retour liste' : 'retour biblio' },
+  { key: '↑↓', label: t('book.hintField') },
+  { key: 'A', label: t('book.hintEditRead') },
+  { key: 'B', label: fromImport.value ? t('book.hintBackList') : t('book.hintBackLibrary') },
 ]);
 
 function syncDraftFromBook(b) {
@@ -344,7 +346,7 @@ function onEditableKeydown(ev) {
 </script>
 
 <template>
-  <section class="book-detail" aria-label="Fiche livre">
+  <section class="book-detail" :aria-label="t('book.aria')">
     <div class="book-detail__atmosphere" aria-hidden="true" />
 
     <header class="book-detail__head">
@@ -358,14 +360,14 @@ function onEditableKeydown(ev) {
     <div v-if="loading" class="book-detail__state">Chargement…</div>
 
     <div v-else-if="!book" class="book-detail__state book-detail__state--stack">
-      <p class="book-detail__empty-title">Livre introuvable</p>
+      <p class="book-detail__empty-title">{{ t('book.missing') }}</p>
       <button
         type="button"
         class="book-detail__action is-primary"
         :class="{ 'is-focused': true }"
         @click="back"
       >
-        <span class="book-detail__action-label">Retour bibliothèque</span>
+        <span class="book-detail__action-label">{{ t('book.backLibrary') }}</span>
       </button>
     </div>
 
@@ -627,7 +629,7 @@ function onEditableKeydown(ev) {
             :disabled="!book.filePath"
             @click="activateFooter(BOOK_FOCUS.READ)"
           >
-            <span class="book-detail__action-label">Lire</span>
+            <span class="book-detail__action-label">{{ t('book.read') }}</span>
             <span class="book-detail__action-sub">Ouvrir le lecteur</span>
           </button>
           <button
@@ -637,7 +639,7 @@ function onEditableKeydown(ev) {
             :class="{ 'is-focused': footerFocused(BOOK_FOCUS.META) }"
             @click="activateFooter(BOOK_FOCUS.META)"
           >
-            <span class="book-detail__action-label">Importer des méta</span>
+            <span class="book-detail__action-label">{{ t('book.importMeta') }}</span>
             <span class="book-detail__action-sub">Recherche API</span>
           </button>
         </div>

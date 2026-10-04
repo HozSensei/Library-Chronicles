@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import { useToastStore } from './toast.js';
+import { t } from '../../../shared/i18n.js';
 
 export const useProfilesStore = defineStore('profiles', {
   state: () => ({
@@ -56,10 +57,10 @@ export const useProfilesStore = defineStore('profiles', {
       try {
         const profile = await window.vdr.profiles.create({ name, color });
         await this.refresh();
-        toast.success(`Profil créé · ${profile?.name || name || 'Lecteur'}`);
+        toast.success(t('toast.profileCreated', { name: profile?.name || name || t('common.profile') }));
         return profile;
       } catch (err) {
-        toast.error(err?.message || 'Échec création profil');
+        toast.error(err?.message || t('toast.profileCreateFail'));
         throw err;
       }
     },

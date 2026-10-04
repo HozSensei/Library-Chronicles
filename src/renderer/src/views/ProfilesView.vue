@@ -5,6 +5,7 @@ import ControlHint from '../components/ControlHint.vue';
 import AppBrandLogo from '../components/AppBrandLogo.vue';
 import { useProfilesStore } from '../stores/profiles';
 import { useUiStore } from '../stores/ui';
+import { useI18n } from '../composables/useI18n';
 import {
   markProfileSelected,
   clearSetupGate,
@@ -16,6 +17,7 @@ import { focusTextInputForEdit } from '../../../shared/virtual-keyboard.js';
 const router = useRouter();
 const profiles = useProfilesStore();
 const ui = useUiStore();
+const { t } = useI18n();
 
 const newName = ref('');
 const creating = ref(false);
@@ -39,10 +41,10 @@ const focused = computed(() =>
 const isAddFocused = computed(() => focused.value === profiles.profiles.length);
 const isNaming = computed(() => phase.value === 'naming');
 const formTitle = computed(() =>
-  editingId.value != null ? 'Modifier le profil' : 'Nouveau profil',
+  editingId.value != null ? t('profiles.editProfile') : t('profiles.newProfile'),
 );
 const submitLabel = computed(() =>
-  editingId.value != null ? 'Enregistrer' : 'Créer',
+  editingId.value != null ? t('profiles.save') : t('profiles.create'),
 );
 const previewInitial = computed(() => {
   const n = newName.value.trim();
@@ -63,24 +65,24 @@ const hints = computed(() => {
   if (isNaming.value) {
     if (formFocus.value === 1) {
       return [
-        { key: '←→', label: 'couleur' },
-        { key: '↑↓', label: 'champ / valider' },
-        { key: 'A', label: 'valider' },
-        { key: 'B', label: 'annuler' },
+        { key: '←→', label: t('profiles.hintColor') },
+        { key: '↑↓', label: t('profiles.hintFieldValidate') },
+        { key: 'A', label: t('profiles.hintValidate') },
+        { key: 'B', label: t('profiles.hintCancel') },
       ];
     }
     return [
-      { key: '↑↓', label: 'naviguer' },
-      { key: '←→', label: formFocus.value === 0 ? 'couleur' : 'champ' },
-      { key: 'A', label: formFocus.value === 2 ? 'valider' : 'clavier' },
-      { key: 'B', label: 'annuler' },
+      { key: '↑↓', label: t('profiles.hintNav') },
+      { key: '←→', label: formFocus.value === 0 ? t('profiles.hintColor') : t('profiles.hintField') },
+      { key: 'A', label: formFocus.value === 2 ? t('profiles.hintValidate') : t('profiles.hintKeyboard') },
+      { key: 'B', label: t('profiles.hintCancel') },
     ];
   }
   return [
-    { key: '←→', label: 'naviguer' },
-    { key: 'A', label: 'choisir' },
-    { key: 'Y', label: 'modifier' },
-    { key: '+', label: 'créer' },
+    { key: '←→', label: t('profiles.hintNav') },
+    { key: 'A', label: t('profiles.hintChoose') },
+    { key: 'Y', label: t('profiles.hintEdit') },
+    { key: '+', label: t('profiles.hintCreate') },
   ];
 });
 
@@ -186,6 +188,7 @@ async function choose(index) {
     theme: prefs?.theme,
     accent: prefs?.accent,
   });
+  if (prefs?.language) ui.applyLanguage(prefs.language);
   await afterSelect();
 }
 
@@ -213,7 +216,7 @@ async function submitName() {
       (editingId.value != null
         ? profiles.profiles.find((p) => p.id === editingId.value)?.name
         : null) ||
-      `Lecteur ${profiles.profiles.length + 1}`;
+      t('profiles.defaultName', { n: profiles.profiles.length + 1 });
 
     if (editingId.value != null) {
       await profiles.update(editingId.value, {
@@ -346,7 +349,7 @@ defineExpose({
 </script>
 
 <template>
-  <section class="profiles" aria-label="Choix du profil">
+  <section class="profiles" :aria-label="t('profiles.aria')">
     <div class="profiles__atmosphere" aria-hidden="true">
       <div class="profiles__wash" />
       <div class="profiles__vignette" />
@@ -355,7 +358,7 @@ defineExpose({
     <div class="profiles__stage">
       <header class="profiles__brand">
         <AppBrandLogo size="hero" class="profiles__logo" />
-        <p class="profiles__prompt">Qui lit ?</p>
+        <p class="profiles__prompt">{{ t('profiles.prompt') }}</p>
       </header>
 
       <div
@@ -394,13 +397,13 @@ defineExpose({
           class="avatar avatar--add"
           :class="{ 'is-focused': isAddFocused }"
           role="listitem"
-          aria-label="Ajouter un profil"
+          :aria-label="t('profiles.addAria')"
           @click="onAddClick"
         >
           <span class="avatar__halo" aria-hidden="true">
             <span class="avatar__disk avatar__disk--add">+</span>
           </span>
-          <span class="avatar__name">Ajouter</span>
+          <span class="avatar__name">{{ t('profiles.add') }}</span>
         </button>
       </div>
 
@@ -428,7 +431,7 @@ defineExpose({
             v-model="newName"
             type="text"
             maxlength="32"
-            placeholder="Pseudo"
+            :placeholder="t('profiles.placeholder')"
             autocomplete="off"
             enterkeyhint="done"
             inputmode="text"
@@ -440,7 +443,7 @@ defineExpose({
         <div
           class="profiles__colors"
           role="listbox"
-          aria-label="Couleur de l’icône"
+          :aria-label="t('profiles.colorAria')"
           :class="{ 'is-focused': formFocus === 1 }"
         >
           <button
@@ -452,7 +455,7 @@ defineExpose({
             :aria-selected="selectedColor === c"
             :class="{ 'is-active': selectedColor === c }"
             :style="{ '--swatch': c }"
-            :aria-label="`Couleur ${c}`"
+            :aria-label="t('profiles.colorNamed', { color: c })"
             @click="setColor(c)"
           />
         </div>
@@ -466,7 +469,7 @@ defineExpose({
         >
           {{ submitLabel }}
         </button>
-        <button type="button" class="ghost" @click="cancelNaming">Annuler</button>
+        <button type="button" class="ghost" @click="cancelNaming">{{ t('profiles.cancel') }}</button>
       </form>
     </div>
 

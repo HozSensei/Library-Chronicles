@@ -1,4 +1,6 @@
 <script setup>
+import { useI18n } from '../composables/useI18n';
+const { t } = useI18n();
 defineProps({
   items: {
     type: Array,
@@ -8,7 +10,7 @@ defineProps({
 </script>
 
 <template>
-  <ul class="hints" aria-label="Raccourcis manette">
+  <ul class="hints" :aria-label="t('controlHint.aria')">
     <li v-for="item in items" :key="item.key" class="hints__item">
       <kbd>{{ item.key }}</kbd>
       <span>{{ item.label }}</span>

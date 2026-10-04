@@ -6,37 +6,39 @@ import GamepadBadge from '../components/GamepadBadge.vue';
 import ControlHint from '../components/ControlHint.vue';
 import AppBrandLogo from '../components/AppBrandLogo.vue';
 import { useUiStore } from '../stores/ui';
+import { useI18n } from '../composables/useI18n';
 import { useLibraryStore } from '../stores/library';
 
 const router = useRouter();
 const ui = useUiStore();
 const library = useLibraryStore();
+const { t } = useI18n();
 
 const actions = computed(() => {
   const list = [
     {
       id: 'library',
-      label: 'Bibliothèque',
-      subtitle: 'Parcourir tes tomes',
+      label: t('boot.library'),
+      subtitle: t('boot.librarySub'),
       to: 'library',
     },
     {
       id: 'import',
-      label: 'Import',
-      subtitle: 'Scanner le dossier import',
+      label: t('boot.import'),
+      subtitle: t('boot.importSub'),
       to: 'import',
     },
     {
       id: 'settings',
-      label: 'Paramètres',
-      subtitle: 'Thème · manette · API',
+      label: t('boot.settings'),
+      subtitle: t('boot.settingsSub'),
       to: 'settings',
     },
   ];
   if (library.continueBook) {
     list.unshift({
       id: 'continue',
-      label: 'Continuer',
+      label: t('boot.continue'),
       subtitle: library.continueBook.title,
       to: 'reader',
       filePath: library.continueBook.filePath,
@@ -45,10 +47,10 @@ const actions = computed(() => {
   return list;
 });
 
-const hints = [
-  { key: '↑↓', label: 'naviguer' },
-  { key: 'A', label: 'valider' },
-];
+const hints = computed(() => [
+  { key: '↑↓', label: t('common.navigate') },
+  { key: 'A', label: t('common.confirm') },
+]);
 
 const focusedIndex = computed(() =>
   Math.min(ui.bootFocusIndex, Math.max(0, actions.value.length - 1)),
@@ -72,7 +74,7 @@ function select(index) {
 </script>
 
 <template>
-  <section class="boot" aria-label="Accueil Library Chronicles">
+  <section class="boot" :aria-label="t('boot.aria')">
     <div class="boot__atmosphere" aria-hidden="true">
       <div class="boot__wash" />
       <div class="boot__grain" />
@@ -81,17 +83,15 @@ function select(index) {
 
     <header class="boot__brand">
       <AppBrandLogo size="hero" class="boot__mark" />
-      <h1 class="boot__headline">La planche, à la verticale.</h1>
-      <p class="boot__lead">
-        Lecture BD & manga pensée manette — menus en paysage, lecture en portrait.
-      </p>
+      <h1 class="boot__headline">{{ t('boot.headline') }}</h1>
+<p class="boot__lead">{{ t('boot.lead') }}</p>
     </header>
 
     <div class="boot__meta">
       <GamepadBadge />
     </div>
 
-    <nav class="boot__nav" aria-label="Menu principal">
+    <nav class="boot__nav" :aria-label="t('boot.navAria')">
       <FocusButton
         v-for="(action, index) in actions"
         :key="action.id"
@@ -105,7 +105,7 @@ function select(index) {
 
     <footer class="boot__footer">
       <ControlHint :items="hints" />
-      <p class="boot__phase">Setup · Import · Lecture</p>
+      <p class="boot__phase">{{ t('boot.phase') }}</p>
     </footer>
   </section>
 </template>

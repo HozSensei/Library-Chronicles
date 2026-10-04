@@ -55,6 +55,7 @@ assert(setupFocusables(0)[idx] === 'import', '↑ : next → import');
 // Préférences = step 1
 const prefs = setupFocusRows(1);
 assert(prefs.length === 4, 'prefs : 4 rangées (mode, accents, langue, next)');
+assert(prefs[2].join(',') === 'lang-fr,lang-en', 'langue FR+EN côte à côte');
 idx = 0;
 idx = moveSetupFocus(prefs, idx, 'right');
 assert(setupFocusables(1)[idx] === 'theme-light', 'thème → light');

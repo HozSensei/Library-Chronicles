@@ -51,6 +51,7 @@ import {
   shouldBlockGamepadConfirmForText,
 } from '../../../shared/text-input-focus.js';
 import { focusTextInputForEdit, showVirtualKeyboard } from '../../../shared/virtual-keyboard.js';
+import { t } from '../../../shared/i18n.js';
 
 const BUTTON = GamepadButtons;
 
@@ -1229,7 +1230,7 @@ function createLoop(ctx) {
       }
 
       if (!pad) {
-        ui.setGamepadStatus({ connected: false, label: 'Manette en attente…' });
+        ui.setGamepadStatus({ connected: false, label: t('gamepad.waiting') });
         ui.setHapticsAvailable(false);
         prevButtons = [];
         stickMenuNav.reset();
@@ -1237,10 +1238,10 @@ function createLoop(ctx) {
         const short = pad.id.length > 36 ? `${pad.id.slice(0, 36)}…` : pad.id;
         const hapticOk = hasHaptics(pad);
         ui.setHapticsAvailable(hapticOk);
-        const modeLabel = orientation === DeviceOrientation.PORTRAIT_CCW ? 'lecture' : 'menus';
+        const modeLabel = orientation === DeviceOrientation.PORTRAIT_CCW ? t('gamepad.modeReader') : t('gamepad.modeMenus');
         ui.setGamepadStatus({
           connected: true,
-          label: `${short} · ${modeLabel}${hapticOk && ui.hapticsEnabled ? ' · rumble' : ''}`,
+          label: `${short} · ${modeLabel}${hapticOk && ui.hapticsEnabled ? ` · ${t('gamepad.rumble')}` : ''}`,
         });
 
         const rawX = applyDeadzone(pad.axes[0] || 0);

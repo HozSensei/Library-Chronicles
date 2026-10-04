@@ -1,0 +1,99 @@
+/**
+ * Vérifie le module i18n FR/EN (locale, t, accents).
+ */
+import {
+  DEFAULT_LOCALE,
+  LOCALES,
+  getLocale,
+  interpolate,
+  normalizeLocale,
+  setLocale,
+  t,
+  accentLabelI18n,
+  MESSAGES,
+} from '../src/shared/i18n.js';
+import { accentLabel } from '../src/shared/theme-accents.js';
+import { setupFocusRows, setupFocusables } from '../src/shared/setup-focus.js';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const root = path.resolve(__dirname, '..');
+
+let failed = 0;
+function assert(cond, msg) {
+  if (!cond) {
+    console.error('FAIL', msg);
+    failed += 1;
+  } else {
+    console.log('OK  ', msg);
+  }
+}
+
+assert(DEFAULT_LOCALE === 'fr', 'locale défaut fr');
+assert(LOCALES.includes('fr') && LOCALES.includes('en'), 'LOCALES fr+en');
+assert(normalizeLocale('en') === 'en', 'normalize en');
+assert(normalizeLocale('anglais') === 'en', 'normalize anglais');
+assert(normalizeLocale('EN-US') === 'en', 'normalize EN-US');
+assert(normalizeLocale('fr') === 'fr', 'normalize fr');
+assert(normalizeLocale('de') === 'fr', 'inconnu → fr');
+
+setLocale('en');
+assert(getLocale() === 'en', 'setLocale en');
+assert(t('lang.en') === 'English', 't lang.en');
+assert(t('setup.prefsTitle') === 'Preferences', 't setup prefs EN');
+assert(t('boot.library') === 'Library', 't boot library EN');
+assert(accentLabel('amber') === 'Brass', 'accentLabel amber EN');
+assert(accentLabelI18n('blue', 'en') === 'Blue', 'accentLabelI18n blue EN');
+
+setLocale('fr');
+assert(t('lang.fr') === 'Français', 't lang.fr');
+assert(accentLabel('amber') === 'Laiton', 'accentLabel amber FR');
+assert(interpolate('Hello {name}', { name: 'VDR' }) === 'Hello VDR', 'interpolate');
+assert(t('missing.key.zzz') === 'missing.key.zzz', 'missing key → key');
+
+// Dictionnaires couvrent les namespaces UI
+for (const loc of ['fr', 'en']) {
+  for (const ns of [
+    'boot',
+    'setup',
+    'profiles',
+    'library',
+    'settings',
+    'import',
+    'book',
+    'seriesDetail',
+    'reader',
+    'toast',
+    'lang',
+  ]) {
+    assert(MESSAGES[loc][ns] && typeof MESSAGES[loc][ns] === 'object', `${loc}.${ns} présent`);
+  }
+}
+
+// Setup focus inclut Anglais
+const prefs = setupFocusRows(1);
+const flat = setupFocusables(1);
+assert(flat.includes('lang-fr') && flat.includes('lang-en'), 'setup focus lang-fr + lang-en');
+assert(prefs.some((row) => row.includes('lang-fr') && row.includes('lang-en')), 'langue côte à côte');
+
+// Vues branchées
+function read(rel) {
+  return fs.readFileSync(path.join(root, rel), 'utf8');
+}
+const setup = read('src/renderer/src/views/SetupView.vue');
+assert(setup.includes("setLanguage('en')") || setup.includes('lang-en'), 'SetupView switch EN');
+assert(setup.includes('useI18n'), 'SetupView useI18n');
+const settings = read('src/renderer/src/views/SettingsView.vue');
+assert(settings.includes("setLanguage('en')"), 'SettingsView setLanguage en');
+assert(settings.includes('useI18n'), 'SettingsView useI18n');
+const uiStore = read('src/renderer/src/stores/ui.js');
+assert(uiStore.includes('async setLanguage'), 'ui.setLanguage');
+assert(uiStore.includes('applyLanguage'), 'ui.applyLanguage');
+
+if (failed) {
+  console.error(`\n${failed} échec(s)`);
+  process.exit(1);
+}
+console.log('\ni18n OK');
