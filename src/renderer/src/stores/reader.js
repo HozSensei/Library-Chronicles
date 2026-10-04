@@ -647,7 +647,7 @@ export const useReaderStore = defineStore('reader', {
       this.zoom = 1;
       this.offsetX = 0;
       this.offsetY = 0;
-      this.fitMode = 'fit-page';
+      if (!this.isStripMode) this.fitMode = 'fit-page';
       this._refitPending = true;
     },
     /**
@@ -658,6 +658,8 @@ export const useReaderStore = defineStore('reader', {
      */
     pan(dx, dy, speed = PAGE_PAN_SPEED) {
       if (this.isStripMode) return false;
+      // Le pan est continu (une frame par tick) : jamais de transition CSS.
+      if (this.zoomTransition) this.clearZoomAnim();
       const next = panBy(
         { x: this.offsetX, y: this.offsetY },
         { x: dx, y: dy },
