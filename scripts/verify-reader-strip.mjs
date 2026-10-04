@@ -114,7 +114,14 @@ assert.match(gamepad, /Mode page — contrôles identiques/);
 assert.match(gamepad, /reader\.resetZoom\(\)/);
 assert.match(gamepad, /reader\.zoomBy\(1\)/);
 assert.match(gamepad, /reader\.pan\(stickLocal\.x,\s*stickLocal\.y\)/);
-assert.doesNotMatch(view, /stripStyle[\s\S]*panX/);
+{
+  const m = view.match(
+    /const stripStyle = computed\(\(\) => \(\{([\s\S]*?)\}\)\)/,
+  );
+  assert.ok(m, 'stripStyle computed défini');
+  assert.match(m[1], /filter:\s*reader\.filterCss/);
+  assert.doesNotMatch(m[1], /panX|panY|translate3d/);
+}
 assert.match(store, /READER_STICK_SPEED/);
 assert.match(
   store,
@@ -125,7 +132,7 @@ assert.match(
 assert.equal(READER_STICK_SPEED, 14);
 {
   const localUp = visualPanToLocal(0, -1); // physique haut → local (+1, 0)
-  assert.deepEqual(localUp, { x: 1, y: 0 });
+  assert.ok(Math.abs(localUp.x - 1) < 1e-9 && Math.abs(localUp.y) < 1e-9);
   const el = { scrollLeft: 100, scrollTop: 200 };
   applyStickToStripScroll(el, localUp.x, localUp.y);
   assert.equal(el.scrollLeft, 100 - READER_STICK_SPEED);
@@ -133,7 +140,7 @@ assert.equal(READER_STICK_SPEED, 14);
 }
 {
   const localLeft = visualPanToLocal(-1, 0); // physique gauche → local (0, −1)
-  assert.deepEqual(localLeft, { x: 0, y: -1 });
+  assert.ok(Math.abs(localLeft.x) < 1e-9 && Math.abs(localLeft.y + 1) < 1e-9);
   const el = { scrollLeft: 50, scrollTop: 80 };
   applyStickToStripScroll(el, localLeft.x, localLeft.y);
   assert.equal(el.scrollLeft, 50);
