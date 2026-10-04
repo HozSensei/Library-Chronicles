@@ -3,6 +3,7 @@ import fs from 'fs';
 import { openCbz } from './cbz.js';
 import { openCbr } from './cbr.js';
 import { openPdf } from './pdf.js';
+import { openEpub } from './epub.js';
 
 const IMAGE_EXT = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp', '.avif']);
 
@@ -11,6 +12,7 @@ export function detectFormat(filePath) {
   if (ext === '.cbz' || ext === '.zip') return 'cbz';
   if (ext === '.cbr' || ext === '.rar') return 'cbr';
   if (ext === '.pdf') return 'pdf';
+  if (ext === '.epub') return 'epub';
   return null;
 }
 
@@ -35,6 +37,8 @@ export async function openBook(filePath) {
       return openCbr(filePath, { isImageEntry });
     case 'pdf':
       return openPdf(filePath);
+    case 'epub':
+      return openEpub(filePath);
     default:
       throw new Error(`Format non géré: ${format}`);
   }

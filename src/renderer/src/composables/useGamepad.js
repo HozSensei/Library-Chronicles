@@ -14,6 +14,7 @@ import {
 } from '../../../shared/portrait-remap.js';
 import { applyPageReaderAction } from '../../../shared/reader-page-controls.js';
 import { applyStripReaderAction } from '../../../shared/reader-strip-controls.js';
+import { applyEpubReaderAction } from '../../../shared/reader-epub-controls.js';
 import { actionForBinding, GamepadButtons } from '../../../shared/controls.js';
 import { hasHaptics, pulseHaptic } from './useHaptics.js';
 import { markProfileSelected, clearProfileSelected, clearSetupGate } from '../router';
@@ -1256,7 +1257,14 @@ function createLoop(ctx) {
           : null;
 
       // Chemins strictement séparés — pas de flag partagé zoom/page.
-      if (reader.isStripMode) {
+      if (reader.isEpubMode) {
+        applyEpubReaderAction(
+          reader,
+          action,
+          stickLocal,
+          document.querySelector('.reader__epub'),
+        );
+      } else if (reader.isStripMode) {
         // StripReader : stick scroll ; D-Pad zoom/page = no-op (HUD hintStrip).
         applyStripReaderAction(
           reader,

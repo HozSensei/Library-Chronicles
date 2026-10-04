@@ -187,9 +187,16 @@ async function quitReading() {
               {{ reader.direction.toUpperCase() }}
               ·
               {{
-                reader.isStripMode ? t('reader.continuous') : t('reader.pageByPage')
+                reader.isEpubMode
+                  ? t('reader.epubReflow')
+                  : reader.isStripMode
+                    ? t('reader.continuous')
+                    : t('reader.pageByPage')
               }}
-              <template v-if="!reader.isStripMode">
+              <template v-if="reader.isEpubMode">
+                · {{ t('reader.fontSize', { v: reader.fontSizeLabel }) }}
+              </template>
+              <template v-else-if="!reader.isStripMode">
                 · {{ reader.fitMode }} · {{ reader.zoomLabel }}
               </template>
               <template v-if="reader.currentChapter">

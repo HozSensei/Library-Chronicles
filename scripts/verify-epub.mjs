@@ -1,0 +1,207 @@
+/**
+ * Smoke EPUB : archive minimale (container + OPF + spine XHTML + cover PNG).
+ */
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import zlib from 'node:zlib';
+import JSZip from 'jszip';
+import {
+  openEpub,
+  parseContainerXml,
+  parseOpf,
+  resolveZipHref,
+  rewriteEpubHtml,
+} from '../src/main/extractors/epub.js';
+import { detectFormat, openBook } from '../src/main/extractors/index.js';
+import { SUPPORTED } from '../src/main/library/scanner.js';
+import {
+  READING_MODE,
+  isEpubFormat,
+  resolveReadingMode,
+  supportsEpubReading,
+  supportsPageReading,
+  supportsStripReading,
+} from '../src/shared/reading-mode.js';
+import {
+  applyEpubReaderAction,
+  isEpubZoomNoop,
+} from '../src/shared/reader-epub-controls.js';
+
+function tinyPng(r, g, b) {
+  const signature = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(1, 0);
+  ihdr.writeUInt32BE(1, 4);
+  ihdr[8] = 8;
+  ihdr[9] = 2;
+  const raw = Buffer.from([0, r, g, b]);
+  const compressed = zlib.deflateSync(raw);
+
+  function crc32(buf) {
+    let c = 0xffffffff;
+    for (let i = 0; i < buf.length; i += 1) {
+      c ^= buf[i];
+      for (let k = 0; k < 8; k += 1) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    }
+    return (c ^ 0xffffffff) >>> 0;
+  }
+  function chunk(type, data) {
+    const len = Buffer.alloc(4);
+    len.writeUInt32BE(data.length, 0);
+    const typeBuf = Buffer.from(type);
+    const crc = Buffer.alloc(4);
+    crc.writeUInt32BE(crc32(Buffer.concat([typeBuf, data])) >>> 0, 0);
+    return Buffer.concat([len, typeBuf, data, crc]);
+  }
+  return Buffer.concat([
+    signature,
+    chunk('IHDR', ihdr),
+    chunk('IDAT', compressed),
+    chunk('IEND', Buffer.alloc(0)),
+  ]);
+}
+
+assert.equal(resolveZipHref('OEBPS/', 'chap/c1.xhtml'), 'OEBPS/chap/c1.xhtml');
+assert.equal(resolveZipHref('OEBPS/chap', '../images/a.png'), 'OEBPS/images/a.png');
+assert.equal(resolveZipHref('OEBPS', 'https://x.test/a.png'), null);
+
+const container = `<?xml version="1.0"?>
+<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+  <rootfiles>
+    <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>
+  </rootfiles>
+</container>`;
+assert.equal(parseContainerXml(container).fullPath, 'OEBPS/content.opf');
+
+const opf = `<?xml version="1.0"?>
+<package xmlns="http://www.idpf.org/2007/opf" version="2.0" unique-identifier="uid">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dc:title>Demo EPUB</dc:title>
+    <dc:creator>VDR Tester</dc:creator>
+    <meta name="cover" content="cover-img"/>
+  </metadata>
+  <manifest>
+    <item id="cover-img" href="images/cover.png" media-type="image/png"/>
+    <item id="c1" href="text/ch1.xhtml" media-type="application/xhtml+xml"/>
+    <item id="c2" href="text/ch2.xhtml" media-type="application/xhtml+xml"/>
+    <item id="css" href="styles/book.css" media-type="text/css"/>
+  </manifest>
+  <spine toc="ncx">
+    <itemref idref="c1"/>
+    <itemref idref="c2"/>
+  </spine>
+</package>`;
+const parsed = parseOpf(opf, 'OEBPS');
+assert.equal(parsed.title, 'Demo EPUB');
+assert.equal(parsed.creator, 'VDR Tester');
+assert.equal(parsed.spine.length, 2);
+assert.equal(parsed.coverHref, 'OEBPS/images/cover.png');
+assert.equal(parsed.spine[0].href, 'OEBPS/text/ch1.xhtml');
+
+assert.equal(SUPPORTED.has('.epub'), true);
+assert.equal(detectFormat('/lib/book.epub'), 'epub');
+assert.equal(isEpubFormat('epub'), true);
+assert.equal(supportsEpubReading('epub'), true);
+assert.equal(supportsEpubReading('cbz'), false);
+assert.equal(supportsPageReading('cbz'), true);
+assert.equal(supportsPageReading('epub'), false);
+assert.equal(supportsStripReading('epub'), false);
+assert.equal(supportsStripReading('cbz'), true);
+assert.equal(resolveReadingMode('epub', 'strip'), READING_MODE.EPUB);
+assert.equal(resolveReadingMode('cbz', 'strip'), READING_MODE.STRIP);
+assert.equal(isEpubZoomNoop('fit-width'), true);
+
+{
+  const calls = [];
+  const reader = {
+    resetFontSize: () => calls.push('reset'),
+    adjustFontSize: (n) => calls.push(`font:${n}`),
+    stepPage: (w) => calls.push(`page:${w}`),
+  };
+  const el = { scrollLeft: 0, scrollTop: 0 };
+  assert.equal(applyEpubReaderAction(reader, 'fit-width'), true);
+  assert.equal(applyEpubReaderAction(reader, 'reset-zoom'), true);
+  assert.equal(applyEpubReaderAction(reader, 'zoom-in'), true);
+  assert.equal(applyEpubReaderAction(reader, 'page-next'), true);
+  assert.equal(applyEpubReaderAction(reader, 'pan', { x: 0, y: 1 }, el), true);
+  assert.ok(el.scrollTop !== 0, 'stick scroll EPUB');
+  assert.deepEqual(calls, ['reset', 'font:1', 'page:next']);
+}
+
+async function buildFixture() {
+  const zip = new JSZip();
+  zip.file('mimetype', 'application/epub+zip', { compression: 'STORE' });
+  zip.file('META-INF/container.xml', container);
+  zip.file('OEBPS/content.opf', opf);
+  zip.file('OEBPS/styles/book.css', 'body { color: #111; } p { margin: 0.5em 0; }');
+  zip.file('OEBPS/images/cover.png', tinyPng(180, 40, 40));
+  zip.file(
+    'OEBPS/text/ch1.xhtml',
+    `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head><title>Chapitre 1</title>
+<link rel="stylesheet" type="text/css" href="../styles/book.css"/>
+</head>
+<body><h1>Chapitre 1</h1><p>Bonjour EPUB.</p>
+<img src="../images/cover.png" alt="cover"/>
+</body></html>`,
+  );
+  zip.file(
+    'OEBPS/text/ch2.xhtml',
+    `<?xml version="1.0" encoding="UTF-8"?>
+<html xmlns="http://www.w3.org/1999/xhtml"><head><title>Chapitre 2</title></head>
+<body><h1>Chapitre 2</h1><p>Suite.</p></body></html>`,
+  );
+  return zip.generateAsync({ type: 'nodebuffer', mimeType: 'application/epub+zip' });
+}
+
+const buf = await buildFixture();
+const tmp = path.join(os.tmpdir(), `vdr-epub-${Date.now()}.epub`);
+fs.writeFileSync(tmp, buf);
+
+try {
+  const book = await openEpub(tmp);
+  assert.equal(book.format, 'epub');
+  assert.equal(book.pageCount, 2);
+  assert.equal(book.title, 'Demo EPUB');
+  assert.equal(book.author, 'VDR Tester');
+  assert.ok(book.chapters.length >= 2);
+
+  const page0 = await book.getPage(0);
+  assert.ok(page0.buffer?.length);
+  assert.match(page0.mime, /text\/html/);
+  const html = page0.buffer.toString('utf8');
+  assert.match(html, /Chapitre 1/);
+  assert.match(html, /data:image\/png;base64,/);
+  assert.match(html, /data-vdr-epub-css|color:\s*#111/);
+
+  const page1 = await book.getPage(1);
+  assert.match(page1.buffer.toString('utf8'), /Chapitre 2/);
+
+  const cover = await book.getCoverBuffer();
+  assert.ok(cover.length > 20);
+  assert.equal(cover[0], 0x89);
+
+  await book.close();
+
+  const viaIndex = await openBook(tmp);
+  assert.equal(viaIndex.format, 'epub');
+  assert.equal(viaIndex.pageCount, 2);
+  await viaIndex.close();
+
+  const zip2 = await JSZip.loadAsync(buf);
+  const rewritten = await rewriteEpubHtml(
+    '<img src="../images/cover.png"/>',
+    'OEBPS/text',
+    zip2,
+    new Map(),
+  );
+  assert.match(rewritten, /data:image\/png;base64,/);
+} finally {
+  fs.unlinkSync(tmp);
+}
+
+console.log('OK  EPUB extracteur (spine, cover OPF, rewrite HTML, strip disabled)');

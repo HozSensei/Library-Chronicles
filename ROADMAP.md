@@ -7,7 +7,7 @@ Lecteur BD · Comics · Manga en mode portrait, optimisé manette (ROG Ally X).
 
 ## Vision
 
-Application Electron légère qui relie une ergonomie manette naturelle à la lecture de formats compressés (CBZ/CBR/PDF/ZIP), avec **setup initial**, **import guidé**, **thèmes**, **profils locaux** et **remapping des touches**.  
+Application Electron légère qui relie une ergonomie manette naturelle à la lecture de formats compressés (CBZ/CBR/PDF/ZIP/**EPUB**), avec **setup initial**, **import guidé**, **thèmes**, **profils locaux** et **remapping des touches**.  
 **Pas de fonctionnalités réseau** (pas d’OPDS, pas de dossier distant).
 
 ---
@@ -18,7 +18,7 @@ Application Electron légère qui relie une ergonomie manette naturelle à la le
 Renderer                          Main (Electron)
 ─────────────────────             ─────────────────────────────
 Setup / Profils / Import ──IPC──► Config + secrets (userData)
-Gamepad (remap→bindings)  ──IPC──► Extractors (ZIP / RAR / PDF)
+Gamepad (remap→bindings)  ──IPC──► Extractors (ZIP / RAR / PDF / EPUB)
 Moteur de rendu (CSS GPU) ──IPC──► SQLite (+ fallback JSON)
 Bibliothèque / HUD        ──IPC──► Import + metadata + FS watch
 ```
@@ -87,6 +87,7 @@ Voir [`docs/UX.md`](./docs/UX.md), [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.
 ### Phase 1 — MVP lecteur *(fait)*
 
 - [x] CBZ/ZIP réel via JSZip (pages triées, getPage)
+- [x] **EPUB** — 3ᵉ chemin `EpubReaderStage` (JSZip + OPF/spine, reflow) ; strip disabled ; police / stick scroll / chapitres
 - [x] Page entière (contain), pan stick (`translate3d`), zoom D-Pad ±15 %, reset zoom L3
       — modèle unique `page-view-transform.js` (`fitScale` / `zoom ∈ [1,4]` / offset clampé)
 - [x] Pages D-Pad (avec remap portrait)
@@ -171,7 +172,7 @@ Setup (1ʳᵉ fois)
   → Boot
   → Import (dossier import → métadonnées → bibliothèque)
   → Bibliothèque (catalogue : héro / récents / grille / séries)
-  → Lecteur (CBZ/CBR/PDF + page unique + filtres + signets)
+  → Lecteur (CBZ/CBR/PDF/EPUB · page / strip / reflow + filtres + signets)
   → Paramètres (thème / profils / remap / providers méta)
 ```
 
@@ -185,6 +186,7 @@ Setup (1ʳᵉ fois)
 | Archives ZIP/CBZ | JSZip |
 | Archives RAR/CBR | node-unrar-js |
 | PDF | pdfjs-dist (+ canvas Chromium / optionnel node-canvas) |
+| EPUB | JSZip + parse OPF/spine (reflow, pas epubjs) |
 | DB | better-sqlite3 (fallback JSON) |
 | Rendu zoom/pan/filtres | CSS transform + filter GPU |
 | Métadonnées | stub, Open Library, AniList, MangaDex (sans clé) ; ComicVine, Google Books (clé userData) — voir [`docs/METADATA.md`](./docs/METADATA.md) |

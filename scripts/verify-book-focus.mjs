@@ -1,5 +1,5 @@
 /**
- * Focus fiche livre — champs méta éditables + CTA footer (Lire | Importer des méta).
+ * Focus fiche livre — champs méta éditables + CTA footer (page | strip | EPUB | méta).
  */
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -35,13 +35,14 @@ assert(BOOK_FOCUS.PROVIDER === 7, 'PROVIDER = 7');
 assert(BOOK_FOCUS.SYNOPSIS === 8, 'SYNOPSIS = 8');
 assert(BOOK_FOCUS.READ === 9, 'READ = 9');
 assert(BOOK_FOCUS.READ_STRIP === 10, 'READ_STRIP = 10');
-assert(BOOK_FOCUS.META === 11, 'META = 11');
-assert(BOOK_FOCUS.MAX === 11, 'MAX = 11');
+assert(BOOK_FOCUS.READ_EPUB === 11, 'READ_EPUB = 11');
+assert(BOOK_FOCUS.META === 12, 'META = 12');
+assert(BOOK_FOCUS.MAX === 12, 'MAX = 12');
 assert(BOOK_FOCUS.BACK === undefined, 'pas de BACK footer (B manette)');
 assert(BOOK_FOCUS.OPTIONS === undefined, 'OPTIONS renommé META');
 
 assert(clampBookFocus(-1) === 0, 'clamp bas');
-assert(clampBookFocus(99) === 11, 'clamp haut');
+assert(clampBookFocus(99) === 12, 'clamp haut');
 assert(clampBookFocus(2.9) === 2, 'clamp trunc');
 assert(clampBookFocus(NaN) === BOOK_FOCUS.READ, 'clamp NaN → READ');
 
@@ -49,6 +50,7 @@ assert(!isBookActionFocus(BOOK_FOCUS.SYNOPSIS), 'synopsis = contenu');
 assert(!isBookActionFocus(BOOK_FOCUS.TITLE), 'titre = contenu');
 assert(isBookActionFocus(BOOK_FOCUS.READ), 'lire = action');
 assert(isBookActionFocus(BOOK_FOCUS.READ_STRIP), 'lire continu = action');
+assert(isBookActionFocus(BOOK_FOCUS.READ_EPUB), 'lire EPUB = action');
 assert(isBookActionFocus(BOOK_FOCUS.META), 'méta = action');
 assert(isBookEditableFocus(BOOK_FOCUS.TITLE), 'titre éditable');
 assert(isBookEditableFocus(BOOK_FOCUS.SYNOPSIS), 'synopsis éditable');
@@ -64,6 +66,10 @@ assert(
 assert(
   resolveBookConfirmAction(BOOK_FOCUS.READ_STRIP) === 'activate-action',
   'A lire continu → activate-action',
+);
+assert(
+  resolveBookConfirmAction(BOOK_FOCUS.READ_EPUB) === 'activate-action',
+  'A lire EPUB → activate-action',
 );
 assert(
   resolveBookConfirmAction(BOOK_FOCUS.META) === 'activate-action',
@@ -103,8 +109,17 @@ assert(view.includes('grid-template-columns'), 'layout grid (pas absolute crois�
 assert(view.includes("t('book.importMeta')"), 'CTA Importer des méta');
 assert(view.includes('goImportMeta'), 'handler recherche API');
 assert(view.includes('BOOK_FOCUS.READ_STRIP'), 'CTA Lire en continu focus');
+assert(view.includes('BOOK_FOCUS.READ_EPUB'), 'CTA Lire EPUB focus');
 assert(view.includes('supportsStripReading'), 'guard format strip');
+assert(view.includes('supportsPageReading'), 'guard format page');
+assert(view.includes('supportsEpubReading'), 'guard format EPUB');
 assert(view.includes("t('book.readStrip')"), 'libellé i18n strip');
+assert(view.includes("t('book.readEpub')"), 'libellé i18n EPUB');
+assert(view.includes("t('book.readEpubSub')"), 'hint lecteur basique EPUB');
+assert(view.includes("t('book.readFormatIncompatible')"), 'reason format non compatible');
+assert(view.includes('pageDisabled'), 'page peut être grisé (EPUB)');
+assert(view.includes('epubDisabled'), 'EPUB peut être grisé (images)');
+assert(view.includes('defaultReadFocus'), 'focus CTA selon format');
 assert(view.includes('bookMetaLocation'), 'goImportMeta → route …/meta');
 assert(view.includes('resolveParentLocation'), 'B = route parent');
 assert(!view.includes('entryIntent'), 'plus entryIntent');

@@ -4,8 +4,9 @@ import {
   stripWindowRange,
 } from '../../../shared/reader-strip.js';
 import {
-  normalizeReadingMode,
   READING_MODE,
+  isEpubFormat,
+  resolveReadingMode,
 } from '../../../shared/reading-mode.js';
 import {
   PAGE_PAN_SPEED,
@@ -34,12 +35,18 @@ const RESET_FILTERS = { brightness: 1, contrast: 1, sepia: 0 };
 const ZOOM_ANIM_MS = 180;
 /** Voisines gardées en cache ObjectURL (prefetch page ±N) — mode page. */
 const PAGE_CACHE_RADIUS = 2;
+/** Taille police EPUB (%). */
+const EPUB_FONT_DEFAULT = 100;
+const EPUB_FONT_MIN = 70;
+const EPUB_FONT_MAX = 200;
+const EPUB_FONT_STEP = 10;
 
 export const useReaderStore = defineStore('reader', {
   state: () => ({
     filePath: null,
     bookId: null,
     title: '',
+    format: null,
     series: null,
     seriesId: null,
     volume: null,
@@ -51,10 +58,12 @@ export const useReaderStore = defineStore('reader', {
     /** Préférence profil (`defaultFitMode`) appliquée à la 1re mesure de page. */
     defaultFitMode: 'fit-page',
     /**
-     * Mode d’ouverture : page (défaut) | strip (continu vertical).
-     * Posé à open() depuis la fiche ; pas de préférence globale.
+     * Mode d’ouverture : page | strip | epub.
+     * Posé à open() depuis la fiche / format ; pas de préférence globale.
      */
     readingMode: READING_MODE.PAGE,
+    /** Taille police EPUB (% de la base document). */
+    fontSize: EPUB_FONT_DEFAULT,
     /** Facteur de zoom ∈ [1, 4] — 1 = page entière (fitScale). */
     zoom: 1,
     /** Offset de pan en px stage locaux (centré = 0). */
@@ -110,6 +119,9 @@ export const useReaderStore = defineStore('reader', {
     progress: (s) => (s.pageCount ? ((s.pageIndex + 1) / s.pageCount) * 100 : 0),
     currentChapter: (s) => s.chapters[s.chapterIndex] || null,
     isStripMode: (s) => s.readingMode === READING_MODE.STRIP,
+    isEpubMode: (s) =>
+      s.readingMode === READING_MODE.EPUB || isEpubFormat(s.format),
+    fontSizeLabel: (s) => `${s.fontSize || EPUB_FONT_DEFAULT} %`,
     filterCss(s) {
       return `brightness(${s.brightness}) contrast(${s.contrast}) sepia(${s.sepia})`;
     },
@@ -240,12 +252,6 @@ export const useReaderStore = defineStore('reader', {
       this.prevVolumeOffer = null;
       this.nextVolumeOffer = null;
       this.endFocusIndex = 0;
-      // Défaut PAGE si mode omis — ne pas hériter d’un strip précédent (sticky).
-      this.readingMode = normalizeReadingMode(
-        readingMode !== undefined && readingMode !== null
-          ? readingMode
-          : READING_MODE.PAGE,
-      );
       this.revokePageCache();
       try {
         await this.loadPrefs();
@@ -253,15 +259,24 @@ export const useReaderStore = defineStore('reader', {
         this.filePath = filePath;
         this.bookId = meta.bookId ?? null;
         this.title = meta.title;
+        this.format = meta.format || null;
         this.pageCount = meta.pageCount;
         this.chapters = meta.chapters || [];
         this.chapterIndex = 0;
         this.renderEngine = meta.renderEngine || meta.format || null;
+        this.readingMode = resolveReadingMode(
+          meta.format,
+          readingMode !== undefined && readingMode !== null
+            ? readingMode
+            : READING_MODE.PAGE,
+        );
         this.resetTransform();
-        // Strip = fit-width bord à bord (pas de zoom CSS scale — voir docs).
-        // Page : toujours page entière à l’ouverture (la préférence `fit-width`
-        // est réappliquée après mesure, cf. setPageMetrics).
-        if (this.isStripMode) this.fitMode = 'fit-width';
+        if (this.isEpubMode) {
+          this.fontSize = EPUB_FONT_DEFAULT;
+          this.fitMode = 'reflow';
+        } else if (this.isStripMode) {
+          this.fitMode = 'fit-width';
+        }
 
         // Métadonnées série déjà fournies par reader.open (plus de listBooks)
         this.series = meta.series ?? null;
@@ -287,7 +302,13 @@ export const useReaderStore = defineStore('reader', {
     },
     async loadCurrentPage({ scrollToCurrent = false } = {}) {
       if (!this.filePath || this.pageCount === 0) return;
-      if (this.isStripMode) {
+      if (this.isEpubMode) {
+        const url = await this.ensurePageUrl(this.pageIndex);
+        this.pageUrl = url;
+        this.stripPages = [];
+        this.trimPageCache();
+        void this.prefetchNeighbors(this.pageIndex);
+      } else if (this.isStripMode) {
         await this.loadStripWindow();
         if (scrollToCurrent) this.requestStripScroll();
       } else {
@@ -341,6 +362,16 @@ export const useReaderStore = defineStore('reader', {
      * Ne bloque pas le rendu de la fenêtre visible en strip.
      */
     async prefetchNeighbors(center = this.pageIndex) {
+      if (this.isEpubMode) {
+        const jobs = [];
+        for (let i = center - 1; i <= center + 1; i += 1) {
+          if (i === center) continue;
+          if (i >= 0 && i < this.pageCount) jobs.push(this.ensurePageUrl(i));
+        }
+        if (jobs.length) await Promise.all(jobs);
+        this.trimPageCache(center);
+        return;
+      }
       if (this.isStripMode) {
         const { start, end } = stripPrefetchRange(center, this.pageCount);
         const win = stripWindowRange(center, this.pageCount);
@@ -363,7 +394,11 @@ export const useReaderStore = defineStore('reader', {
     /** Garde page courante + prefetch (ou fenêtre strip) ; révoque le reste. */
     trimPageCache(center = this.pageIndex) {
       const keep = new Set();
-      if (this.isStripMode) {
+      if (this.isEpubMode) {
+        for (let i = center - 1; i <= center + 1; i += 1) {
+          if (i >= 0 && i < this.pageCount) keep.add(i);
+        }
+      } else if (this.isStripMode) {
         const { start, end } = stripPrefetchRange(center, this.pageCount);
         for (let i = start; i <= end; i += 1) keep.add(i);
       } else {
@@ -548,6 +583,8 @@ export const useReaderStore = defineStore('reader', {
       this.stripPages = [];
       this.stripScrollToken = 0;
       this.readingMode = READING_MODE.PAGE;
+      this.format = null;
+      this.fontSize = EPUB_FONT_DEFAULT;
       await window.vdr.reader.close();
       this.filePath = null;
       this.bookId = null;
@@ -648,17 +685,18 @@ export const useReaderStore = defineStore('reader', {
       this.zoom = 1;
       this.offsetX = 0;
       this.offsetY = 0;
-      if (!this.isStripMode) this.fitMode = 'fit-page';
+      if (this.isEpubMode) this.fitMode = 'reflow';
+      else if (!this.isStripMode) this.fitMode = 'fit-page';
       this._refitPending = true;
     },
     /**
      * Pan stick en px stage locaux (axes déjà passés par `visualPanToLocal`).
      * Clampé à ±débordement/2 ; no-op si la page tient entièrement.
-     * Strip = no-op (scroll dédié).
+     * Strip / EPUB = no-op (scroll dédié).
      * @returns {boolean} true si l’offset a bougé
      */
     pan(dx, dy, speed = PAGE_PAN_SPEED) {
-      if (this.isStripMode) return false;
+      if (this.isStripMode || this.isEpubMode) return false;
       // Le pan est continu (une frame par tick) : jamais de transition CSS.
       if (this.zoomTransition) this.clearZoomAnim();
       const next = panBy(
@@ -678,15 +716,19 @@ export const useReaderStore = defineStore('reader', {
      * @param {{ x: number, y: number } | null} stickLocal
      */
     stickIntent(stickLocal) {
-      if (this.isStripMode) return STICK_INTENT.NONE;
+      if (this.isStripMode || this.isEpubMode) return STICK_INTENT.NONE;
       return resolveStickIntent(stickLocal, this.zoom, this.fit);
     },
     /**
      * Zoom D-Pad : ±15 % multiplicatif, borné [page entière, ×4].
-     * Strip = no-op (pas de scale CSS).
+     * Strip = no-op. EPUB = taille police ±.
      */
     zoomBy(steps) {
       if (this.isStripMode) return;
+      if (this.isEpubMode) {
+        this.adjustFontSize(steps);
+        return;
+      }
       const next = zoomStep(this.zoom, steps, this.fit);
       if (Math.abs(next - this.zoom) < 1e-6) return;
       this.pulseZoomTransition();
@@ -708,6 +750,10 @@ export const useReaderStore = defineStore('reader', {
      */
     resetZoom() {
       if (this.isStripMode) return;
+      if (this.isEpubMode) {
+        this.resetFontSize();
+        return;
+      }
       this.pulseZoomTransition();
       this.applyView(resetView());
       this.fitMode = 'fit-page';
@@ -718,17 +764,33 @@ export const useReaderStore = defineStore('reader', {
     },
     /** LB — page bord à bord en largeur (déborde éventuellement en hauteur). */
     setFitWidth() {
-      if (this.isStripMode) return;
+      if (this.isStripMode || this.isEpubMode) return;
       this.pulseZoomTransition();
       this.applyView({ zoom: zoomForFitWidth(this.fit), x: 0, y: 0 });
       this.fitMode = 'fit-width';
     },
     /** Page bord à bord en hauteur (déborde éventuellement en largeur). */
     setFitHeight() {
-      if (this.isStripMode) return;
+      if (this.isStripMode || this.isEpubMode) return;
       this.pulseZoomTransition();
       this.applyView({ zoom: zoomForFitHeight(this.fit), x: 0, y: 0 });
       this.fitMode = 'fit-height';
+    },
+    adjustFontSize(steps) {
+      if (!this.isEpubMode) return;
+      const delta = (Number(steps) || 0) * EPUB_FONT_STEP;
+      const next = Math.min(
+        EPUB_FONT_MAX,
+        Math.max(EPUB_FONT_MIN, (this.fontSize || EPUB_FONT_DEFAULT) + delta),
+      );
+      if (next === this.fontSize) return;
+      this.fontSize = next;
+      this.flashHud(900);
+    },
+    resetFontSize() {
+      if (!this.isEpubMode) return;
+      this.fontSize = EPUB_FONT_DEFAULT;
+      this.flashHud(900);
     },
     toggleDirection() {
       this.direction = this.direction === 'ltr' ? 'rtl' : 'ltr';

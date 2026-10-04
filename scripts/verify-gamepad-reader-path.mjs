@@ -26,6 +26,10 @@ import {
   isStripDpadNoop,
   isStripZoomNoop,
 } from '../src/shared/reader-strip-controls.js';
+import {
+  applyEpubReaderAction,
+  isEpubZoomNoop,
+} from '../src/shared/reader-epub-controls.js';
 import { applyStickToStripScroll } from '../src/shared/reader-stick.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -167,6 +171,16 @@ assert(
   'useGamepad importe applyStripReaderAction (chemin strip)',
 );
 assert(
+  gamepad.includes('applyEpubReaderAction') &&
+    gamepad.includes('reader-epub-controls'),
+  'useGamepad importe applyEpubReaderAction (chemin epub)',
+);
+assert(
+  gamepad.includes('reader.isEpubMode') &&
+    gamepad.includes("querySelector('.reader__epub')"),
+  'dispatch EPUB : stick sur .reader__epub',
+);
+assert(
   !gamepad.includes('applyStickToStripScroll'),
   'scroll strip délégué au module strip-controls (plus d’inline)',
 );
@@ -259,6 +273,30 @@ assert(
   const el2 = { scrollLeft: 0, scrollTop: 0 };
   applyStickToStripScroll(el2, 0, 1);
   assert(el2.scrollTop < 0 || el2.scrollTop === -14, 'stick helper speed 14');
+}
+
+// Runtime : EPUB font / chapter / stick scroll
+{
+  assert(isEpubZoomNoop('fit-width'), 'epub fit-width no-op');
+  const calls = [];
+  const reader = {
+    resetFontSize: () => calls.push('resetFont'),
+    adjustFontSize: (n) => calls.push(`font:${n}`),
+    stepPage: (w) => calls.push(`page:${w}`),
+  };
+  const el = { scrollLeft: 0, scrollTop: 5 };
+  assert(applyEpubReaderAction(reader, 'reset-zoom'), 'epub L3 reset font');
+  assert(applyEpubReaderAction(reader, 'zoom-in'), 'epub zoom-in → font+');
+  assert(applyEpubReaderAction(reader, 'page-next'), 'epub page-next');
+  assert(
+    applyEpubReaderAction(reader, 'pan', { x: 0, y: 1 }, el),
+    'epub stick scroll',
+  );
+  assert(el.scrollTop !== 5, 'epub stick a scrollé');
+  assert(
+    calls.join('|') === 'resetFont|font:1|page:next',
+    'epub path : reset font, font+, chapter',
+  );
 }
 
 const store = readFileSync(

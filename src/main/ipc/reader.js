@@ -30,6 +30,7 @@ function encodePagePayload(index, page) {
     data: page.buffer ? page.buffer.toString('base64') : null,
     name: page.name || null,
     engine: page.engine || null,
+    kind: page.kind || null,
     placeholder: Boolean(page.placeholder),
   };
 }
@@ -61,6 +62,7 @@ export function registerReaderIpc() {
       resumePage: dbBook?.pageCurrent ?? 0,
       direction: undefined,
       renderEngine: book.renderEngine || null,
+      author: book.author || dbBook?.author || null,
     };
   });
 

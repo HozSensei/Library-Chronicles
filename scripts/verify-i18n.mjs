@@ -46,20 +46,32 @@ assert(t('setup.prefsTitle') === 'Preferences', 't setup prefs EN');
 assert(t('boot.library') === 'Library', 't boot library EN');
 assert(accentLabel('amber') === 'Brass', 'accentLabel amber EN');
 assert(accentLabelI18n('blue', 'en') === 'Blue', 'accentLabelI18n blue EN');
-assert(t('book.read') === 'Read', 't book.read EN');
+assert(t('book.read') === 'Read page by page', 't book.read EN');
 assert(t('book.readStrip') === 'Read continuously', 't book.readStrip EN');
+assert(t('book.readEpub') === 'Read EPUB', 't book.readEpub EN');
+assert(t('book.readEpubSub') === 'Text · basic reader', 't book.readEpubSub EN');
 assert(
-  t('book.readStripUnsupported') === 'Unavailable for this format',
+  t('book.readFormatIncompatible') === 'Format not compatible',
+  't book.readFormatIncompatible EN',
+);
+assert(
+  t('book.readStripUnsupported') === 'Format not compatible',
   't book.readStripUnsupported EN',
 );
 
 setLocale('fr');
 assert(t('lang.fr') === 'Français', 't lang.fr');
-assert(t('book.read') === 'Lire', 't book.read FR');
+assert(t('book.read') === 'Lire page par page', 't book.read FR');
 assert(t('book.readStrip') === 'Lire en continu', 't book.readStrip FR');
-assert(t('book.readSub') === 'Page par page', 't book.readSub FR');
+assert(t('book.readSub') === 'Une page à la fois', 't book.readSub FR');
+assert(t('book.readEpub') === 'Lire EPUB', 't book.readEpub FR');
+assert(t('book.readEpubSub') === 'Texte · lecteur basique', 't book.readEpubSub FR');
 assert(
-  t('book.readStripUnsupported') === 'Indisponible pour ce format',
+  t('book.readFormatIncompatible') === 'Format non compatible',
+  't book.readFormatIncompatible FR',
+);
+assert(
+  t('book.readStripUnsupported') === 'Format non compatible',
   't book.readStripUnsupported FR',
 );
 assert(accentLabel('amber') === 'Laiton', 'accentLabel amber FR');
