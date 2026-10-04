@@ -146,4 +146,36 @@ defineEmits(['select']);
   border-color: var(--brass-bright);
   background: color-mix(in srgb, var(--brass) 28%, var(--surface));
 }
+
+/* Disabled : gris neutre (jamais accent brass/bleu). */
+.focus-btn:disabled,
+.focus-btn:disabled.is-focused,
+.focus-btn:disabled:focus-visible {
+  cursor: not-allowed;
+  transform: none;
+  border-color: var(--border);
+  background: color-mix(in srgb, var(--paper-dim) 14%, var(--surface));
+  color: var(--paper-dim);
+  box-shadow: none;
+  opacity: 1;
+}
+
+.focus-btn:disabled .focus-btn__label,
+.focus-btn:disabled .focus-btn__sub {
+  color: var(--paper-dim);
+}
+
+.focus-btn:disabled .focus-btn__chev {
+  color: var(--paper-dim);
+  opacity: 0.4;
+  transform: none;
+}
+
+.focus-btn--primary:disabled,
+.focus-btn--primary:disabled.is-focused,
+.focus-btn--primary:disabled:focus-visible {
+  border-color: var(--border);
+  background: color-mix(in srgb, var(--paper-dim) 14%, var(--surface));
+  color: var(--paper-dim);
+}
 </style>

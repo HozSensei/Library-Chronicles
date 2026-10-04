@@ -104,21 +104,31 @@ const epubDisabled = computed(
   () => !book.value?.filePath || !epubSupported.value,
 );
 
+const pageHintIncompatible = computed(
+  () => !!book.value?.filePath && !pageSupported.value,
+);
+const stripHintIncompatible = computed(
+  () => !!book.value?.filePath && !stripSupported.value,
+);
+const epubHintIncompatible = computed(
+  () => !!book.value?.filePath && !epubSupported.value,
+);
+
 const pageHint = computed(() => {
   if (!book.value?.filePath) return t('book.readSub');
-  if (!pageSupported.value) return t('book.readFormatIncompatible');
+  if (pageHintIncompatible.value) return t('book.readFormatIncompatible');
   return t('book.readSub');
 });
 
 const stripHint = computed(() => {
   if (!book.value?.filePath) return t('book.readStripSub');
-  if (!stripSupported.value) return t('book.readFormatIncompatible');
+  if (stripHintIncompatible.value) return t('book.readFormatIncompatible');
   return t('book.readStripSub');
 });
 
 const epubHint = computed(() => {
   if (!book.value?.filePath) return t('book.readEpubSub');
-  if (!epubSupported.value) return t('book.readFormatIncompatible');
+  if (epubHintIncompatible.value) return t('book.readFormatIncompatible');
   return t('book.readEpubSub');
 });
 
@@ -726,7 +736,10 @@ function onEditableKeydown(ev) {
             @click="activateFooter(BOOK_FOCUS.READ)"
           >
             <span class="book-detail__action-label">{{ t('book.read') }}</span>
-            <span class="book-detail__action-sub">{{ pageHint }}</span>
+            <span
+              class="book-detail__action-sub"
+              :class="{ 'book-detail__action-sub--danger': pageHintIncompatible }"
+            >{{ pageHint }}</span>
           </button>
           <button
             type="button"
@@ -738,7 +751,10 @@ function onEditableKeydown(ev) {
             @click="activateFooter(BOOK_FOCUS.READ_STRIP)"
           >
             <span class="book-detail__action-label">{{ t('book.readStrip') }}</span>
-            <span class="book-detail__action-sub">{{ stripHint }}</span>
+            <span
+              class="book-detail__action-sub"
+              :class="{ 'book-detail__action-sub--danger': stripHintIncompatible }"
+            >{{ stripHint }}</span>
           </button>
           <button
             type="button"
@@ -750,7 +766,10 @@ function onEditableKeydown(ev) {
             @click="activateFooter(BOOK_FOCUS.READ_EPUB)"
           >
             <span class="book-detail__action-label">{{ t('book.readEpub') }}</span>
-            <span class="book-detail__action-sub">{{ epubHint }}</span>
+            <span
+              class="book-detail__action-sub"
+              :class="{ 'book-detail__action-sub--danger': epubHintIncompatible }"
+            >{{ epubHint }}</span>
           </button>
           <button
             type="button"
@@ -1283,9 +1302,21 @@ function onEditableKeydown(ev) {
   background: transparent;
 }
 
-.book-detail__action:disabled {
-  opacity: 0.45;
+/* Disabled : gris neutre (pas d’accent brass/bleu is-primary). */
+.book-detail__action:disabled,
+.book-detail__action.is-primary:disabled,
+.book-detail__action:disabled.is-focused,
+.book-detail__action:disabled:focus-visible {
   cursor: not-allowed;
+  opacity: 1;
+  border-color: var(--border);
+  background: color-mix(in srgb, var(--paper-dim) 14%, var(--surface));
+  color: var(--paper-dim);
+  box-shadow: none;
+}
+
+.book-detail__action:disabled .book-detail__action-label {
+  color: var(--paper-dim);
 }
 
 .book-detail__action.is-focused,
@@ -1294,6 +1325,13 @@ function onEditableKeydown(ev) {
   border-color: var(--brass-bright);
   box-shadow: 0 0 0 3px var(--focus-glow);
   color: var(--paper);
+}
+
+.book-detail__action:disabled.is-focused,
+.book-detail__action:disabled:focus-visible {
+  border-color: color-mix(in srgb, var(--paper-dim) 45%, var(--border));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--paper-dim) 28%, transparent);
+  color: var(--paper-dim);
 }
 
 .book-detail__action-label {
@@ -1310,6 +1348,14 @@ function onEditableKeydown(ev) {
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 12rem;
+}
+
+.book-detail__action-sub--danger {
+  color: var(--danger);
+}
+
+.book-detail__action:disabled .book-detail__action-sub--danger {
+  color: var(--danger);
 }
 
 .visually-hidden {
