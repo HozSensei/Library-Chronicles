@@ -1342,13 +1342,13 @@ defineExpose({
 .field {
   border-radius: var(--radius-sm);
   padding: 0.15rem;
-  transition:
-    box-shadow 160ms var(--ease-soft),
-    background 160ms var(--ease-soft);
 }
 
+/* Anneau sur le contrôle uniquement — pas de halo sur le wrapper .field */
 .field.is-focused {
-  background: color-mix(in srgb, var(--brass) 6%, transparent);
+  outline: none;
+  box-shadow: none;
+  background: transparent;
 }
 
 .field.is-focused .import__sheet-headline,

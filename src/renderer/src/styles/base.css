@@ -122,6 +122,16 @@ textarea:focus-visible {
 }
 
 /**
+ * Focus unique : l’anneau vit sur le contrôle (input/select/textarea/button),
+ * jamais sur le wrapper .field (évite halo parent + ring enfant).
+ */
+.field.is-focused,
+.field:focus-within {
+  outline: none;
+  box-shadow: none;
+}
+
+/**
  * Conteneur scroll edge-to-edge (viewport / shell).
  * Pas de padding horizontal sur cet élément — le padding va sur les enfants
  * pour que la scrollbar colle au bord droit de la fenêtre.
