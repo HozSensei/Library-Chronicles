@@ -38,12 +38,25 @@ function mapProfile(row) {
   };
 }
 
+/**
+ * Colonne legacy `webtoon_mode` réutilisée pour le mode de lecture :
+ *   0 = strip vertical (défaut produit)
+ *   1 = page par page
+ * (l’ancien booléen « Mode webtoon » est abandonné — pas de migration lourde).
+ */
+function readingModeFromRow(row) {
+  if (!row) return 'strip';
+  return Number(row.webtoon_mode) ? 'page' : 'strip';
+}
+
 function mapPrefs(row) {
   if (!row) {
     return {
       readingDirection: 'ltr',
       defaultFitMode: 'fit-height',
-      webtoonMode: false,
+      readingMode: 'strip',
+      /** @deprecated alias — true quand strip (historique webtoon ≈ strip). */
+      webtoonMode: true,
       brightness: 1,
       contrast: 1,
       sepia: 0,
@@ -55,10 +68,12 @@ function mapPrefs(row) {
       setupCompleted: false,
     };
   }
+  const readingMode = readingModeFromRow(row);
   return {
     readingDirection: row.reading_direction || 'ltr',
     defaultFitMode: row.default_fit_mode || 'fit-height',
-    webtoonMode: Boolean(row.webtoon_mode),
+    readingMode,
+    webtoonMode: readingMode === 'strip',
     brightness: Number(row.brightness ?? 1),
     contrast: Number(row.contrast ?? 1),
     sepia: Number(row.sepia ?? 0),
@@ -342,10 +357,22 @@ export function getProfilePrefs(profileId = null) {
   return mapPrefs(store.prefs[pid]);
 }
 
+function resolveReadingMode(patch, current) {
+  if (patch.readingMode === 'page' || patch.readingMode === 'strip') {
+    return patch.readingMode;
+  }
+  if (patch.webtoonMode !== undefined) {
+    // Legacy : webtoonMode true ≈ strip continu.
+    return patch.webtoonMode ? 'strip' : 'page';
+  }
+  return current.readingMode === 'page' ? 'page' : 'strip';
+}
+
 export function setProfilePrefs(patch = {}, profileId = null) {
   const pid = profileId ?? getActiveProfileId();
   if (pid == null) throw new Error('Aucun profil actif');
   const current = getProfilePrefs(pid);
+  const readingMode = resolveReadingMode(patch, current);
   const next = {
     readingDirection:
       patch.readingDirection !== undefined
@@ -355,8 +382,8 @@ export function setProfilePrefs(patch = {}, profileId = null) {
       patch.defaultFitMode !== undefined
         ? patch.defaultFitMode
         : current.defaultFitMode,
-    webtoonMode:
-      patch.webtoonMode !== undefined ? Boolean(patch.webtoonMode) : current.webtoonMode,
+    readingMode,
+    webtoonMode: readingMode === 'strip',
     brightness: clamp(
       patch.brightness !== undefined ? Number(patch.brightness) : current.brightness,
       0.4,
@@ -420,7 +447,8 @@ export function setProfilePrefs(patch = {}, profileId = null) {
         pid,
         dir: next.readingDirection,
         fit: next.defaultFitMode,
-        webtoon: next.webtoonMode ? 1 : 0,
+        // 0 = strip (défaut), 1 = page — voir readingModeFromRow
+        webtoon: next.readingMode === 'page' ? 1 : 0,
         brightness: next.brightness,
         contrast: next.contrast,
         sepia: next.sepia,
@@ -437,7 +465,7 @@ export function setProfilePrefs(patch = {}, profileId = null) {
       profile_id: pid,
       reading_direction: next.readingDirection,
       default_fit_mode: next.defaultFitMode,
-      webtoon_mode: next.webtoonMode ? 1 : 0,
+      webtoon_mode: next.readingMode === 'page' ? 1 : 0,
       brightness: next.brightness,
       contrast: next.contrast,
       sepia: next.sepia,

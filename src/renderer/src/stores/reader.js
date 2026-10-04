@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia';
+import { ZOOM_STEP } from '../../../shared/gamepad-codes.js';
 import {
   stripPrefetchRange,
   stripWindowRange,
@@ -16,9 +17,16 @@ const NIGHT_PRESET = { brightness: 0.78, contrast: 1.12, sepia: 0.35 };
 const RESET_FILTERS = { brightness: 1, contrast: 1, sepia: 0 };
 /** Durée d’interpolation zoom D-Pad / L3 (ms), ease-out. */
 const ZOOM_ANIM_MS = 200;
+/** Seuil « zoomé » pour pan stick (strip). */
+const ZOOMED_EPS = 1.02;
 
 function clampScale(value) {
   return Math.min(4, Math.max(0.25, value));
+}
+
+/** @param {unknown} value */
+function normalizeReadingMode(value) {
+  return value === 'page' ? 'page' : 'strip';
 }
 
 export const useReaderStore = defineStore('reader', {
@@ -33,6 +41,11 @@ export const useReaderStore = defineStore('reader', {
     pageCount: 0,
     direction: 'ltr',
     fitMode: 'fit-height',
+    /**
+     * Mode lecture : `strip` (défaut, multi-pages vertical) | `page` (page unique).
+     * Persisté via pref legacy `webtoon_mode` (0=strip, 1=page).
+     */
+    readingMode: 'strip',
     /** Échelle affichée (interpolée). */
     scale: 1,
     /** Cible logique du zoom (±15 % par pas). */
@@ -85,8 +98,12 @@ export const useReaderStore = defineStore('reader', {
     filterCss(s) {
       return `brightness(${s.brightness}) contrast(${s.contrast}) sepia(${s.sepia})`;
     },
+    isStripMode: (s) => s.readingMode !== 'page',
+    isPageMode: (s) => s.readingMode === 'page',
+    isZoomed: (s) => s.scale >= ZOOMED_EPS,
     imageStyle(s) {
-      // Conservé pour zoom / fit résiduels ; le strip ignore transform scale.
+      // Fit height/width : CSS [data-fit] sur .reader__stage (mode page).
+      // Scale seul ici — le pan est sur .reader__pan (évite double translate).
       return {
         transform: s.transform,
         transformOrigin: 'center center',
@@ -150,6 +167,7 @@ export const useReaderStore = defineStore('reader', {
         const prefs = await window.vdr.profiles.getPrefs();
         this.direction = prefs.readingDirection || 'ltr';
         this.fitMode = prefs.defaultFitMode || 'fit-height';
+        this.readingMode = normalizeReadingMode(prefs.readingMode);
         this.brightness = prefs.brightness ?? 1;
         this.contrast = prefs.contrast ?? 1;
         this.sepia = prefs.sepia ?? 0;
@@ -159,10 +177,12 @@ export const useReaderStore = defineStore('reader', {
     },
     async persistPrefs(patch) {
       try {
-        // Pref legacy webtoon ignorée : strip vertical = défaut.
         const safe = { ...(patch || {}) };
-        delete safe.webtoonMode;
+        if (safe.readingMode != null) {
+          safe.readingMode = normalizeReadingMode(safe.readingMode);
+        }
         const prefs = await window.vdr.profiles.setPrefs(safe);
+        this.readingMode = normalizeReadingMode(prefs.readingMode);
         this.brightness = prefs.brightness ?? this.brightness;
         this.contrast = prefs.contrast ?? this.contrast;
         this.sepia = prefs.sepia ?? this.sepia;
@@ -215,8 +235,16 @@ export const useReaderStore = defineStore('reader', {
     },
     async loadCurrentPage({ scrollToCurrent = false } = {}) {
       if (!this.filePath || this.pageCount === 0) return;
-      await this.loadStripWindow();
-      if (scrollToCurrent) this.requestStripScroll();
+      if (this.isStripMode) {
+        await this.loadStripWindow();
+        if (scrollToCurrent) this.requestStripScroll();
+      } else {
+        await this.revokeStrip();
+        const url = await this.ensurePageUrl(this.pageIndex);
+        this.pageUrl = url;
+        this.trimPageCache();
+        void this.prefetchNeighbors(this.pageIndex);
+      }
       this.syncChapterIndex();
       this.persistProgress();
       if (this.isFinished) await this.checkNextVolume();
@@ -589,29 +617,83 @@ export const useReaderStore = defineStore('reader', {
      * si CSS rotate). Sous rotate(90deg) : local(+X)→bas écran, local(+Y)→gauche.
      */
     pan(dx, dy, speed = 14) {
-      // Strip vertical : fallback si pas de .reader__strip (scroll natif prioritaire).
-      this.panY += dy * speed * 1.8;
-      this.panX += dx * speed * 0.25;
+      if (this.isStripMode) {
+        // Strip zoomé : pan libre ; sinon fallback (scroll natif prioritaire).
+        this.panY += dy * speed * 1.8;
+        this.panX += dx * speed * (this.isZoomed ? 1 : 0.25);
+        return;
+      }
+      if (this.fitMode === 'fit-width') {
+        this.panY += dy * speed * 1.4;
+        this.panX += dx * speed * 0.4;
+        return;
+      }
+      this.panX += dx * speed;
+      this.panY += dy * speed;
     },
-    zoomBy(_steps) {
-      // Strip vertical fit-width : zoom D-Pad désactivé (bindings → stepPage côté gamepad).
+    zoomBy(steps) {
+      // Zoom D-Pad : multiplie via transform scale ancré au centre (strip + page).
+      this.animateScaleTo(this.targetScale + Number(steps) * ZOOM_STEP);
     },
     /**
-     * L3 / R3 — no-op en strip vertical (pages déjà largeur 100 %).
-     * Binding conservé pour ne pas casser le remap utilisateur.
-     * Ancien toggle fit-width/fit-height retiré du chemin lecture.
+     * L3 / R3 —
+     * - mode page : toggle Fit Height ↔ Fit Width
+     * - mode strip : reset zoom si zoomé, sinon zoom lecture (~1.5×)
      */
     toggleZoom() {
-      // strip default : fit width implicite (fit-width / fit-height N/A)
+      if (this.isStripMode) {
+        this.pulseZoomTransition();
+        if (this.isZoomed || Math.abs(this.targetScale - 1) > 0.05) {
+          this.panX = 0;
+          this.panY = 0;
+          this.animateScaleTo(1);
+        } else {
+          this.animateScaleTo(1.5);
+        }
+        return;
+      }
+      this.pulseZoomTransition();
+      this.fitMode = this.fitMode === 'fit-width' ? 'fit-height' : 'fit-width';
+      this.panX = 0;
+      this.panY = 0;
+      this.animateScaleTo(1);
     },
-    /** LB — no-op (strip déjà largeur pleine). */
+    /** LB — Fit Width direct (mode page) ; en strip = reset zoom. */
     setFitWidth() {
-      // strip default
+      if (this.isStripMode) {
+        this.pulseZoomTransition();
+        this.panX = 0;
+        this.panY = 0;
+        this.animateScaleTo(1);
+        return;
+      }
+      this.pulseZoomTransition();
+      this.fitMode = 'fit-width';
+      this.panX = 0;
+      this.panY = 0;
+      this.animateScaleTo(1);
     },
     toggleDirection() {
       this.direction = this.direction === 'ltr' ? 'rtl' : 'ltr';
       this.persistPrefs({ readingDirection: this.direction });
       window.vdr.setConfig({ readingDirection: this.direction });
+    },
+    /** Bascule Strip vertical ↔ Page par page (persist profil). */
+    async toggleReadingMode() {
+      this.readingMode = this.isStripMode ? 'page' : 'strip';
+      this.resetTransform();
+      await this.persistPrefs({ readingMode: this.readingMode });
+      await this.loadCurrentPage({ scrollToCurrent: true });
+      this.flashHud(1200);
+    },
+    async setReadingMode(mode) {
+      const next = normalizeReadingMode(mode);
+      if (next === this.readingMode) return;
+      this.readingMode = next;
+      this.resetTransform();
+      await this.persistPrefs({ readingMode: this.readingMode });
+      await this.loadCurrentPage({ scrollToCurrent: true });
+      this.flashHud(1200);
     },
     toggleHud() {
       this.clearHudTimer();
@@ -693,6 +775,7 @@ export const useReaderStore = defineStore('reader', {
         return false;
       }
       this.pageIndex = next;
+      if (this.isPageMode) this.resetTransform();
       await this.loadCurrentPage({ scrollToCurrent: true });
       this.flashHud(900);
       return true;
@@ -705,6 +788,7 @@ export const useReaderStore = defineStore('reader', {
         );
         if (next === this.pageIndex) return false;
         this.pageIndex = next;
+        if (this.isPageMode) this.resetTransform();
         await this.loadCurrentPage({ scrollToCurrent: true });
         this.flashHud(900);
         return true;
@@ -713,6 +797,7 @@ export const useReaderStore = defineStore('reader', {
       if (nextIdx < 0 || nextIdx >= this.chapters.length) return false;
       this.chapterIndex = nextIdx;
       this.pageIndex = this.chapters[nextIdx].startIndex;
+      if (this.isPageMode) this.resetTransform();
       await this.loadCurrentPage({ scrollToCurrent: true });
       this.flashHud(900);
       return true;
