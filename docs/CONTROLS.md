@@ -47,9 +47,9 @@ Pan plan +90° CSS : mêmes axes **physiques**, puis `visualPanToLocal` = **mêm
 |----------|--------|
 | Stick L | Pan (axes physiques → `visualPanToLocal` +90°) |
 | L3 / R3 | **Reset zoom** (page entière / fit stage) |
-| D-Pad **→** | **Zoom +** |
-| D-Pad **←** | **Zoom −** |
-| D-Pad ↑ / ↓ | Page ±1 (inversé en Manga) |
+| D-Pad **↑** | **Zoom +** (±15 %) |
+| D-Pad **↓** | **Zoom −** |
+| D-Pad ← / → | Page ±1 (inversé en Manga) |
 | A | LTR ↔ RTL |
 | B | Fermer → bibliothèque (restore landscape) |
 | X | Ajouter un signet |

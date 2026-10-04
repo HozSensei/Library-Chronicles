@@ -1,7 +1,8 @@
 /**
- * Chemin manette — mode page par page (pré-strip-cta).
+ * Chemin manette — mode page par page.
  *
- * D-Pad ↑/↓ zoom, ←/→ pages, L3 reset, LB fit-width, stick pan clampé.
+ * Séquence identique à useGamepad @ b7d1f81 (pré-#57 strip-cta) :
+ * L3 reset, LB fit-width, D-Pad ↑/↓ zoom, ←/→ pages, stick pan clampé.
  * Aucune logique strip ici — branche distincte de `reader-strip-controls.js`.
  */
 
@@ -24,7 +25,7 @@ export function isPageDpadAction(action) {
 }
 
 /**
- * Applique une action manette en mode page.
+ * Applique une action manette en mode page (b7d1f81).
  * @param {{
  *   resetZoom: () => void,
  *   setFitWidth: () => void,
@@ -39,6 +40,7 @@ export function isPageDpadAction(action) {
 export function applyPageReaderAction(reader, action, stickLocal = null) {
   if (!reader) return false;
 
+  // Ordre = handlers reader b7d1f81 (reset / fit avant zoom / pages / pan).
   if (action === 'reset-zoom' || action === 'toggle-zoom') {
     reader.resetZoom();
     return true;

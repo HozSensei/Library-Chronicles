@@ -1,7 +1,8 @@
 <script setup>
 /**
- * Chemin page par page — stage zoom/pan (comportement pré-#57 strip-cta).
- * Isolé de StripReaderStage : pas de scroll multi-pages, pas de data-strip.
+ * Chemin page par page — stage zoom/pan.
+ * Markup + CSS = extrait littéral de ReaderView @ b7d1f81 (pré-#57 strip-cta).
+ * Styles non-scopés, gardés par data-reader-path="page" (évite fuite strip).
  */
 import { useReaderStore } from '../stores/reader';
 import { useI18n } from '../composables/useI18n';
@@ -43,10 +44,16 @@ defineEmits(['leave']);
   </div>
 </template>
 
-<style scoped>
-.reader__stage {
+<!--
+  Non-scoped : mêmes règles que ReaderView b7d1f81 (stage dans la vue parente).
+  Préfixe [data-reader-path='page'] pour isoler du strip.
+-->
+<style>
+.reader__stage[data-reader-path='page'] {
   position: absolute;
   inset: 0;
+  width: 100%;
+  height: 100%;
   overflow: hidden;
   overscroll-behavior: none;
   touch-action: none;
@@ -56,14 +63,14 @@ defineEmits(['leave']);
 }
 
 /* Pan en translate local — indépendant du scale (origin centre image). */
-.reader__pan {
+.reader__stage[data-reader-path='page'] .reader__pan {
   line-height: 0;
   will-change: transform;
   max-width: none;
   max-height: none;
 }
 
-.reader__page {
+.reader__stage[data-reader-path='page'] .reader__page {
   /* Zoom D-Pad : scale ancré au centre image (= centre écran si pan=0). */
   display: block;
   transform-origin: center center;
@@ -76,7 +83,7 @@ defineEmits(['leave']);
 }
 
 /* L3 reset / LB fit : transition width/height (le scale D-Pad est lerp rAF). */
-.reader__page.is-zoom-smooth {
+.reader__stage[data-reader-path='page'] .reader__page.is-zoom-smooth {
   transition:
     width 200ms ease-out,
     height 200ms ease-out,
@@ -89,14 +96,14 @@ defineEmits(['leave']);
  * Fit Width  → width: 100%  (bord à bord gauche-droite).
  * Fit Height → height: 100%.
  */
-.reader__stage[data-fit='fit-height'] .reader__page {
+.reader__stage[data-reader-path='page'][data-fit='fit-height'] .reader__page {
   height: 100%;
   width: auto;
   max-width: none;
   object-fit: unset;
 }
 
-.reader__stage[data-fit='fit-width'] .reader__page {
+.reader__stage[data-reader-path='page'][data-fit='fit-width'] .reader__page {
   width: 100%;
   height: auto;
   max-height: none;
@@ -107,8 +114,8 @@ defineEmits(['leave']);
  * custom / zoom-100 : même gabarit que fit-height (base 1×).
  * Le zoom manuel ne doit PAS basculer en taille naturelle (saut vertical).
  */
-.reader__stage[data-fit='zoom-100'] .reader__page,
-.reader__stage[data-fit='custom'] .reader__page {
+.reader__stage[data-reader-path='page'][data-fit='zoom-100'] .reader__page,
+.reader__stage[data-reader-path='page'][data-fit='custom'] .reader__page {
   height: 100%;
   width: auto;
   max-width: none;
@@ -116,7 +123,7 @@ defineEmits(['leave']);
   object-fit: unset;
 }
 
-.reader__placeholder {
+.reader__stage[data-reader-path='page'] .reader__placeholder {
   display: grid;
   place-items: center;
   gap: 0.4rem;
@@ -127,7 +134,7 @@ defineEmits(['leave']);
   height: 100%;
 }
 
-.reader__brand {
+.reader__stage[data-reader-path='page'] .reader__brand {
   margin: 0 0 0.5rem;
   font-family: var(--font-display);
   font-weight: 800;
@@ -135,7 +142,7 @@ defineEmits(['leave']);
   color: var(--brass-bright);
 }
 
-.dim {
+.reader__stage[data-reader-path='page'] .dim {
   color: var(--paper-dim);
   margin: 0;
 }

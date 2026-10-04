@@ -1253,7 +1253,7 @@ function createLoop(ctx) {
           document.querySelector('.reader__strip'),
         );
       } else {
-        // PageReader — contrôles pré-strip-cta :
+        // PageReader — contrôles b7d1f81 (pré-#57) via reader-page-controls :
         // L3 reset, LB fit-width, D-Pad ↑↓ zoom ←→ pages, stick pan clampé.
         if (action === 'page-prev' || action === 'page-next') vibe('light');
         applyPageReaderAction(reader, action, stickLocal);

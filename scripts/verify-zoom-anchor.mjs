@@ -270,6 +270,11 @@ function nearlyPair(p, x, y, eps = 1e-6) {
   };
   pan.offsetParent = stage;
   page.offsetParent = pan;
+  stage.querySelector = (sel) => {
+    if (sel === '.reader__pan') return pan;
+    if (sel === '.reader__page') return page;
+    return null;
+  };
   const reader = {
     getAttribute: (n) => (n === 'data-css-rotate' ? '1' : null),
   };
@@ -280,7 +285,12 @@ function nearlyPair(p, x, y, eps = 1e-6) {
   const fakeDoc = {
     querySelector(sel) {
       if (sel === '.reader') return reader;
-      if (sel === '.reader__stage') return stage;
+      if (
+        sel === '.reader__stage[data-reader-path="page"]' ||
+        sel === '.reader__stage'
+      ) {
+        return stage;
+      }
       if (sel === '.reader__pan') return pan;
       if (sel === '.reader__page') return page;
       return null;
@@ -441,13 +451,23 @@ assert(
   'CSS page transform-origin center center',
 );
 assert(
-  /\.reader__stage\s*\{[\s\S]*?overflow:\s*hidden/.test(pageStage),
+  /\.reader__stage(?:\[data-reader-path=['"]page['"]\])?\s*\{[\s\S]*?overflow:\s*hidden/.test(
+    pageStage,
+  ),
   'stage overflow hidden (pas de scroll parasite)',
 );
 assert(
-  /\.reader__stage\s*\{[\s\S]*?overscroll-behavior:\s*none/.test(pageStage),
+  /\.reader__stage(?:\[data-reader-path=['"]page['"]\])?\s*\{[\s\S]*?overscroll-behavior:\s*none/.test(
+    pageStage,
+  ),
   'stage overscroll-behavior none',
 );
+assert(
+  pageStage.includes("data-reader-path='page'") ||
+    pageStage.includes('data-reader-path="page"'),
+  'CSS page isolé via data-reader-path',
+);
+assert(!/<style\s+scoped/.test(pageStage), 'PageReaderStage CSS non-scopé (b7d1f81)');
 assert(
   /\.reader__viewport\s*\{[\s\S]*?overflow:\s*hidden/.test(view),
   'viewport overflow hidden',
