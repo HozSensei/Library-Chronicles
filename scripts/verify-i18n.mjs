@@ -66,6 +66,15 @@ assert(accentLabel('amber') === 'Laiton', 'accentLabel amber FR');
 assert(interpolate('Hello {name}', { name: 'VDR' }) === 'Hello VDR', 'interpolate');
 assert(t('missing.key.zzz') === 'missing.key.zzz', 'missing key → key');
 
+assert(t('toast.readerStartMenu') === 'Start · Menu lecteur', 'toast Start FR');
+assert(t('reader.fullscreen') === 'Plein écran', 'reader.fullscreen FR');
+assert(t('reader.fullscreenExit') === 'Quitter plein écran', 'reader.fullscreenExit FR');
+setLocale('en');
+assert(t('toast.readerStartMenu') === 'Start · Reader menu', 'toast Start EN');
+assert(t('reader.fullscreen') === 'Fullscreen', 'reader.fullscreen EN');
+assert(t('reader.fullscreenExit') === 'Exit fullscreen', 'reader.fullscreenExit EN');
+setLocale('fr');
+
 // Dictionnaires couvrent les namespaces UI
 for (const loc of ['fr', 'en']) {
   for (const ns of [

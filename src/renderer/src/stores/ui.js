@@ -52,6 +52,8 @@ export const useUiStore = defineStore('ui', {
     seriesFocusIndex: 0,
     hapticsEnabled: true,
     hapticsAvailable: false,
+    /** Plein écran Electron (session lecteur) — pas persisté profil. */
+    fullscreen: false,
   }),
   getters: {
     isDark: (s) => s.theme !== 'light',
@@ -68,6 +70,27 @@ export const useUiStore = defineStore('ui', {
     async setHapticsEnabled(enabled) {
       this.hapticsEnabled = Boolean(enabled);
       await window.vdr.setConfig({ hapticsEnabled: this.hapticsEnabled });
+    },
+    async setFullscreen(enabled) {
+      try {
+        const result = await window.vdr.setFullscreen(Boolean(enabled));
+        this.fullscreen = Boolean(result?.fullscreen);
+      } catch {
+        this.fullscreen = Boolean(enabled);
+      }
+      return this.fullscreen;
+    },
+    async toggleFullscreen() {
+      return this.setFullscreen(!this.fullscreen);
+    },
+    async syncFullscreen() {
+      try {
+        const result = await window.vdr.getFullscreen();
+        this.fullscreen = Boolean(result?.fullscreen);
+      } catch {
+        this.fullscreen = false;
+      }
+      return this.fullscreen;
     },
     setGamepadStatus({ connected, label }) {
       this.gamepadConnected = connected;
@@ -160,6 +183,8 @@ export const useUiStore = defineStore('ui', {
     },
     /** Retour menus — resize seulement si on quitte vraiment le portrait. */
     async exitReaderMode(opts = {}) {
+      // Sortie lecteur : quitter le plein écran (session) avant le resize menus.
+      await this.setFullscreen(false);
       const result = await this.setSessionMode('ui', opts);
       this.setReaderCssRotate(false);
       return result;

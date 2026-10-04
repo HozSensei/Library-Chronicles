@@ -417,6 +417,8 @@ export const MESSAGES = Object.freeze({
       hint: 'A valider · B fermer · Select pause · ↑↓ focus · Stick pan · ↑↓ zoom · L3 page entière · ←→ page',
       hintStrip:
         'A valider · B fermer · Select pause · ↑↓ focus · Stick scroll · LT/RT chapitre · D-Pad désactivé',
+      fullscreen: 'Plein écran',
+      fullscreenExit: 'Quitter plein écran',
     },
     toast: {
       removed: 'Retiré de la bibliothèque · {label}',
@@ -433,6 +435,7 @@ export const MESSAGES = Object.freeze({
       sheetSaveFail: 'Échec de l’enregistrement',
       providerTestOk: 'Test OK · {label}',
       providerTestFail: 'Test échoué · {label}',
+      readerStartMenu: 'Start · Menu lecteur',
     },
     bind: {
       'toggle-direction': 'Sens LTR / RTL',
@@ -786,6 +789,8 @@ export const MESSAGES = Object.freeze({
       hint: 'A confirm · B close · Select pause · ↑↓ focus · Stick pan · ↑↓ zoom · L3 full page · ←→ page',
       hintStrip:
         'A confirm · B close · Select pause · ↑↓ focus · Stick scroll · LT/RT chapter · D-Pad off',
+      fullscreen: 'Fullscreen',
+      fullscreenExit: 'Exit fullscreen',
     },
     toast: {
       removed: 'Removed from library · {label}',
@@ -802,6 +807,7 @@ export const MESSAGES = Object.freeze({
       sheetSaveFail: 'Failed to save',
       providerTestOk: 'Test OK · {label}',
       providerTestFail: 'Test failed · {label}',
+      readerStartMenu: 'Start · Reader menu',
     },
     bind: {
       'toggle-direction': 'LTR / RTL direction',

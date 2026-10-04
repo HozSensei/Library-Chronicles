@@ -13,7 +13,7 @@ const { t } = useI18n();
 const focusIds = computed(() => {
   const ids = ['tab-main', 'tab-filters', 'tab-bookmarks'];
   if (reader.hudPanel === 'main') {
-    ids.push('quit', 'direction', 'bookmark');
+    ids.push('quit', 'direction', 'fullscreen', 'bookmark');
     if (reader.prevVolumeOffer) ids.push('prev-volume');
     if (reader.nextVolumeOffer) ids.push('next-volume');
   } else if (reader.hudPanel === 'filters') {
@@ -224,6 +224,17 @@ async function quitReading() {
               type="button"
               class="ghost"
               data-hud-focus
+              :class="{ 'is-focused': isFocused('fullscreen') }"
+              @click="ui.toggleFullscreen()"
+            >
+              {{
+                ui.fullscreen ? t('reader.fullscreenExit') : t('reader.fullscreen')
+              }}
+            </button>
+            <button
+              type="button"
+              class="ghost"
+              data-hud-focus
               :class="{ 'is-focused': isFocused('bookmark') }"
               @click="reader.addBookmark()"
             >
@@ -415,8 +426,14 @@ async function quitReading() {
         </div>
       </div>
 
-<p class="hud__hint">
-        {{ reader.isStripMode ? t('reader.hintStrip') : t('reader.hint') }}
+      <p class="hud__hint">
+        {{
+          reader.isEpubMode
+            ? t('reader.hintEpub')
+            : reader.isStripMode
+              ? t('reader.hintStrip')
+              : t('reader.hint')
+        }}
       </p>
     </div>
   </aside>
