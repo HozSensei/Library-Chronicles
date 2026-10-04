@@ -20,6 +20,8 @@ import {
   READING_MODE,
   isEpubFormat,
   resolveReadingMode,
+  supportsEpubReading,
+  supportsPageReading,
   supportsStripReading,
 } from '../src/shared/reading-mode.js';
 import {
@@ -101,7 +103,12 @@ assert.equal(parsed.spine[0].href, 'OEBPS/text/ch1.xhtml');
 assert.equal(SUPPORTED.has('.epub'), true);
 assert.equal(detectFormat('/lib/book.epub'), 'epub');
 assert.equal(isEpubFormat('epub'), true);
+assert.equal(supportsEpubReading('epub'), true);
+assert.equal(supportsEpubReading('cbz'), false);
+assert.equal(supportsPageReading('cbz'), true);
+assert.equal(supportsPageReading('epub'), false);
 assert.equal(supportsStripReading('epub'), false);
+assert.equal(supportsStripReading('cbz'), true);
 assert.equal(resolveReadingMode('epub', 'strip'), READING_MODE.EPUB);
 assert.equal(resolveReadingMode('cbz', 'strip'), READING_MODE.STRIP);
 assert.equal(isEpubZoomNoop('fit-width'), true);

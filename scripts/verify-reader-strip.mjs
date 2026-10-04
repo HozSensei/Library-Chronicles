@@ -19,6 +19,8 @@ import {
 import {
   READING_MODE,
   normalizeReadingMode,
+  supportsEpubReading,
+  supportsPageReading,
   supportsStripReading,
 } from '../src/shared/reading-mode.js';
 import {
@@ -63,6 +65,10 @@ assert.equal(supportsStripReading('zip'), true);
 assert.equal(supportsStripReading('epub'), false);
 assert.equal(supportsStripReading('txt'), false);
 assert.equal(supportsStripReading(null), false);
+assert.equal(supportsPageReading('cbz'), true);
+assert.equal(supportsPageReading('epub'), false);
+assert.equal(supportsEpubReading('epub'), true);
+assert.equal(supportsEpubReading('pdf'), false);
 
 const store = readFileSync(join(root, 'src/renderer/src/stores/reader.js'), 'utf8');
 const view = readFileSync(join(root, 'src/renderer/src/views/ReaderView.vue'), 'utf8');
@@ -139,13 +145,27 @@ assert.match(gamepad, /applyEpubReaderAction/);
 assert.match(i18n, /hintEpub:/);
 
 assert.match(book, /BOOK_FOCUS\.READ_STRIP/);
+assert.match(book, /BOOK_FOCUS\.READ_EPUB/);
 assert.match(book, /supportsStripReading/);
+assert.match(book, /supportsPageReading/);
+assert.match(book, /supportsEpubReading/);
 assert.match(book, /mode:\s*READING_MODE\.STRIP|mode = READING_MODE\.STRIP|query\.mode/);
 assert.match(book, /readStrip/);
+assert.match(book, /readEpub/);
+assert.match(book, /readFormatIncompatible/);
 assert.match(i18n, /readStrip:/);
+assert.match(i18n, /readEpub:/);
+assert.match(i18n, /readEpubSub:/);
+assert.match(i18n, /readFormatIncompatible:/);
 assert.match(i18n, /readStripUnsupported:/);
 assert.match(i18n, /Lire en continu/);
 assert.match(i18n, /Read continuously/);
+assert.match(i18n, /Lire EPUB/);
+assert.match(i18n, /Read EPUB/);
+assert.match(i18n, /Texte · lecteur basique/);
+assert.match(i18n, /Text · basic reader/);
+assert.match(i18n, /Format non compatible/);
+assert.match(i18n, /Format not compatible/);
 assert.match(i18n, /hintStrip:/);
 assert.match(i18n, /D-Pad désactivé|D-Pad off/);
 assert.match(hud, /hintStrip/);

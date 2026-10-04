@@ -21,7 +21,10 @@ import {
 } from '../../../shared/app-routes.js';
 import {
   READING_MODE,
+  isEpubFormat,
   normalizeReadingMode,
+  supportsEpubReading,
+  supportsPageReading,
   supportsStripReading,
 } from '../../../shared/reading-mode.js';
 
@@ -80,18 +83,46 @@ const formatLabel = computed(() =>
   book.value?.format ? String(book.value.format).toUpperCase() : '—',
 );
 
-/** Strip continu : CBZ/CBR/PDF (page-images). EPUB/texte futur → disabled. */
+/** Page / strip : CBZ/CBR/PDF. EPUB : CTA EPUB seul actif. */
+const pageSupported = computed(() => supportsPageReading(book.value?.format));
 const stripSupported = computed(() => supportsStripReading(book.value?.format));
+const epubSupported = computed(() => supportsEpubReading(book.value?.format));
+
+const pageDisabled = computed(
+  () => !book.value?.filePath || !pageSupported.value,
+);
 
 const stripDisabled = computed(
   () => !book.value?.filePath || !stripSupported.value,
 );
 
+const epubDisabled = computed(
+  () => !book.value?.filePath || !epubSupported.value,
+);
+
+const pageHint = computed(() => {
+  if (!book.value?.filePath) return t('book.readSub');
+  if (!pageSupported.value) return t('book.readFormatIncompatible');
+  return t('book.readSub');
+});
+
 const stripHint = computed(() => {
   if (!book.value?.filePath) return t('book.readStripSub');
-  if (!stripSupported.value) return t('book.readStripUnsupported');
+  if (!stripSupported.value) return t('book.readFormatIncompatible');
   return t('book.readStripSub');
 });
+
+const epubHint = computed(() => {
+  if (!book.value?.filePath) return t('book.readEpubSub');
+  if (!epubSupported.value) return t('book.readFormatIncompatible');
+  return t('book.readEpubSub');
+});
+
+/** Focus CTA lecture par défaut selon le format. */
+function defaultReadFocus() {
+  if (isEpubFormat(book.value?.format)) return BOOK_FOCUS.READ_EPUB;
+  return BOOK_FOCUS.READ;
+}
 
 const statusHint = computed(() => {
   if (!book.value) return 'Fiche';
@@ -210,7 +241,7 @@ onMounted(async () => {
   await library.refresh({ warmCovers: false });
   await loadBook(route.params.id);
   loading.value = false;
-  ui.setBookFocus(BOOK_FOCUS.READ);
+  ui.setBookFocus(defaultReadFocus());
   nextTick(() => scheduleScrollFocusedIntoView('.book-detail'));
 });
 
@@ -223,7 +254,7 @@ watch(
     await library.refresh({ warmCovers: false });
     await loadBook(id);
     loading.value = false;
-    ui.setBookFocus(BOOK_FOCUS.READ);
+    ui.setBookFocus(defaultReadFocus());
     nextTick(() => scheduleScrollFocusedIntoView('.book-detail'));
   },
 );
@@ -236,17 +267,33 @@ watch(
 function read(mode = READING_MODE.PAGE) {
   void saveDraft().then(() => {
     if (!book.value?.filePath) return;
+    const format = book.value.format;
+    const normalized = normalizeReadingMode(mode);
     const query = { path: book.value.filePath };
-    if (normalizeReadingMode(mode) === READING_MODE.STRIP) {
-      if (!supportsStripReading(book.value.format)) return;
-      query.mode = READING_MODE.STRIP;
+
+    if (normalized === READING_MODE.EPUB) {
+      if (!supportsEpubReading(format)) return;
+      query.mode = READING_MODE.EPUB;
+      router.push({ name: 'reader', query });
+      return;
     }
+    if (normalized === READING_MODE.STRIP) {
+      if (!supportsStripReading(format)) return;
+      query.mode = READING_MODE.STRIP;
+      router.push({ name: 'reader', query });
+      return;
+    }
+    if (!supportsPageReading(format)) return;
     router.push({ name: 'reader', query });
   });
 }
 
 function readStrip() {
   read(READING_MODE.STRIP);
+}
+
+function readEpub() {
+  read(READING_MODE.EPUB);
 }
 
 function back() {
@@ -361,10 +408,17 @@ function footerFocused(index) {
 
 function activateFooter(index) {
   ui.setBookFocus(index);
-  if (index === BOOK_FOCUS.READ) return read(READING_MODE.PAGE);
+  if (index === BOOK_FOCUS.READ) {
+    if (pageDisabled.value) return;
+    return read(READING_MODE.PAGE);
+  }
   if (index === BOOK_FOCUS.READ_STRIP) {
     if (stripDisabled.value) return;
     return readStrip();
+  }
+  if (index === BOOK_FOCUS.READ_EPUB) {
+    if (epubDisabled.value) return;
+    return readEpub();
   }
   if (index === BOOK_FOCUS.META) return goImportMeta();
 }
@@ -663,11 +717,12 @@ function onEditableKeydown(ev) {
             class="book-detail__action is-primary"
             :data-book-action="BOOK_FOCUS.READ"
             :class="{ 'is-focused': footerFocused(BOOK_FOCUS.READ) }"
-            :disabled="!book.filePath"
+            :disabled="pageDisabled"
+            :title="pageHint"
             @click="activateFooter(BOOK_FOCUS.READ)"
           >
             <span class="book-detail__action-label">{{ t('book.read') }}</span>
-            <span class="book-detail__action-sub">{{ t('book.readSub') }}</span>
+            <span class="book-detail__action-sub">{{ pageHint }}</span>
           </button>
           <button
             type="button"
@@ -680,6 +735,18 @@ function onEditableKeydown(ev) {
           >
             <span class="book-detail__action-label">{{ t('book.readStrip') }}</span>
             <span class="book-detail__action-sub">{{ stripHint }}</span>
+          </button>
+          <button
+            type="button"
+            class="book-detail__action is-primary book-detail__action--epub"
+            :data-book-action="BOOK_FOCUS.READ_EPUB"
+            :class="{ 'is-focused': footerFocused(BOOK_FOCUS.READ_EPUB) }"
+            :disabled="epubDisabled"
+            :title="epubHint"
+            @click="activateFooter(BOOK_FOCUS.READ_EPUB)"
+          >
+            <span class="book-detail__action-label">{{ t('book.readEpub') }}</span>
+            <span class="book-detail__action-sub">{{ epubHint }}</span>
           </button>
           <button
             type="button"
