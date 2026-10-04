@@ -378,9 +378,13 @@ function nearlyPair(p, x, y, eps = 1e-6) {
   assert(nearly(l2.minY, 0) && nearly(l2.maxY, 0), 'fit-width zoom : Y lock si undersized');
 }
 
-// --- Câblage store / vue ---
+// --- Câblage store / vue (page path = PageReaderStage) ---
 const store = readFileSync(join(root, 'src/renderer/src/stores/reader.js'), 'utf8');
 const view = readFileSync(join(root, 'src/renderer/src/views/ReaderView.vue'), 'utf8');
+const pageStage = readFileSync(
+  join(root, 'src/renderer/src/components/PageReaderStage.vue'),
+  'utf8',
+);
 
 assert(store.includes('panForZoomToScreenCenter'), 'store importe panForZoomToScreenCenter');
 assert(store.includes('clampPanToPage'), 'store importe clampPanToPage');
@@ -426,27 +430,31 @@ assert(
   store.includes('scale(${s.scale})'),
   'imageStyle = scale seul (pan sur wrapper)',
 );
-assert(view.includes('reader__pan'), 'vue : wrapper .reader__pan pour le pan');
+assert(pageStage.includes('reader__pan'), 'vue : wrapper .reader__pan pour le pan');
 assert(
-  view.includes('place-items: unsafe center') ||
-    view.includes('place-items:unsafe center'),
+  pageStage.includes('place-items: unsafe center') ||
+    pageStage.includes('place-items:unsafe center'),
   'CSS stage place-items unsafe center',
 );
 assert(
-  view.includes('transform-origin: center center'),
+  pageStage.includes('transform-origin: center center'),
   'CSS page transform-origin center center',
 );
 assert(
-  /\.reader__stage\s*\{[\s\S]*?overflow:\s*hidden/.test(view),
+  /\.reader__stage\s*\{[\s\S]*?overflow:\s*hidden/.test(pageStage),
   'stage overflow hidden (pas de scroll parasite)',
 );
 assert(
-  /\.reader__stage\s*\{[\s\S]*?overscroll-behavior:\s*none/.test(view),
+  /\.reader__stage\s*\{[\s\S]*?overscroll-behavior:\s*none/.test(pageStage),
   'stage overscroll-behavior none',
 );
 assert(
   /\.reader__viewport\s*\{[\s\S]*?overflow:\s*hidden/.test(view),
   'viewport overflow hidden',
+);
+assert(
+  view.includes('PageReaderStage') && pageStage.includes('data-reader-path="page"'),
+  'chemin page = PageReaderStage dédié',
 );
 
 if (failed) {

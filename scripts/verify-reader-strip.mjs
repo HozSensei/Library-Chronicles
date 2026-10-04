@@ -141,7 +141,7 @@ assert.match(gamepad, /applyPageReaderAction/);
 assert.match(gamepad, /reader__strip/);
 // Strip : D-Pad no-op (pas de stepPage sur zoom-in)
 assert.match(stripControls, /isStripDpadNoop/);
-assert.doesNotMatch(stripControls, /stepPage/);
+assert.doesNotMatch(stripControls, /\.stepPage\(|zoomBy\(/);
 assert.ok(isStripDpadNoop('zoom-in'));
 assert.ok(isStripDpadNoop('page-next'));
 assert.equal(applyStripReaderAction({}, 'zoom-out'), true);

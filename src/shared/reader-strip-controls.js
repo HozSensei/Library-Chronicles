@@ -56,7 +56,7 @@ export function applyStripReaderAction(
   stickLocal = null,
   stripEl = null,
 ) {
-  // D-Pad ↑↓←→ : no-op explicite (ne pas mapper vers stepPage / zoom).
+  // D-Pad ↑↓←→ : no-op explicite (ne pas mapper vers pages / zoom).
   if (isStripDpadNoop(action)) return true;
   // L3 / LB : pas de zoom CSS en strip.
   if (isStripZoomNoop(action)) return true;
