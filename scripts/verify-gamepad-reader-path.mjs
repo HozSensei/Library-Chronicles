@@ -202,6 +202,8 @@ assert(
     stepPage: (w) => calls.push(`page:${w}`),
     pan: (x, y) => calls.push(`pan:${x},${y}`),
   };
+  // Débordement présent → le stick pan (pas de page tournée par accident).
+  reader.stickIntent = () => 'pan';
   assert(isPageDpadAction('zoom-in'), 'zoom-in est action D-Pad page');
   assert(applyPageReaderAction(reader, 'zoom-in'), 'page zoom-in consommé');
   assert(applyPageReaderAction(reader, 'zoom-out'), 'page zoom-out consommé');
@@ -265,35 +267,20 @@ const store = readFileSync(
 );
 assert(store.includes('resetZoom()'), 'store expose resetZoom()');
 assert(
-  /resetZoom\(\)\s*\{[\s\S]*?animateScaleTo\(1\)/.test(store),
-  'resetZoom → scale 1 (fit stage)',
+  /resetZoom\(\)\s*\{[\s\S]*?applyView\(resetView\(\)\)/.test(store),
+  'resetZoom → page entière centrée (zoom 1, offset 0)',
 );
-assert(
-  /resetZoom\(\)\s*\{[\s\S]*?this\.panX\s*=\s*0[\s\S]*?this\.panY\s*=\s*0/.test(
-    store,
-  ),
-  'resetZoom recentre le pan',
-);
-{
-  const m = store.match(/resetZoom\(\)\s*\{([^}]*)\}/);
-  assert(
-    m && !/fitMode\s*=/.test(m[1]),
-    'resetZoom ne bascule pas fitMode',
-  );
-}
 assert(
   /zoomBy\(steps\)\s*\{[\s\S]*?isStripMode[\s\S]*?return/.test(store),
   'zoomBy guard isStripMode (no-op strip)',
 );
 assert(
-  /pan\(dx,\s*dy[\s\S]*?isStripMode[\s\S]*?return/.test(store),
+  /pan\(dx,\s*dy[\s\S]*?isStripMode[\s\S]*?return false/.test(store),
   'pan guard isStripMode (no-op strip)',
 );
 assert(
-  !/fitMode\s*=\s*this\.fitMode\s*===\s*'fit-width'\s*\?\s*'fit-height'/.test(
-    store,
-  ),
-  'plus de toggle Fit Height ↔ Fit Width dans le store',
+  store.includes('stickIntent(stickLocal)'),
+  'store expose stickIntent (stick jamais inerte)',
 );
 
 // --- Covers grille / rails uniformes -------------------------------------

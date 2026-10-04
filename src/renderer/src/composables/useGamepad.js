@@ -130,6 +130,14 @@ function createLoop(ctx) {
   let orientation = DeviceOrientation.LANDSCAPE;
   /** Stick menus → cursor-* (edge + repeat) ; reset hors menus / pad absent. */
   const stickMenuNav = createStickMenuNav();
+  /**
+   * Stick lecture page sans débordement → page ±1 (edge + repeat lent).
+   * Évite l’état « stick inerte » quand la page tient entièrement à l’écran.
+   */
+  const stickPageNav = createStickMenuNav({
+    initialDelayMs: 450,
+    repeatMs: 320,
+  });
   /** @type {Gamepad | null} */
   let currentPad = null;
   let lastRouteForHaptic = null;
@@ -1253,10 +1261,23 @@ function createLoop(ctx) {
           document.querySelector('.reader__strip'),
         );
       } else {
-        // PageReader — contrôles b7d1f81 (pré-#57) via reader-page-controls :
-        // L3 reset, LB fit-width, D-Pad ↑↓ zoom ←→ pages, stick pan clampé.
+        // PageReader — L3 reset page entière, LB fit-width, D-Pad ↑↓ zoom
+        // ←→ pages, stick pan clampé (ou page ±1 si la page tient à l’écran).
         if (action === 'page-prev' || action === 'page-next') vibe('light');
-        applyPageReaderAction(reader, action, stickLocal);
+        if (!stickLocal) stickPageNav.reset();
+        applyPageReaderAction(reader, action, stickLocal, {
+          onStickPage: (which) => {
+            // Edge + repeat lent : pas de défilement de pages au moindre appui.
+            const dir = stickPageNav.update(
+              which === 'next' ? 1 : -1,
+              0,
+              performance.now(),
+            );
+            if (!dir) return;
+            vibe('light');
+            void reader.stepPage(which);
+          },
+        });
       }
     }
   }
@@ -1297,6 +1318,7 @@ function createLoop(ctx) {
         ui.setHapticsAvailable(false);
         prevButtons = [];
         stickMenuNav.reset();
+        stickPageNav.reset();
       } else {
         const short = pad.id.length > 36 ? `${pad.id.slice(0, 36)}…` : pad.id;
         const hapticOk = hasHaptics(pad);
@@ -1313,6 +1335,7 @@ function createLoop(ctx) {
         if (ui.routeName === 'reader') {
           if (reader.hudVisible) {
             // Modal pause : stick = nav focus (comme menus), pas de pan.
+            stickPageNav.reset();
             const logical = remapStick(orientation, rawX, rawY);
             const dir = stickMenuNav.update(logical.x, logical.y, performance.now());
             if (dir) {
@@ -1333,6 +1356,8 @@ function createLoop(ctx) {
             if (stick.x !== 0 || stick.y !== 0) {
               const stickAction = resolveAction('stick:left') || 'pan';
               dispatch(stickAction, stick);
+            } else {
+              stickPageNav.reset();
             }
           }
         } else if (!ui.listeningForBind) {

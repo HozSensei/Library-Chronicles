@@ -115,8 +115,11 @@ assert(store.includes('closeHud'), 'store closeHud');
 assert(store.includes('toastVisible'), 'store toastVisible (flash ≠ modal)');
 assert(store.includes('hudFocusIndex'), 'store hudFocusIndex');
 assert(store.includes('moveHudFocus'), 'store moveHudFocus');
-assert(store.includes('animateScaleTo'), 'zoom smooth animateScaleTo (rAF)');
-assert(store.includes('targetScale'), 'zoom targetScale');
+assert(
+  store.includes('pulseZoomTransition'),
+  'zoom smooth = transition CSS transform (pulseZoomTransition)',
+);
+assert(store.includes('zoomStep('), 'zoom par crans via zoomStep');
 assert(pageStage.includes('reader__stage'), 'mode page reader__stage');
 assert(pageStage.includes('reader__page'), 'mode page reader__page');
 assert(pageStage.includes('reader__pan'), 'mode page reader__pan');
@@ -152,10 +155,8 @@ assert(
 assert(!hud.includes('L3 fit'), 'HUD sans ancien hint L3 fit (toggle)');
 assert(store.includes('resetZoom()'), 'store resetZoom (L3)');
 assert(
-  !/fitMode\s*=\s*this\.fitMode\s*===\s*'fit-width'\s*\?\s*'fit-height'/.test(
-    store,
-  ),
-  'store : plus de toggle fit L3',
+  /resetZoom\(\)\s*\{[\s\S]*?applyView\(resetView\(\)\)/.test(store),
+  'store resetZoom : page entière centrée (applyView(resetView()))',
 );
 
 assert(gamepad.includes('reader.hudVisible'), 'gamepad branche modal pause');
