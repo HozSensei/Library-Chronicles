@@ -506,17 +506,14 @@ export const useLibraryStore = defineStore('library', {
       return true;
     },
     /**
-     * Cible d’ouverture pour une entrée Récents :
-     * multi-tomes → fiche série ; sinon fiche tome.
+     * Cible d’ouverture pour une entrée Récents / Nouveautés :
+     * toujours la fiche livre du dernier tome touché (même handler que les autres rails).
      * @param {object|null} [entry]
-     * @returns {{ type: 'series'|'book', seriesId?: string, bookId?: string|number }|null}
+     * @returns {{ type: 'book', bookId: string|number }|null}
      */
     resolveRecentOpen(entry = null) {
       const e = entry || this.selectedRecent;
       if (!e) return null;
-      if (e.kind === 'series' && e.seriesId && e.volumeCount > 1) {
-        return { type: 'series', seriesId: e.seriesId };
-      }
       const bookId = e.lastBook?.id;
       if (bookId == null) return null;
       return { type: 'book', bookId };

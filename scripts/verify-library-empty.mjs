@@ -53,7 +53,9 @@ assert(
 assert(view.includes('goImport'), 'helper goImport');
 assert(view.includes('catalog__chrome--empty'), 'header layout empty');
 assert(
-  /isEmpty[\s\S]*importer/.test(view) || view.includes("label: 'importer'"),
+  view.includes("t('library.hintImport')") ||
+    /isEmpty[\s\S]*hintImport/.test(view) ||
+    view.includes("label: 'importer'"),
   'hints manette simplifiés si vide',
 );
 
@@ -61,7 +63,11 @@ const emptySoloStart = view.indexOf('catalog__empty--solo');
 const emptySoloEnd = view.indexOf('v-else-if="!library.isEmpty"');
 assert(emptySoloStart >= 0 && emptySoloEnd > emptySoloStart, 'borne empty solo');
 const emptySoloBlock = view.slice(emptySoloStart, emptySoloEnd);
-assert(emptySoloBlock.includes('Importer'), 'CTA Importer dans empty solo');
+assert(
+  emptySoloBlock.includes("t('library.emptyCta')") ||
+    emptySoloBlock.includes('Importer'),
+  'CTA Importer dans empty solo',
+);
 assert(!emptySoloBlock.includes('continue-section'), 'empty solo sans section Continuer');
 assert(!emptySoloBlock.includes('aria-label="Récents"'), 'empty solo sans rail Récents');
 

@@ -47,6 +47,13 @@ assert(view.includes('continue-section'), 'section Continuer markup');
 assert(view.includes("focusZone === 'continue'"), 'focus visuel continue');
 assert(view.includes('navFocused'), 'focus visuel header');
 assert(view.includes("is-focused': navFocused"), 'classes focus nav/tools');
+assert(view.includes('coverTags'), 'tags overlay Non lu / Nouveau');
+assert(view.includes('poster__tag'), 'markup tag jaquette');
+assert(view.includes('poster__tags'), 'container tags jaquette');
+assert(view.includes('line-clamp'), 'titres line-clamp');
+assert(view.includes('openRecentEntry'), 'clic Nouveautés → openRecentEntry');
+assert(view.includes('openBook(book)'), 'clic rails → openBook');
+assert(!view.includes('poster__meta'), 'plus de labels statut sous jaquette');
 assert(!view.includes('catalog__hero-row'), 'plus de hero row');
 assert(!view.includes('class="watching"'), 'plus de sidebar watching');
 assert(!view.includes('focusHero'), 'vue sans focusHero');
@@ -54,6 +61,8 @@ assert(!view.includes('focusHero'), 'vue sans focusHero');
 assert(pad.includes("focusZone === 'nav'"), 'useGamepad gère confirm sur nav');
 assert(pad.includes('selectedHeaderNav'), 'A sur header via selectedHeaderNav');
 assert(pad.includes('clearProfileSelected'), 'profil depuis nav header');
+assert(pad.includes('bookDetailLocation(target.bookId'), 'A récents → fiche livre');
+assert(!pad.includes("name: 'book', params: { id: String(target.bookId) }"), 'plus de route book orpheline');
 
 if (failed) {
   console.error(`\n${failed} échec(s)`);
