@@ -54,6 +54,15 @@ export async function ensureCover(
   if (!buffer || !buffer.length) {
     throw new Error('Couverture vide');
   }
+  // TOCTOU : un ensureCoverFromUrl (jacket API) peut avoir écrit pendant
+  // l’extraction page 0 (race watcher / import) — ne pas écraser.
+  if (
+    !force &&
+    fs.existsSync(coverPath) &&
+    fs.statSync(coverPath).size > 0
+  ) {
+    return coverPath;
+  }
   fs.writeFileSync(coverPath, buffer);
   invalidateCoverDataUrl(coverPath);
   return coverPath;

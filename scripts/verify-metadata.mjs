@@ -8,6 +8,7 @@ import {
   extractYear,
   slug,
   stripHtml,
+  normalizeMetadataQuery,
 } from '../src/main/metadata/types.js';
 import { stubProvider } from '../src/main/metadata/providers/stub.js';
 import { comicvineProvider } from '../src/main/metadata/providers/comicvine.js';
@@ -24,6 +25,13 @@ assert.equal(extractYear('2019-05-01'), 2019);
 assert.equal(extractYear(1998), 1998);
 assert.equal(slug('One Piece!!'), 'one-piece');
 assert.equal(stripHtml('<p>Hello <b>world</b></p>'), 'Hello world');
+assert.equal(
+  normalizeMetadataQuery('Solo Leveling Tome 1'),
+  'Solo Leveling',
+);
+assert.equal(normalizeMetadataQuery('One Piece - Vol. 03'), 'One Piece');
+assert.equal(normalizeMetadataQuery('Naruto T01'), 'Naruto');
+assert.equal(normalizeMetadataQuery('Akira'), 'Akira');
 
 const parsed = detectFromFilename('/lib/One Piece - Tome 03 (2019).cbz');
 assert.equal(parsed.series, 'One Piece');

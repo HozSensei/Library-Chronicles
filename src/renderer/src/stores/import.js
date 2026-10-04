@@ -328,10 +328,14 @@ export const useImportStore = defineStore('import', {
      */
     applyEnrichResult(result) {
       if (!result) return;
+      // Conserver le tome détecté (fichier) : AniList renvoie souvent le
+      // nombre total de volumes de la série (ex. Solo Leveling → 15).
+      const volume =
+        this.draft.volume != null ? this.draft.volume : (result.volume ?? null);
       this.patchDraft({
         title: result.title || this.draft.title,
         series: result.series || this.draft.series,
-        volume: result.volume ?? this.draft.volume,
+        volume,
         author: result.author || this.draft.author,
         year: result.year ?? this.draft.year,
         description: result.description || this.draft.description,

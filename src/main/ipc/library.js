@@ -16,9 +16,12 @@ import {
   listSeries,
   getNextUnreadInSeries,
 } from '../database/books.js';
-import { coverToDataUrl } from '../library/thumbnails.js';
+import {
+  coverToDataUrl,
+  ensureCover,
+  ensureCoverFromUrl,
+} from '../library/thumbnails.js';
 import { openBook } from '../extractors/index.js';
-import { ensureCover } from '../library/thumbnails.js';
 import { syncWatchersFromConfig } from '../library/watcher.js';
 import { detectFromFilename } from '../metadata/parse-filename.js';
 import { getActiveProfileId, setProfilePrefs } from '../database/profiles.js';
@@ -74,12 +77,23 @@ export function registerLibraryIpc() {
     for (const file of scan.found) {
       try {
         const existing = getBookByPath(file.filePath);
+        const remoteCoverUrl =
+          typeof existing?.metadata?.coverUrl === 'string'
+            ? existing.metadata.coverUrl.trim()
+            : '';
+        // Jacket API connue mais pas encore marquée remote (ex. race watcher
+        // a écrit page 0) → ne pas skip, re-télécharger la jaquette.
+        const needsRemoteCover =
+          Boolean(remoteCoverUrl) &&
+          existing?.metadata?.coverSource !== 'remote';
+
         if (
           !force &&
           existing &&
           existing.pageTotal > 0 &&
           existing.coverPath &&
-          fs.existsSync(existing.coverPath)
+          fs.existsSync(existing.coverPath) &&
+          !needsRemoteCover
         ) {
           skipped += 1;
           continue;
@@ -87,16 +101,46 @@ export function registerLibraryIpc() {
 
         const book = await openBook(file.filePath);
         let coverPath = null;
-        try {
-          coverPath = await ensureCover(
-            file.filePath,
-            () => book.getCoverBuffer(),
-            pid,
-          );
-        } catch {
-          // ignore cover errors
+        let coverSource = existing?.metadata?.coverSource || null;
+
+        // Priorité jacket API (coverUrl persisté à l’import) sur page 0 archive.
+        if (remoteCoverUrl) {
+          try {
+            coverPath = await ensureCoverFromUrl(
+              file.filePath,
+              remoteCoverUrl,
+              pid,
+            );
+            coverSource = 'remote';
+          } catch (err) {
+            console.warn('[VDR] scan jacket API:', err.message);
+          }
         }
+
+        if (!coverPath) {
+          try {
+            coverPath = await ensureCover(
+              file.filePath,
+              () => book.getCoverBuffer(),
+              pid,
+            );
+            if (coverPath && coverSource !== 'remote') {
+              coverSource = 'archive';
+            }
+          } catch {
+            // ignore cover errors
+          }
+        }
+
         const detected = detectFromFilename(file.filePath);
+        const nextMetadata =
+          remoteCoverUrl || existing?.metadata
+            ? {
+                ...(existing?.metadata || {}),
+                coverUrl: remoteCoverUrl || existing?.metadata?.coverUrl || null,
+                coverSource,
+              }
+            : undefined;
         upsertBook({
           filePath: file.filePath,
           title: existing?.series
@@ -109,6 +153,7 @@ export function registerLibraryIpc() {
           format: file.format,
           coverPath,
           pageTotal: book.pageCount,
+          metadata: nextMetadata,
         });
         await book.close();
         indexed += 1;

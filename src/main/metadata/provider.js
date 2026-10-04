@@ -10,12 +10,15 @@
 import { getConfigInternal, setConfig } from '../config.js';
 import { createTtlCache } from '../../shared/perf-cache.js';
 import { detectFromFilename } from './parse-filename.js';
+import { normalizeMetadataQuery } from './types.js';
 import { stubProvider } from './providers/stub.js';
 import { comicvineProvider } from './providers/comicvine.js';
 import { openLibraryProvider } from './providers/openlibrary.js';
 import { anilistProvider } from './providers/anilist.js';
 import { mangadexProvider } from './providers/mangadex.js';
 import { googleBooksProvider } from './providers/googlebooks.js';
+
+export { normalizeMetadataQuery };
 
 /** @type {import('./types.js').MetadataProvider[]} */
 const PROVIDERS = [
@@ -87,9 +90,12 @@ export async function searchMetadata(query, { provider, force = false } = {}) {
   const providerId = provider || cfg.metadataProvider || 'anilist';
   const impl = BY_ID[providerId] || stubProvider;
   const apiKey = cfg.apiKeys?.[impl.id] || null;
-  const q = String(query || '').trim();
+  const raw = String(query || '').trim();
+  // Toujours strip tome/volume : « Solo Leveling Tome 1 » matche mieux
+  // (AniList/MangaDex) et évite les faux positifs Open Library.
+  const q = normalizeMetadataQuery(raw) || raw;
 
-  if (!q) {
+  if (!raw) {
     return {
       results: [],
       provider: impl.id,
@@ -116,7 +122,8 @@ export async function searchMetadata(query, { provider, force = false } = {}) {
       try {
         const results = await impl.search(q, { apiKey });
         const allStub =
-          results.length > 0 && results.every((r) => r.source === 'stub' && impl.id !== 'stub');
+          results.length > 0 &&
+          results.every((r) => r.source === 'stub' && impl.id !== 'stub');
         return {
           results,
           provider: impl.id,
