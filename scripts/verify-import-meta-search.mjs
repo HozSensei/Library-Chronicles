@@ -151,6 +151,12 @@ assert(
 assert(view.includes('resumeFlow'), 'ImportView reprend flow');
 assert(view.includes('Retirer de la bibliothèque'), 'hint X retirer');
 assert(view.includes('openMetaSearch'), 'ImportView openMetaSearch');
+assert(view.includes('import__import-all'), 'bouton header Tout importer');
+assert(view.includes('doImportAll'), 'handler doImportAll');
+assert(
+  !view.includes("key: 'Y', label: 'Tout importer'"),
+  'plus hint Y Tout importer sur liste',
+);
 
 assert(bookView.includes('openMetaSearch'), 'BookDetail → openMetaSearch');
 assert(bookView.includes('META_RETURN.BOOK'), 'BookDetail metaReturn book');
@@ -164,6 +170,10 @@ assert(gamepad.includes('to-book'), 'gamepad B → book');
 assert(gamepad.includes('toggleImportOrRemoveSelected'), 'gamepad X toggle');
 assert(gamepad.includes('openMetaSearch'), 'gamepad Y/LB → openMetaSearch');
 assert(gamepad.includes('IMPORT_FLOW'), 'gamepad machine flow');
+assert(
+  gamepad.includes('libre sur liste'),
+  'Y n’importe plus tout depuis la liste',
+);
 
 assert(channels.includes('LIBRARY_DELETE_BOOK'), 'IPC channel delete');
 assert(ipc.includes('LIBRARY_DELETE_BOOK'), 'IPC handler delete');

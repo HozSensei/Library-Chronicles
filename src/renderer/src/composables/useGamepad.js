@@ -881,18 +881,43 @@ function createLoop(ctx) {
         vibe('light');
         router.push({ name: 'library' });
       }
-      // Navigation liste : pas de haptic (évite spam stick). Plus de footer actions.
+      // Navigation liste + header « Tout importer ». Plus de footer actions / Y bulk.
       if (action === 'cursor-up') {
+        if (ui.importFocusZone === 'header') {
+          afterFocusMove();
+          return;
+        }
+        if (imp.cursor <= 0) {
+          ui.setImportFocusZone('header');
+          ui.setImportFocus(0);
+          afterFocusMove();
+          return;
+        }
         ui.setImportFocusZone('list');
         imp.moveCursor(-1);
         afterFocusMove();
       }
       if (action === 'cursor-down') {
+        if (ui.importFocusZone === 'header') {
+          ui.setImportFocusZone('list');
+          if (imp.items.length) {
+            imp.cursor = Math.max(0, Math.min(imp.cursor, imp.items.length - 1));
+          }
+          afterFocusMove();
+          return;
+        }
         ui.setImportFocusZone('list');
         imp.moveCursor(1);
         afterFocusMove();
       }
       if (action === 'confirm') {
+        if (ui.importFocusZone === 'header') {
+          if (imp.items.length && !imp.committing) {
+            vibe('confirm');
+            void imp.commitAll({ copyToLibrary: true });
+          }
+          return;
+        }
         // Liste : A = ouvrir fiche bibliothèque (ou draft import aligné)
         vibe('confirm');
         void (async () => {
@@ -916,18 +941,13 @@ function createLoop(ctx) {
       }
       // X = toggle : importer ce tome / retirer de la bibliothèque si ✓
       if (action === 'import-one') {
+        if (ui.importFocusZone === 'header') return;
         if (imp.selected && !imp.committing) {
           vibe('confirm');
           void imp.toggleImportOrRemoveSelected({ copyToLibrary: true });
         }
       }
-      // Y = tout importer (chaque item : méta sélectionnées ou défaut)
-      if (action === 'import-all' || action === 'enrich') {
-        if (imp.items.length && !imp.committing) {
-          vibe('confirm');
-          void imp.commitAll({ copyToLibrary: true });
-        }
-      }
+      // Y / enrich : libre sur liste (méta / recherche uniquement en fiche)
       return;
     }
 

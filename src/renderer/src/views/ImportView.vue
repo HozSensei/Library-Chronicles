@@ -22,7 +22,7 @@ const ui = useUiStore();
 const listHints = computed(() => {
   const imported = Boolean(imp.selected?.alreadyInLibrary);
   return [
-    { key: '↑↓', label: 'fichier' },
+    { key: '↑↓', label: 'fichier / header' },
     { key: 'A', label: 'ouvrir fiche' },
     {
       key: 'X',
@@ -30,7 +30,6 @@ const listHints = computed(() => {
         ? 'Retirer de la bibliothèque'
         : 'Importer ce tome',
     },
-    { key: 'Y', label: 'Tout importer' },
     { key: 'B', label: 'retour biblio' },
   ];
 });
@@ -204,6 +203,14 @@ async function doImportOne() {
   backToList();
 }
 
+/** Bouton header liste — tout importer (plus de binding Y). */
+async function doImportAll() {
+  if (!imp.items.length || imp.committing) return;
+  ui.setImportFocusZone('header');
+  ui.setImportFocus(0);
+  await imp.commitAll({ copyToLibrary: true });
+}
+
 /** Bouton / Y Infos → flow meta-search (Importer des méta). */
 async function openMetaSearch() {
   const ok = await imp.openMetaSearch({
@@ -255,8 +262,17 @@ function onRowClick(index) {
   imp.cursor = index;
 }
 
+function onImportAllFocus() {
+  ui.setImportFocusZone('header');
+  ui.setImportFocus(0);
+}
+
 function onRowActivate(index) {
   return openDetailAt(index);
+}
+
+function headerFocused() {
+  return !imp.isDetail && ui.importFocusZone === 'header';
 }
 
 function fieldFocused(index) {
@@ -355,7 +371,15 @@ function dotLabel(item) {
 }
 
 // Exposé pour tests / manette (commit depuis fiche)
-defineExpose({ doSearch, doImportOne, switchTab, backToList, openMetaSearch, openDetailAt });
+defineExpose({
+  doSearch,
+  doImportOne,
+  doImportAll,
+  switchTab,
+  backToList,
+  openMetaSearch,
+  openDetailAt,
+});
 </script>
 
 <template>
@@ -365,9 +389,23 @@ defineExpose({ doSearch, doImportOne, switchTab, backToList, openMetaSearch, ope
     <header class="import__head">
       <div class="import__head-main">
         <p class="import__brand">Library Chronicles</p>
-        <h1 class="import__title">
-          {{ imp.isDetail ? (imp.isSearchTab ? 'Recherche méta' : 'Fiche') : 'Import' }}
-        </h1>
+        <div class="import__title-row">
+          <h1 class="import__title">
+            {{ imp.isDetail ? (imp.isSearchTab ? 'Recherche méta' : 'Fiche') : 'Import' }}
+          </h1>
+          <button
+            v-if="!imp.isDetail"
+            type="button"
+            class="import__import-all"
+            :class="{ 'is-focused': headerFocused() }"
+            :disabled="!imp.items.length || imp.committing"
+            aria-label="Tout importer"
+            @focus="onImportAllFocus"
+            @click="doImportAll"
+          >
+            Tout importer
+          </button>
+        </div>
         <p class="import__status">{{ statusLabel }}</p>
         <p v-if="imp.root && !imp.isDetail" class="import__root">{{ imp.root }}</p>
       </div>
@@ -796,12 +834,57 @@ defineExpose({ doSearch, doImportOne, switchTab, backToList, openMetaSearch, ope
   color: var(--brass);
 }
 
+.import__title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem 1rem;
+  margin-top: 0.2rem;
+  min-width: 0;
+}
+
 .import__title {
-  margin: 0.2rem 0 0;
+  margin: 0;
   font-family: var(--font-display);
   font-size: clamp(1.75rem, 3vw, 2.1rem);
   font-weight: 800;
   letter-spacing: -0.02em;
+}
+
+.import__import-all {
+  appearance: none;
+  flex-shrink: 0;
+  padding: 0.4rem 0.85rem;
+  border: 1px solid color-mix(in srgb, var(--brass) 55%, var(--border));
+  border-radius: var(--radius-md);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--brass) 28%, transparent),
+    color-mix(in srgb, var(--brass-deep) 14%, transparent)
+  );
+  color: var(--paper);
+  font: inherit;
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    border-color 160ms var(--ease-soft),
+    box-shadow 160ms var(--ease-soft),
+    background 160ms var(--ease-soft),
+    opacity 160ms var(--ease-soft);
+}
+
+.import__import-all:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.import__import-all.is-focused,
+.import__import-all:focus-visible {
+  outline: none;
+  border-color: var(--brass-bright);
+  box-shadow: 0 0 0 3px var(--focus-glow);
 }
 
 .import__status {
@@ -1473,6 +1556,7 @@ defineExpose({ doSearch, doImportOne, switchTab, backToList, openMetaSearch, ope
   .import__enrich-item,
   .import__tab,
   .import__sheet-action,
+  .import__import-all,
   .field {
     transition: none;
   }

@@ -5,7 +5,8 @@
  *
  * Bindings stables :
  * - Liste : A=ouvrir fiche biblio (si déjà importé) ou fiche brouillon alignée BookDetail ·
- *   X=importer ce tome / retirer de la bibliothèque si ✓ · Y=tout importer · B=retour biblio
+ *   X=importer ce tome / retirer de la bibliothèque si ✓ · B=retour biblio ·
+ *   ↑ depuis 1ʳᵉ ligne → header « Tout importer » (A pour valider) · Y libre (pas tout importer)
  * - Fiche Infos / sheet : même look que BookDetailView · A=éditer champ ·
  *   B=retour liste (ou BookDetail si entrée depuis fiche) · X=Importer le livre ·
  *   Y=Importer des méta (Recherche) · ↑↓ navigation champs
@@ -13,11 +14,12 @@
  *   B=retour fiche (sheet ou BookDetail selon metaReturn) · Y=lancer search ·
  *   Enter/clavier=lancer search · LB/RB=onglets
  *
- * Zones : `list` | `fields` | `results`
+ * Zones : `list` | `header` | `fields` | `results`
  * Onglets fiche : `infos` | `search` (alias flow sheet / meta-search)
  *
+ * Liste : bouton header « Tout importer » (clic / focus manette) — plus de Y bulk.
  * Footer Infos : boutons Importer le livre | Importer des méta (clic) ;
- * manette X/Y restent les bindings. Voir `import-meta.js` pour metaSource / pastilles.
+ * manette X/Y restent les bindings fiche. Voir `import-meta.js` pour metaSource / pastilles.
  */
 
 import {
@@ -110,10 +112,10 @@ export const IMPORT_FIELD_IDS = Object.freeze([
 
 /**
  * @param {string|null|undefined} zone
- * @returns {'list'|'fields'|'results'}
+ * @returns {'list'|'header'|'fields'|'results'}
  */
 export function normalizeImportFocusZone(zone) {
-  if (zone === 'fields' || zone === 'results') return zone;
+  if (zone === 'fields' || zone === 'results' || zone === 'header') return zone;
   // `actions` legacy → list (plus de footer boutons)
   return 'list';
 }

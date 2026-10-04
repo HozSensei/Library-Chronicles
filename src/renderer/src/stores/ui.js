@@ -38,8 +38,8 @@ export const useUiStore = defineStore('ui', {
     /**
      * Zone focus Import :
      * - list : fichiers
-     * - fields / results / actions : fiche détail
-     * - actions (liste) : footer Rescanner / Retour
+     * - header : bouton « Tout importer » (liste)
+     * - fields / results : fiche détail
      */
     importFocusZone: 'list',
     bookFocusIndex: 0,
@@ -81,7 +81,7 @@ export const useUiStore = defineStore('ui', {
       this.importFocusIndex = index;
     },
     setImportFocusZone(zone) {
-      if (zone === 'fields' || zone === 'results') {
+      if (zone === 'fields' || zone === 'results' || zone === 'header') {
         this.importFocusZone = zone;
       } else {
         this.importFocusZone = 'list';

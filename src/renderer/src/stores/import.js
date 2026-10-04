@@ -713,7 +713,7 @@ export const useImportStore = defineStore('import', {
       return results;
     },
     /**
-     * Y — tout importer.
+     * Bouton header — tout importer.
      * Chaque item : méta sélectionnées (API) si présentes, sinon défaut détecté.
      */
     async commitAll({ copyToLibrary = true } = {}) {
