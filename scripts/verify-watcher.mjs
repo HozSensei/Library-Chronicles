@@ -35,7 +35,7 @@ export class BrowserWindow {
 // des fonctions pures (même logique que watcher.js).
 function isSupported(filePath) {
   const ext = path.extname(filePath || '').toLowerCase();
-  return ['.cbz', '.cbr', '.pdf', '.zip'].includes(ext);
+  return ['.cbz', '.cbr', '.pdf', '.zip', '.epub'].includes(ext);
 }
 
 function snapshotSupportedTree(dirRoot) {
