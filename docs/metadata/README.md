@@ -26,6 +26,20 @@ Chaque mapper produit **tous** les champs (voir schéma). Règles critiques :
 
 Helpers : `createNormalizedMeta`, `absoluteHttpsCoverUrl`, `ensureNormalizedMeta`.
 
+IPC : les objets Pinia/Vue sont **sanitized** (`sanitizeForIpc` / `toRaw`) avant
+`library.updateBook` / `import.commit` — sinon Electron lève
+« An object could not be cloned » (tableaux `authors` réactifs dans `metadata`).
+
+## Debug dump (developer)
+
+En mode dev (`import.meta.env.DEV` / `ELECTRON_IS_DEV=1` / `VDR_META_APPLY_DEBUG=1`),
+chaque **Apply** méta écrit un JSON `{ raw, normalized, fieldsSelected, patch }` dans :
+
+- `userData/.debug/meta-apply/`
+- `.debug/meta-apply/` (cwd workspace, si `package.json` présent)
+
+Dumps **gitignorés** (`.debug/`).
+
 ## Providers (docs réponses API)
 
 | Id | Clé | Mapper | Doc réponse |
@@ -58,4 +72,5 @@ npm run test:meta-mappers
 npm run test:metadata
 npm run test:import-meta-jacket
 npm run test:meta-apply-fields
+npm run test:plain-clone
 ```

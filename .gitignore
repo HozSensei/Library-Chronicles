@@ -11,6 +11,9 @@ Thumbs.db
 *.sqlite
 *.sqlite-journal
 
+# Dumps debug apply méta (dev) — jamais committer
+.debug/
+
 # Secrets locaux (ne jamais committer)
 vdr-secrets.json
 **/vdr-secrets.json

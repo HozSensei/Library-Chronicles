@@ -12,6 +12,7 @@
  */
 
 import { normalizeRemoteCoverUrl } from './cover-url.js';
+import { sanitizeForIpc } from './plain-clone.js';
 
 /** @typedef {'googlebooks'|'anilist'|'mangadex'|'openlibrary'|'comicvine'|'stub'} MetaProviderId */
 
@@ -84,22 +85,25 @@ export function createNormalizedMeta(input) {
   const year = normalizeYear(input?.year);
   const confidence = clampConfidence(input?.confidence);
 
-  return {
-    title,
-    series,
-    volume,
-    authors,
-    year,
-    synopsis,
-    coverUrl,
-    provider,
-    providerId,
-    confidence,
-    id: providerId ? `${provider}:${providerId}` : `${provider}:unknown`,
-    author: authors[0] || null,
-    description: synopsis,
-    source: provider,
-  };
+  // Plain object JSON-safe (jamais de Proxy) — prêt pour IPC Electron.
+  return /** @type {NormalizedMeta} */ (
+    sanitizeForIpc({
+      title,
+      series,
+      volume,
+      authors: [...authors],
+      year,
+      synopsis,
+      coverUrl,
+      provider,
+      providerId,
+      confidence,
+      id: providerId ? `${provider}:${providerId}` : `${provider}:unknown`,
+      author: authors[0] || null,
+      description: synopsis,
+      source: provider,
+    })
+  );
 }
 
 /**

@@ -1,5 +1,5 @@
 <script setup>
-import { computed, nextTick, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, ref, toRaw, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import ControlHint from '../components/ControlHint.vue';
 import LazyCover from '../components/LazyCover.vue';
@@ -7,6 +7,7 @@ import { useImportStore } from '../stores/import';
 import { useLibraryStore } from '../stores/library';
 import { useUiStore } from '../stores/ui';
 import { useI18n } from '../composables/useI18n';
+import { sanitizeForIpc } from '../../../shared/plain-clone.js';
 import {
   BOOK_FOCUS,
   isBookEditableFocus,
@@ -234,11 +235,11 @@ async function saveDraft() {
       volume: parseOptionalNumber(draft.value.volume),
       year: parseOptionalNumber(draft.value.year),
       author,
-      metadata: {
-        ...(b.metadata || {}),
+      metadata: sanitizeForIpc({
+        ...(toRaw(b.metadata) || {}),
         description,
         synopsis: description,
-      },
+      }),
     });
     if (updated) {
       book.value = updated;
