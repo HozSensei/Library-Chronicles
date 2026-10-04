@@ -179,6 +179,7 @@
 
   --z-hud: 40;
   --z-overlay: 50;
+  --z-toast: 55;
   --z-modal: 60;
 
   --shell-max: 72rem;

@@ -4,6 +4,7 @@ import {
   groupBooksBySeries,
   listRecentSeries,
 } from '../../../shared/series.js';
+import { useToastStore } from './toast.js';
 
 const RECENT_LIMIT = 14;
 const CONTINUE_LIMIT = 18;
@@ -323,10 +324,15 @@ export const useLibraryStore = defineStore('library', {
     async scan(opts = {}) {
       const force = opts.force !== false;
       this.loading = true;
+      const toast = useToastStore();
       try {
         await window.vdr.library.scan({ force });
         this.invalidate();
         await this.refresh({ force: true });
+        toast.success(force ? 'Bibliothèque scannée' : 'Bibliothèque à jour');
+      } catch (err) {
+        toast.error(err?.message || 'Échec du scan');
+        throw err;
       } finally {
         this.loading = false;
       }
@@ -366,23 +372,30 @@ export const useLibraryStore = defineStore('library', {
      */
     async updateBook(id, patch) {
       if (id == null || !patch || typeof patch !== 'object') return null;
-      const updated = await window.vdr.library.updateBook(Number(id), patch);
-      if (!updated) return null;
-      const idx = this.books.findIndex((b) => String(b.id) === String(id));
-      if (idx >= 0) {
-        this.books.splice(idx, 1, updated);
-      } else {
-        this.books.push(updated);
-      }
+      const toast = useToastStore();
       try {
-        const series = groupBooksBySeries(this.books);
-        this.seriesGroups = series?.groups || [];
-        this.seriesSingles = series?.singles || [];
-      } catch {
-        /* ignore — liste books déjà à jour */
+        const updated = await window.vdr.library.updateBook(Number(id), patch);
+        if (!updated) return null;
+        const idx = this.books.findIndex((b) => String(b.id) === String(id));
+        if (idx >= 0) {
+          this.books.splice(idx, 1, updated);
+        } else {
+          this.books.push(updated);
+        }
+        try {
+          const series = groupBooksBySeries(this.books);
+          this.seriesGroups = series?.groups || [];
+          this.seriesSingles = series?.singles || [];
+        } catch {
+          /* ignore — liste books déjà à jour */
+        }
+        this._refreshedAt = Date.now();
+        toast.success('Fiche enregistrée');
+        return updated;
+      } catch (err) {
+        toast.error(err?.message || 'Échec de l’enregistrement');
+        throw err;
       }
-      this._refreshedAt = Date.now();
-      return updated;
     },
     /**
      * @param {'board'|'all'|'recent'|'series'} tab

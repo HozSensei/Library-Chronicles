@@ -1,6 +1,7 @@
 <script setup>
 import { onMounted, onUnmounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
+import AppToast from './components/AppToast.vue';
 import { useGamepad } from './composables/useGamepad';
 import { useUiStore } from './stores/ui';
 import { useLibraryStore } from './stores/library';
@@ -176,6 +177,7 @@ watch(
         <component :is="Component" :key="route.fullPath" />
       </Transition>
     </RouterView>
+    <AppToast />
   </div>
 </template>
 

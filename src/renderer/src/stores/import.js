@@ -8,6 +8,7 @@ import {
 } from '../../../shared/import-meta.js';
 import { normalizeMetadataQuery } from '../../../shared/metadata-query.js';
 import { useLibraryStore } from './library.js';
+import { useToastStore } from './toast.js';
 
 function draftFromItem(item) {
   if (item?.selectedMeta) {
@@ -399,9 +400,15 @@ export const useImportStore = defineStore('import', {
         void this.resolveCoverPreview(result.coverUrl);
       }
       const item = this.selected;
-      if (!item) return;
-      item.selectedMeta = normalizeImportMetadata(this.draft, item);
-      item.metaSource = META_SOURCE.SELECTED;
+      if (item) {
+        item.selectedMeta = normalizeImportMetadata(this.draft, item);
+        item.metaSource = META_SOURCE.SELECTED;
+      }
+      try {
+        useToastStore().success('Métadonnées appliquées');
+      } catch {
+        /* toast optionnel */
+      }
     },
     applyEnrichCursor() {
       const result = this.enrichResults[this.enrichResultCursor];
@@ -415,6 +422,7 @@ export const useImportStore = defineStore('import', {
       const item = this.selected;
       if (!item) return null;
       this.committing = true;
+      const toast = useToastStore();
       try {
         const meta = resolveItemMetadata(item, {
           draft: this.draft,
@@ -435,7 +443,13 @@ export const useImportStore = defineStore('import', {
         } catch {
           /* ignore */
         }
+        const label =
+          result.book?.title || meta?.title || item.name || 'Livre';
+        toast.success(`Importé · ${label}`);
         return result;
+      } catch (err) {
+        toast.error(err?.message || 'Échec de l’import');
+        throw err;
       } finally {
         this.committing = false;
       }
@@ -451,6 +465,7 @@ export const useImportStore = defineStore('import', {
 
       this.committing = true;
       const results = [];
+      const toast = useToastStore();
       try {
         for (const filePath of paths) {
           const item = this.items.find((i) => i.filePath === filePath);
@@ -484,7 +499,15 @@ export const useImportStore = defineStore('import', {
           } catch {
             /* ignore */
           }
+          toast.success(
+            results.length === 1
+              ? `Importé · ${results[0].book?.title || 'Livre'}`
+              : `${results.length} livres importés`,
+          );
         }
+      } catch (err) {
+        toast.error(err?.message || 'Échec de l’import');
+        throw err;
       } finally {
         this.committing = false;
       }
@@ -498,6 +521,7 @@ export const useImportStore = defineStore('import', {
       if (!this.items.length) return [];
       this.committing = true;
       const results = [];
+      const toast = useToastStore();
       try {
         for (const item of this.items) {
           const preferDraft =
@@ -527,7 +551,15 @@ export const useImportStore = defineStore('import', {
           } catch {
             /* ignore */
           }
+          toast.success(
+            results.length === 1
+              ? `Importé · ${results[0].book?.title || 'Livre'}`
+              : `${results.length} livres importés`,
+          );
         }
+      } catch (err) {
+        toast.error(err?.message || 'Échec de l’import');
+        throw err;
       } finally {
         this.committing = false;
       }
