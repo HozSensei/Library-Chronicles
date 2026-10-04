@@ -351,6 +351,7 @@ export const MESSAGES = Object.freeze({
       author: 'Auteur',
       status: 'Statut',
       pages: 'Pages',
+      chapters: 'Chapitres',
       provider: 'Provider',
       synopsis: 'Synopsis',
       otherVolumes: 'Autres tomes de la série',
@@ -406,6 +407,8 @@ export const MESSAGES = Object.freeze({
       pageByPage: 'page par page',
       continuous: 'continu',
       epubReflow: 'EPUB reflow',
+      /** Spine EPUB = chapitres, pas pages images. */
+      chapterOf: 'Chapitre {cur} / {total}',
       fontSize: 'Police {v}',
       quit: 'Quitter la lecture',
       direction: 'Sens {dir}',
@@ -730,6 +733,7 @@ export const MESSAGES = Object.freeze({
       author: 'Author',
       status: 'Status',
       pages: 'Pages',
+      chapters: 'Chapters',
       provider: 'Provider',
       synopsis: 'Synopsis',
       otherVolumes: 'Other volumes in the series',
@@ -785,6 +789,8 @@ export const MESSAGES = Object.freeze({
       pageByPage: 'page by page',
       continuous: 'continuous',
       epubReflow: 'EPUB reflow',
+      /** EPUB spine items = chapters, not image pages. */
+      chapterOf: 'Chapter {cur} / {total}',
       fontSize: 'Font {v}',
       quit: 'Quit reading',
       direction: 'Direction {dir}',
