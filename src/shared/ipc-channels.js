@@ -79,4 +79,11 @@ export const IpcChannels = Object.freeze({
   WATCH_LIBRARY_CHANGED: 'watch:library-changed',
   WATCH_IMPORT_CHANGED: 'watch:import-changed',
   WATCH_STATUS: 'watch:status',
+
+  /** Auto-update (electron-updater → GitHub Releases). */
+  UPDATE_CHECK: 'update:check',
+  UPDATE_QUIT_AND_INSTALL: 'update:quit-and-install',
+  UPDATE_GET_STATUS: 'update:get-status',
+  /** Push Main → Renderer : { state, version?, percent?, message? } */
+  UPDATE_STATUS: 'update:status',
 });

@@ -15,8 +15,11 @@ Complète le cadrage historique dans [`ROADMAP.md`](../ROADMAP.md) (phases 0–7
 - Produire NSIS + portable dans `dist/` (voir [`PACKAGING.md`](./PACKAGING.md)).
 - Installer l’artefact NSIS (ou lancer le portable) sur l’Ally cible.
 - Vérifier démarrage, icône, nom affiché **Library Chronicles**, SQLite ou fallback JSON.
+- **Note cloud/Linux :** cross-build souvent KO (`better-sqlite3`) — ne pas forger d’`.exe` ; suivre la procédure Win.
 
 ### 2. Checklist smoke Ally packagée
+
+Checklist exécutable : [`ALLY-SMOKE.md`](./ALLY-SMOKE.md).
 
 Sur build **packagée** (pas `npm run dev`) :
 
@@ -31,34 +34,35 @@ Sur build **packagée** (pas `npm run dev`) :
 - [ ] Watcher : ajout fichier → refresh
 - [ ] Quit / relance : progression & profils conservés
 
-Étendre / croiser avec la checklist de [`PACKAGING.md`](./PACKAGING.md).
-
 ### 3. Figer `main` / tag `v0.1.0`
 
-- Stabiliser `main` après smoke Ally OK.
-- Tag Git annoté : `v0.1.0`.
-- (Optionnel) GitHub Release avec les binaires Win x64.
+- Stabiliser `main` après smoke Ally OK (+ branding logo déjà sur `main`).
+- Tag Git annoté : `v0.1.0` (voir commandes dans [`PACKAGING.md`](./PACKAGING.md)).
+- GitHub Release avec binaires Win x64 **et** `latest.yml` / blockmaps (requis updater).
+
+**Ne pas tagger depuis un agent Linux** sans artefacts Win réels et validation utilisateur.
 
 ---
 
 ## Distribution (après tag)
 
-### 4. Auto-update
+### 4. Auto-update — **implémenté (code)**
 
-- Intégrer **electron-updater**.
-- Publier / consommer les mises à jour via **GitHub Releases**.
-- Smoke : install v0.1.0 → release suivante → update packagée sur Ally.
+- `electron-updater` + provider GitHub `HozSensei/Library-Chronicles`
+- Check au boot (packaged), toasts FR/EN, install au quit
+- Reste à faire **sur Win/Ally** : publier une Release, puis smoke update `v0.1.0` → `v0.1.1`
 
-### 5. Migrations SQL versionnées
+### 5. Migrations SQL versionnées — **ensuite**
 
 - Schéma SQLite évolutif (versions numérotées).
 - Migration au démarrage ; conserver le fallback JSON si natif KO.
 - Tests de montée de version depuis une DB v0.1.0.
+- *(Amorce code reportée après validation auto-update Ally.)*
 
 ### 6. Icône / `productName` Library Chronicles dans le package
 
-- Confirmer `productName`, raccourcis NSIS, `build/icon.png` / `.ico` dans l’installeur.
-- Vérifier favicon / wordmark / mark UI alignés branding.
+- Confirmé en config : `productName`, raccourcis NSIS, `build/icon.png` / `.ico`.
+- Branding UI mergé (#87) : wordmark + mark + favicon teinté.
 
 ---
 
@@ -86,7 +90,8 @@ Sur build **packagée** (pas `npm run dev`) :
 | Doc | Rôle |
 |-----|------|
 | [`ROADMAP.md`](../ROADMAP.md) | Phases livrées & architecture |
-| [`PACKAGING.md`](./PACKAGING.md) | Build Win + checklist Ally |
+| [`PACKAGING.md`](./PACKAGING.md) | Build Win + tag/Release + updater |
+| [`ALLY-SMOKE.md`](./ALLY-SMOKE.md) | Checklist smoke Ally packagée |
 | [`NATIVE.md`](./NATIVE.md) | better-sqlite3 / PDF / rebuild |
 | [`PERF.md`](./PERF.md) | Perf & caches |
 | [`SECURITY.md`](./SECURITY.md) | Audit deps / Node ≥ 22.12 |

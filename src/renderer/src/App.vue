@@ -8,16 +8,19 @@ import { useUiStore } from './stores/ui';
 import { useLibraryStore } from './stores/library';
 import { useImportStore } from './stores/import';
 import { useProfilesStore } from './stores/profiles';
+import { useToastStore } from './stores/toast';
 import { markSetupCompleted } from './router';
 import { sessionOrientationForRoute } from '../../shared/portrait-remap.js';
 import { installVirtualKeyboardOnFocus } from '../../shared/virtual-keyboard.js';
 import { viewTransitionKey } from '../../shared/app-routes.js';
+import { t } from '../../shared/i18n.js';
 
 const router = useRouter();
 const ui = useUiStore();
 const library = useLibraryStore();
 const imp = useImportStore();
 const profiles = useProfilesStore();
+const toast = useToastStore();
 const { start, stop, refreshOrientation } = useGamepad();
 useBrandFavicon();
 
@@ -25,6 +28,8 @@ useBrandFavicon();
 let unsubs = [];
 /** @type {(() => void) | null} */
 let uninstallVk = null;
+/** Évite spam toast download-progress. */
+let lastDownloadToastPct = -1;
 
 /** Évite double enter/exit (watch + autre appel concurrent). */
 let sessionTransition = Promise.resolve();
@@ -48,6 +53,58 @@ function syncOrientationSideEffects(orientation) {
   ui.setReaderCssRotate(safe === 'portrait-ccw');
   library.syncColumns('landscape');
   refreshOrientation();
+}
+
+/**
+ * Toasts auto-update (FR/EN via i18n).
+ * @param {{ state?: string, version?: string|null, percent?: number, message?: string }} payload
+ */
+function handleUpdateStatus(payload) {
+  const state = payload?.state;
+  if (!state || state === 'checking' || state === 'not-available') return;
+
+  if (state === 'available') {
+    const version = payload.version || '';
+    toast.info(
+      version
+        ? t('toast.updateAvailable', { version })
+        : t('toast.updateAvailableGeneric'),
+      { duration: 3600 },
+    );
+    lastDownloadToastPct = -1;
+    return;
+  }
+
+  if (state === 'downloading') {
+    const pct = Math.round(Number(payload.percent) || 0);
+    // Un toast vers ~50 % puis silence (anti-spam manette).
+    if (lastDownloadToastPct < 0 && pct >= 5) {
+      toast.info(t('toast.updateDownloading'), { duration: 2200 });
+      lastDownloadToastPct = pct;
+    } else if (lastDownloadToastPct < 50 && pct >= 50) {
+      toast.info(t('toast.updateDownloadingPct', { pct }), { duration: 2000 });
+      lastDownloadToastPct = pct;
+    }
+    return;
+  }
+
+  if (state === 'downloaded') {
+    const version = payload.version || '';
+    toast.success(
+      version
+        ? t('toast.updateReady', { version })
+        : t('toast.updateReadyGeneric'),
+      { duration: 5200 },
+    );
+    lastDownloadToastPct = -1;
+    return;
+  }
+
+  if (state === 'error') {
+    // Silencieux en boot silencieux — toast info discret seulement.
+    console.warn('[VDR] update:', payload.message);
+    toast.info(t('toast.updateError'), { duration: 2800 });
+  }
 }
 
 onMounted(async () => {
@@ -80,6 +137,10 @@ onMounted(async () => {
         syncOrientationSideEffects(payload?.orientation || ui.orientation);
       }),
     );
+  }
+
+  if (window.vdr?.update?.onStatus) {
+    unsubs.push(window.vdr.update.onStatus(handleUpdateStatus));
   }
 
   if (window.vdr?.watch) {

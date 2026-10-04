@@ -147,4 +147,12 @@ contextBridge.exposeInMainWorld('vdr', {
     onLibraryChanged: (handler) => subscribe(IpcChannels.WATCH_LIBRARY_CHANGED, handler),
     onImportChanged: (handler) => subscribe(IpcChannels.WATCH_IMPORT_CHANGED, handler),
   },
+
+  /** Auto-update GitHub Releases (packaged only). */
+  update: {
+    check: () => ipcRenderer.invoke(IpcChannels.UPDATE_CHECK),
+    quitAndInstall: () => ipcRenderer.invoke(IpcChannels.UPDATE_QUIT_AND_INSTALL),
+    getStatus: () => ipcRenderer.invoke(IpcChannels.UPDATE_GET_STATUS),
+    onStatus: (handler) => subscribe(IpcChannels.UPDATE_STATUS, handler),
+  },
 });

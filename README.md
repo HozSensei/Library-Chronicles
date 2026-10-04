@@ -126,7 +126,8 @@ Details: [`docs/NATIVE.md`](./docs/NATIVE.md).
 | [`docs/UX.md`](./docs/UX.md) | SteamOS-inspired UX principles |
 | [`docs/METADATA.md`](./docs/METADATA.md) | Metadata providers & secrets |
 | [`docs/metadata/README.md`](./docs/metadata/README.md) | NormalizedMeta contract |
-| [`docs/PACKAGING.md`](./docs/PACKAGING.md) | Windows build |
+| [`docs/PACKAGING.md`](./docs/PACKAGING.md) | Windows build + tag/Release + auto-update |
+| [`docs/ALLY-SMOKE.md`](./docs/ALLY-SMOKE.md) | Ally packaged smoke checklist |
 | [`docs/PERF.md`](./docs/PERF.md) | Performance notes |
 | [`docs/SECURITY.md`](./docs/SECURITY.md) | npm audit / Electron |
 
@@ -215,6 +216,8 @@ Override : `VDR_USER_DATA=/chemin npm run reset:library`.
 |-----|---------|
 | [`ROADMAP.md`](./ROADMAP.md) | Phases livrées (0–7) |
 | **[`docs/PLAN-v0.1.md`](./docs/PLAN-v0.1.md)** | **Suite :** smoke Ally packagée → tag `v0.1.0` → auto-update + migrations SQL |
+| [`docs/ALLY-SMOKE.md`](./docs/ALLY-SMOKE.md) | Checklist smoke Ally packagée |
+| [`docs/PACKAGING.md`](./docs/PACKAGING.md) | Build Win, tag, Release, electron-updater |
 
 ## Licence
 
