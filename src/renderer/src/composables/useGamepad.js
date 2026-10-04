@@ -12,6 +12,7 @@ import {
   sessionOrientationForRoute,
   visualPanToLocal,
 } from '../../../shared/portrait-remap.js';
+import { applyStickToStripScroll } from '../../../shared/reader-stick.js';
 import { actionForBinding, GamepadButtons } from '../../../shared/controls.js';
 import { hasHaptics, pulseHaptic } from './useHaptics.js';
 import { markProfileSelected, clearProfileSelected, clearSetupGate } from '../router';
@@ -1195,12 +1196,6 @@ function createLoop(ctx) {
         vibe('confirm');
         reader.toggleDirection();
       }
-      if (action === 'reset-zoom' || action === 'toggle-zoom') {
-        if (!reader.isStripMode) reader.resetZoom();
-      }
-      if (action === 'fit-width') {
-        if (!reader.isStripMode) reader.setFitWidth();
-      }
       if (action === 'add-bookmark') reader.addBookmark();
       if (action === 'next-volume') {
         reader.openNextVolume().then((ok) => {
@@ -1220,16 +1215,6 @@ function createLoop(ctx) {
           }
         });
       }
-      // Mode page : zoom D-Pad ↑/↓ ; pages ←/→.
-      // Mode strip : pas de zoom (bord à bord) — ↑/↓ et ←/→ sautent de page ;
-      // stick scroll le strip.
-      if (reader.isStripMode) {
-        if (action === 'zoom-in') reader.stepPage('prev');
-        if (action === 'zoom-out') reader.stepPage('next');
-      } else {
-        if (action === 'zoom-in') reader.zoomBy(1);
-        if (action === 'zoom-out') reader.zoomBy(-1);
-      }
       if (action === 'page-prev') {
         vibe('light');
         reader.stepPage('prev');
@@ -1246,22 +1231,37 @@ function createLoop(ctx) {
         vibe('confirm');
         reader.stepChapter(1);
       }
-      if ((action === 'pan' || action === 'stick') && payload) {
-        // Sous +90° CSS : payload = axes physiques ; visualPanToLocal =
-        // même rotate(+90° CW) que la page. Sinon payload déjà remappé écran.
-        // remapStick inchangé pour modal pause / menus.
-        const local = ui.readerCssRotate
-          ? visualPanToLocal(payload.x, payload.y)
-          : payload;
-        if (reader.isStripMode) {
-          const strip = document.querySelector('.reader__strip');
-          if (strip) {
-            strip.scrollTop += local.y * 28;
-            strip.scrollLeft += local.x * 10;
-          }
-        } else {
-          reader.pan(local.x, local.y);
+
+      // Stick : même mapping physique→local (visualPanToLocal sous +90°).
+      const stickLocal =
+        (action === 'pan' || action === 'stick') && payload
+          ? ui.readerCssRotate
+            ? visualPanToLocal(payload.x, payload.y)
+            : payload
+          : null;
+
+      if (reader.isStripMode) {
+        // Strip : pas de zoom CSS — D-Pad ↑/↓ sautent de page ;
+        // stick = scroll 4 directions (mêmes axes locaux que pan page).
+        if (action === 'zoom-in') reader.stepPage('prev');
+        if (action === 'zoom-out') reader.stepPage('next');
+        if (stickLocal) {
+          applyStickToStripScroll(
+            document.querySelector('.reader__strip'),
+            stickLocal.x,
+            stickLocal.y,
+          );
         }
+      } else {
+        // Mode page — contrôles identiques au pré-strip-cta :
+        // L3 reset zoom fit, LB fit-width, D-Pad ↑↓ zoom, stick pan clampé.
+        if (action === 'reset-zoom' || action === 'toggle-zoom') {
+          reader.resetZoom();
+        }
+        if (action === 'fit-width') reader.setFitWidth();
+        if (action === 'zoom-in') reader.zoomBy(1);
+        if (action === 'zoom-out') reader.zoomBy(-1);
+        if (stickLocal) reader.pan(stickLocal.x, stickLocal.y);
       }
     }
   }

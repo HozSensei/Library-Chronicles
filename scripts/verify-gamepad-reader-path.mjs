@@ -144,6 +144,38 @@ assert(
   !gamepadSrc.includes('reader.toggleZoom()'),
   'dispatch reader : plus d’appel toggleZoom()',
 );
+// Mode page : L3 / zoom / pan hors branche strip (pas de gate isStripMode sur l’appel).
+{
+  const pageBranch = gamepadSrc.slice(
+    gamepadSrc.indexOf('// Mode page — contrôles identiques'),
+  );
+  assert(
+    pageBranch.includes('reader.resetZoom()') &&
+      !pageBranch.slice(0, pageBranch.indexOf('reader.resetZoom()')).includes(
+        'isStripMode',
+      ),
+    'mode page : resetZoom() non conditionné par isStripMode',
+  );
+  assert(
+    pageBranch.includes('reader.zoomBy(1)') &&
+      pageBranch.includes('reader.zoomBy(-1)'),
+    'mode page : D-Pad zoomBy ±1',
+  );
+  assert(
+    pageBranch.includes('reader.pan(stickLocal.x, stickLocal.y)'),
+    'mode page : stick → reader.pan (clamp bords)',
+  );
+}
+assert(
+  gamepadSrc.includes('applyStickToStripScroll') &&
+    gamepadSrc.includes('visualPanToLocal'),
+  'strip + page : même mapping visualPanToLocal ; strip scroll via helper',
+);
+assert(
+  !/scrollTop\s*\+=\s*local\.y\s*\*\s*28/.test(gamepadSrc) &&
+    !/scrollLeft\s*\+=\s*local\.x\s*\*\s*10/.test(gamepadSrc),
+  'plus de scroll strip asymétrique y*28 / x*10',
+);
 
 const store = readFileSync(
   join(root, 'src/renderer/src/stores/reader.js'),

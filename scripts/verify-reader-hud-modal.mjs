@@ -106,6 +106,16 @@ assert(!store.includes('toggleReadingMode'), 'pas de toggleReadingMode global');
 assert(store.includes('isStripMode'), 'getter isStripMode');
 assert(store.includes('readingMode'), 'store readingMode strip|page');
 assert(store.includes('zoomBy(steps)'), 'store zoomBy restauré (mode page)');
+assert(
+  gamepad.includes('reader.resetZoom()') &&
+    gamepad.includes('reader.zoomBy(1)') &&
+    gamepad.includes('reader.pan(stickLocal.x, stickLocal.y)'),
+  'gamepad mode page : L3 reset + zoom D-Pad + stick pan',
+);
+assert(
+  gamepad.includes('applyStickToStripScroll'),
+  'gamepad strip : stick scroll paritaire (helper)',
+);
 assert(!store.includes('toggleWebtoon'), 'plus de toggleWebtoon');
 assert(!hud.includes('Mode webtoon'), 'HUD sans bouton Mode webtoon');
 assert(!hud.includes('Strip vertical'), 'HUD sans bascule Strip vertical');

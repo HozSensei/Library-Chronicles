@@ -19,6 +19,11 @@ import {
   normalizeReadingMode,
   supportsStripReading,
 } from '../src/shared/reading-mode.js';
+import {
+  READER_STICK_SPEED,
+  applyStickToStripScroll,
+} from '../src/shared/reader-stick.js';
+import { visualPanToLocal } from '../src/shared/portrait-remap.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -99,9 +104,40 @@ assert.match(i18n, /Read continuously/);
 
 assert.match(gamepad, /reader\.isStripMode/);
 assert.match(gamepad, /reader__strip/);
+assert.match(gamepad, /applyStickToStripScroll/);
 assert.match(
   gamepad,
   /isStripMode[\s\S]*zoom-in[\s\S]*stepPage\('prev'\)/,
 );
+// Mode page : zoom / L3 / pan toujours présents (branche else dédiée).
+assert.match(gamepad, /Mode page — contrôles identiques/);
+assert.match(gamepad, /reader\.resetZoom\(\)/);
+assert.match(gamepad, /reader\.zoomBy\(1\)/);
+assert.match(gamepad, /reader\.pan\(stickLocal\.x,\s*stickLocal\.y\)/);
+assert.doesNotMatch(view, /stripStyle[\s\S]*panX/);
+assert.match(store, /READER_STICK_SPEED/);
+assert.match(
+  store,
+  /readingMode !== undefined && readingMode !== null/,
+);
+
+// Parité stick : même mapping local, vitesse égale X/Y, signe inverse translate.
+assert.equal(READER_STICK_SPEED, 14);
+{
+  const localUp = visualPanToLocal(0, -1); // physique haut → local (+1, 0)
+  assert.deepEqual(localUp, { x: 1, y: 0 });
+  const el = { scrollLeft: 100, scrollTop: 200 };
+  applyStickToStripScroll(el, localUp.x, localUp.y);
+  assert.equal(el.scrollLeft, 100 - READER_STICK_SPEED);
+  assert.equal(el.scrollTop, 200);
+}
+{
+  const localLeft = visualPanToLocal(-1, 0); // physique gauche → local (0, −1)
+  assert.deepEqual(localLeft, { x: 0, y: -1 });
+  const el = { scrollLeft: 50, scrollTop: 80 };
+  applyStickToStripScroll(el, localLeft.x, localLeft.y);
+  assert.equal(el.scrollLeft, 50);
+  assert.equal(el.scrollTop, 80 - localLeft.y * READER_STICK_SPEED);
+}
 
 console.log('verify-reader-strip: ok');

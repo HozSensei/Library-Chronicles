@@ -8,6 +8,7 @@ import {
   normalizeReadingMode,
   READING_MODE,
 } from '../../../shared/reading-mode.js';
+import { READER_STICK_SPEED } from '../../../shared/reader-stick.js';
 import { findAdjacentVolume } from '../../../shared/series.js';
 import {
   clampPanToPage,
@@ -193,7 +194,12 @@ export const useReaderStore = defineStore('reader', {
       this.prevVolumeOffer = null;
       this.nextVolumeOffer = null;
       this.endFocusIndex = 0;
-      this.readingMode = normalizeReadingMode(readingMode ?? this.readingMode);
+      // Défaut PAGE si mode omis — ne pas hériter d’un strip précédent (sticky).
+      this.readingMode = normalizeReadingMode(
+        readingMode !== undefined && readingMode !== null
+          ? readingMode
+          : READING_MODE.PAGE,
+      );
       this.revokePageCache();
       try {
         await this.loadPrefs();
@@ -207,6 +213,7 @@ export const useReaderStore = defineStore('reader', {
         this.renderEngine = meta.renderEngine || meta.format || null;
         this.resetTransform();
         // Strip = fit-width bord à bord (pas de zoom CSS scale — voir docs).
+        // Page : fitMode restauré par loadPrefs (jamais forcé par un strip antérieur).
         if (this.isStripMode) this.fitMode = 'fit-width';
 
         // Métadonnées série déjà fournies par reader.open (plus de listBooks)
@@ -642,7 +649,7 @@ export const useReaderStore = defineStore('reader', {
      * si CSS rotate). Sous rotate(90deg) : local(+X)→bas écran, local(+Y)→gauche.
      * Clamp strict : pas de pan hors des bords de page.
      */
-    pan(dx, dy, speed = 14) {
+    pan(dx, dy, speed = READER_STICK_SPEED) {
       if (this.fitMode === 'fit-width') {
         this.panY += dy * speed * 1.4;
         this.panX += dx * speed * 0.4;
