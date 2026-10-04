@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://library-chronicles.local/schemas/normalized-meta.json",
+  "title": "NormalizedMeta",
+  "description": "Contrat strict — sortie garantie de chaque mapper provider (src/shared/normalized-meta.js).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "title",
+    "series",
+    "volume",
+    "authors",
+    "year",
+    "synopsis",
+    "coverUrl",
+    "provider",
+    "providerId",
+    "confidence",
+    "id",
+    "author",
+    "description",
+    "source"
+  ],
+  "properties": {
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Titre affichable (jamais vide — fallback Untitled)."
+    },
+    "series": {
+      "type": ["string", "null"],
+      "description": "Nom de série ; null si inconnu."
+    },
+    "volume": {
+      "type": ["number", "null"],
+      "description": "N° de tome courant — jamais le total de la série."
+    },
+    "authors": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "description": "Liste d’auteurs (peut être vide)."
+    },
+    "year": {
+      "type": ["integer", "null"],
+      "minimum": 1000,
+      "maximum": 2100
+    },
+    "synopsis": {
+      "type": ["string", "null"],
+      "maxLength": 600,
+      "description": "Résumé ; HTML stripé côté mapper."
+    },
+    "coverUrl": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "string",
+          "pattern": "^https://",
+          "description": "https absolu uniquement (jamais http, //, relatif, data:)."
+        }
+      ]
+    },
+    "provider": {
+      "type": "string",
+      "enum": [
+        "googlebooks",
+        "anilist",
+        "mangadex",
+        "openlibrary",
+        "comicvine",
+        "stub"
+      ]
+    },
+    "providerId": {
+      "type": ["string", "null"],
+      "description": "Id distant brut (stringifié)."
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "id": {
+      "type": "string",
+      "description": "Alias `${provider}:${providerId}`."
+    },
+    "author": {
+      "type": ["string", "null"],
+      "description": "Alias authors[0] (compat UI/DB)."
+    },
+    "description": {
+      "type": ["string", "null"],
+      "description": "Alias synopsis (compat UI/DB)."
+    },
+    "source": {
+      "type": "string",
+      "description": "Alias provider (compat import / pastilles)."
+    }
+  }
+}

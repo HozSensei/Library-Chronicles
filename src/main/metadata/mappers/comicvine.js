@@ -1,5 +1,9 @@
 /**
  * Mapper ComicVine : résultat search brut → NormalizedMeta.
+ *
+ * Raw typique : `{ id, name, issue_number, cover_date, deck, description, volume, image }`.
+ * `count_of_issues` (volume) ≠ tome courant — ignoré.
+ * Doc : docs/metadata/comicvine.md — fixture comicvine-batman-1.json
  */
 
 import { parseVolume, extractYear, stripHtml } from '../types.js';

@@ -3,7 +3,7 @@
  * Focus couverture : https absolu, jamais http/relatif.
  */
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -29,9 +29,34 @@ import {
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const fixtures = join(root, 'src/main/metadata/fixtures');
+const docsMeta = join(root, 'docs/metadata');
 
 function loadFixture(name) {
   return JSON.parse(readFileSync(join(fixtures, name), 'utf8'));
+}
+
+// --- docs + schéma présents ---
+{
+  for (const name of [
+    'README.md',
+    'normalized-meta.schema.json',
+    'googlebooks.md',
+    'anilist.md',
+    'mangadex.md',
+    'openlibrary.md',
+    'comicvine.md',
+    'stub.md',
+  ]) {
+    assert.ok(
+      existsSync(join(docsMeta, name)),
+      `docs/metadata/${name}`,
+    );
+  }
+  const schema = JSON.parse(
+    readFileSync(join(docsMeta, 'normalized-meta.schema.json'), 'utf8'),
+  );
+  assert.equal(schema.title, 'NormalizedMeta');
+  assert.ok(schema.required.includes('coverUrl'));
 }
 
 function assertContract(meta, label) {

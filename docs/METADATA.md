@@ -1,9 +1,12 @@
-# Métadonnées — providers
+# Métadonnées — providers & UI
 
 Enrichissement à l’import via une interface pluggable (`search` / métadonnées UI).  
 **Aucune obligation réseau** : le stub offline + l’édition manuelle restent toujours disponibles.
 
-## Contrat `NormalizedMeta`
+> **Contrat API / mappers / exemples de réponses** → [`docs/metadata/README.md`](./metadata/README.md)  
+> JSON Schema : [`docs/metadata/normalized-meta.schema.json`](./metadata/normalized-meta.schema.json)
+
+## Contrat `NormalizedMeta` (résumé)
 
 Chaque provider mappe sa réponse brute via un **mapper dédié**
 (`src/main/metadata/mappers/`) vers un contrat strict :
@@ -27,14 +30,14 @@ Helpers : `createNormalizedMeta`, `absoluteHttpsCoverUrl`, `ensureNormalizedMeta
 
 ## Providers
 
-| Id | Label | Clé | Aide / doc |
-|----|-------|-----|------------|
-| `stub` | Local (stub) | Non — *Gratuit — aucune clé* | — |
-| `openlibrary` | Open Library | Non | [API Open Library](https://openlibrary.org/developers/api) |
-| `anilist` | AniList | Non | [docs.anilist.co](https://docs.anilist.co/) |
-| `mangadex` | MangaDex | Non | [api.mangadex.org/docs](https://api.mangadex.org/docs/) |
-| `comicvine` | ComicVine | **Oui** | [Obtenir une clé](https://comicvine.gamespot.com/api/) |
-| `googlebooks` | Google Books | **Oui** | [Console Books API](https://console.cloud.google.com/apis/library/books.googleapis.com) |
+| Id | Label | Clé | Aide / doc réponse |
+|----|-------|-----|--------------------|
+| `stub` | Local (stub) | Non — *Gratuit — aucune clé* | [stub.md](./metadata/stub.md) |
+| `openlibrary` | Open Library | Non | [openlibrary.md](./metadata/openlibrary.md) |
+| `anilist` | AniList | Non | [anilist.md](./metadata/anilist.md) |
+| `mangadex` | MangaDex | Non | [mangadex.md](./metadata/mangadex.md) |
+| `comicvine` | ComicVine | **Oui** | [comicvine.md](./metadata/comicvine.md) |
+| `googlebooks` | Google Books | **Oui** | [googlebooks.md](./metadata/googlebooks.md) |
 
 ## Secrets
 
@@ -44,7 +47,8 @@ séparées de `vdr-config.json`. **Jamais** commités dans le dépôt.
 Probe optionnel (jamais de clé dans le repo) :
 
 ```bash
-GOOGLE_BOOKS_API_KEY=xxx node scripts/probe-google-books.mjs "Solo Leveling"
+GOOGLE_BOOKS_API_KEY=xxx npm run probe:googlebooks -- "Solo Leveling"
+COMICVINE_API_KEY=xxx GOOGLE_BOOKS_API_KEY=xxx npm run probe:covers
 ```
 
 ## UI
@@ -53,7 +57,7 @@ GOOGLE_BOOKS_API_KEY=xxx node scripts/probe-google-books.mjs "Solo Leveling"
 - **Import (fiche détail)** : sélecteur de provider (✓ vert sur sources OK) + champ **mots-clés** éditable (clavier virtuel) ; `search(query)` via le provider actif ; choisir un résultat pour appliquer les méta (`metaSource: selected`, pastille verte), puis Importer ce tome (X) ou tout importer (Y).
 - **Résolution méta (X/Y)** : `selectedMeta` si choix API, sinon méta détectées / nom de fichier. Pastilles liste : bleu = `detected`, rouge = `empty`, vert = `selected`.
 - **Jackets** : `coverUrl` du contrat est conservé dans `selectedMeta` / draft et téléchargé au commit (`ensureCoverFromUrl`) — fallback page 0 de l’archive si échec réseau. **Apply sur livre déjà en bibliothèque** : `LIBRARY_UPDATE_BOOK` télécharge immédiatement la jacket (`coverSource: remote` + `coverPath`). Toast info si cover absente chez le provider ou téléchargement échoué. Le scan bibliothèque privilégie `metadata.coverUrl` (`coverSource: remote`) et ne laisse pas le watcher écraser une jaquette API avec la page 0.
-- **Google Books** : `imageLinks` → `coverUrl` (http→https, `zoom=3`, sans `edge=curl`) ; série/tome via `seriesInfo.bookDisplayNumber` + parse titre (`Vol. N`, `Title 04`). Pas d’URL jacket inventée si `imageLinks` est absent (placeholders).
+- **Google Books** : `imageLinks` → `coverUrl` (http→https, `zoom=3`, sans `edge=curl`) ; série/tome via `seriesInfo.bookDisplayNumber` + parse titre (`Vol. N`, `Title 04`). Pas d’URL jacket inventée si `imageLinks` est absent.
 - **Recherche** : deux chemins — (1) **préremplissage auto** depuis le nom de fichier / draft : `normalizeMetadataQuery` retire `Tome N` / `Vol. N` (« One Piece - Tome 03 » → « One Piece ») ; (2) **mots-clés tapés** : `prepareMetadataSearchQuery` (trim seulement) — « Solo Leveling Tome 44 » part tel quel vers l’API. Taille de page = max API (`METADATA_SEARCH_LIMITS` : AniList 50, MangaDex/Open Library/ComicVine 100, Google Books 40) ; **multi-pages** via `collectSearchPages` jusqu’à `METADATA_SEARCH_MAX_TOTAL` (250). UI : compteur « Résultats · N », jaquette (proxy CSP), titre, série, tome.
 - **Fiche livre** : titre / série / tome / année / auteur / synopsis éditables post-import (`library.updateBook`) ; statut / pages / provider restent en lecture seule.
 - **Défaut** : `anilist` (gratuit, sans clé) — plus `stub` par défaut.
@@ -69,8 +73,8 @@ GOOGLE_BOOKS_API_KEY=xxx node scripts/probe-google-books.mjs "Solo Leveling"
 ## Tests
 
 ```bash
-npm run test:metadata
 npm run test:meta-mappers
+npm run test:metadata
 npm run test:import-meta-jacket
 npm run test:meta-apply-fields
 ```

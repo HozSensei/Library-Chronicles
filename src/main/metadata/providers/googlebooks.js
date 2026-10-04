@@ -13,13 +13,7 @@ import {
   collectSearchPages,
 } from '../types.js';
 import { stubProvider } from './stub.js';
-import {
-  mapGoogleBooksItem,
-  parseGoogleBookTitle,
-  upgradeGoogleCover,
-} from '../mappers/googlebooks.js';
-
-export { mapGoogleBooksItem, parseGoogleBookTitle, upgradeGoogleCover };
+import { mapGoogleBooksItem } from '../mappers/googlebooks.js';
 
 /** @type {import('../types.js').MetadataProvider} */
 export const googleBooksProvider = {

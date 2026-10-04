@@ -1,5 +1,9 @@
 /**
  * Mapper AniList : media GraphQL brut → NormalizedMeta.
+ *
+ * Raw typique : `{ id, title, volumes, startDate, description, coverImage, staff }`.
+ * `volumes` = total série → volume NormalizedMeta reste null.
+ * Doc : docs/metadata/anilist.md — fixture anilist-one-piece.json
  */
 
 import { stripHtml } from '../types.js';

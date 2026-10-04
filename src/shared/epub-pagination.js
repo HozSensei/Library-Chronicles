@@ -165,45 +165,8 @@ export function buildEpubJsThemeRules(opts = {}) {
 }
 
 /**
- * @deprecated Ancienne pagination colonnes — neutralisée (no-op géométrie).
- * Conservée pour ne pas casser d’imports résiduels ; ne plus utiliser.
- */
-export function resolveEpubPageGeometry(opts = {}) {
-  const pageWidth = Math.max(1, Math.floor(Number(opts?.pageWidth) || 1));
-  const pageHeight = Math.max(1, Math.floor(Number(opts?.pageHeight) || 1));
-  return {
-    pageWidth,
-    pageHeight,
-    padX: 0,
-    padY: 0,
-    colW: pageWidth,
-    columnGap: 0,
-    stride: pageWidth,
-    engine: EPUB_ENGINE,
-  };
-}
-
-/**
- * @deprecated Neutralisé — epub.js fournit displayed.total.
- */
-export function computeScreenCount(scrollWidth, pageWidth) {
-  const w = Number(pageWidth);
-  const sw = Number(scrollWidth);
-  if (!Number.isFinite(w) || w <= 0) return 1;
-  if (!Number.isFinite(sw) || sw <= 0) return 1;
-  return Math.max(1, Math.ceil((sw - w * 0.02) / w));
-}
-
-/**
- * @deprecated Neutralisé — plus de translateX maison.
- */
-export function screenOffsetX() {
-  return 0;
-}
-
-/**
- * @deprecated Neutralisé — préférer buildEpubJsThemeRules + epub.js themes.
- * Ne génère plus de column-width / translateX.
+ * CSS thème string (tests / fallback) — préférer `buildEpubJsThemeRules`
+ * pour epub.js `rendition.themes.default()`. Pas de column-width / translateX.
  */
 export function buildEpubThemeCss(opts = {}) {
   const pct = Math.min(200, Math.max(70, Number(opts?.fontPct) || 100));

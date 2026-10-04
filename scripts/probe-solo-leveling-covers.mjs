@@ -1,6 +1,11 @@
 /**
- * Probe réseau : coverUrl Solo Leveling / Tome 1 pour chaque provider gratuit.
- * Usage : node scripts/probe-solo-leveling-covers.mjs
+ * Probe réseau : coverUrl Solo Leveling / Tome 1 pour chaque provider.
+ * Clés optionnelles via env (jamais commités) :
+ *   GOOGLE_BOOKS_API_KEY / COMICVINE_API_KEY
+ *
+ * Usage :
+ *   node scripts/probe-solo-leveling-covers.mjs
+ *   GOOGLE_BOOKS_API_KEY=xxx COMICVINE_API_KEY=yyy npm run probe:covers
  */
 import { anilistProvider } from '../src/main/metadata/providers/anilist.js';
 import { mangadexProvider } from '../src/main/metadata/providers/mangadex.js';
@@ -12,17 +17,27 @@ import { normalizeRemoteCoverUrl } from '../src/shared/cover-url.js';
 import { fetchBuffer } from '../src/main/metadata/fetch.js';
 import { USER_AGENT } from '../src/main/metadata/types.js';
 
+const googleKey = String(process.env.GOOGLE_BOOKS_API_KEY || '').trim() || null;
+const comicvineKey = String(process.env.COMICVINE_API_KEY || '').trim() || null;
+
 const queries = ['Solo Leveling', 'Solo Leveling Tome 1'];
 const providers = [
   ['anilist', (q) => anilistProvider.search(q)],
   ['mangadex', (q) => mangadexProvider.search(q)],
   ['openlibrary', (q) => openLibraryProvider.search(q)],
-  ['googlebooks', (q) => googleBooksProvider.search(q, { apiKey: null })],
-  ['comicvine', (q) => comicvineProvider.search(q, { apiKey: null })],
+  ['googlebooks', (q) => googleBooksProvider.search(q, { apiKey: googleKey })],
+  ['comicvine', (q) => comicvineProvider.search(q, { apiKey: comicvineKey })],
 ];
 
-console.log('normalizeMetadataQuery("Solo Leveling Tome 1") =', 
-  JSON.stringify(normalizeMetadataQuery('Solo Leveling Tome 1')));
+console.log(
+  'env keys:',
+  `GOOGLE_BOOKS=${googleKey ? 'set' : 'absent'}`,
+  `COMICVINE=${comicvineKey ? 'set' : 'absent'}`,
+);
+console.log(
+  'normalizeMetadataQuery("Solo Leveling Tome 1") =',
+  JSON.stringify(normalizeMetadataQuery('Solo Leveling Tome 1')),
+);
 
 for (const q of queries) {
   console.log(`\n======== Query: ${q} ========`);
