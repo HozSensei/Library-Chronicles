@@ -189,7 +189,9 @@ async function quitReading() {
               {{
                 reader.isStripMode ? t('reader.continuous') : t('reader.pageByPage')
               }}
-              · {{ reader.fitMode }}
+              <template v-if="!reader.isStripMode">
+                · {{ reader.fitMode }} · {{ reader.zoomLabel }}
+              </template>
               <template v-if="reader.currentChapter">
                 · {{ reader.currentChapter.name }}
               </template>

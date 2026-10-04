@@ -30,6 +30,7 @@ import {
   isStripDpadNoop,
 } from '../src/shared/reader-strip-controls.js';
 import { visualPanToLocal } from '../src/shared/portrait-remap.js';
+import { PAGE_PAN_SPEED } from '../src/shared/page-view-transform.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -121,7 +122,7 @@ assert.match(stripStage, /data-reader-path="strip"/);
 assert.match(pageStage, /reader__stage/);
 assert.match(pageStage, /data-reader-path="page"/);
 assert.match(pageStage, /reader__pan/);
-assert.match(pageStage, /reader\.imageStyle/);
+assert.match(pageStage, /reader\.pageLayerStyle/);
 
 assert.match(book, /BOOK_FOCUS\.READ_STRIP/);
 assert.match(book, /supportsStripReading/);
@@ -149,7 +150,8 @@ assert.equal(applyStripReaderAction({}, 'zoom-out'), true);
 assert.match(pageControls, /zoomBy\(1\)/);
 assert.match(pageControls, /resetZoom\(\)/);
 assert.match(pageControls, /reader\.pan\(/);
-assert.match(store, /READER_STICK_SPEED/);
+// Parité de vitesse page / strip sans couplage de modules.
+assert.equal(PAGE_PAN_SPEED, READER_STICK_SPEED);
 assert.match(
   store,
   /readingMode !== undefined && readingMode !== null/,

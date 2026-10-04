@@ -1,9 +1,13 @@
 <script setup>
 /**
  * Chemin page par page — stage zoom/pan.
- * Markup + CSS = extrait littéral de ReaderView @ b7d1f81 (pré-#57 strip-cta).
- * Styles non-scopés, gardés par data-reader-path="page" (évite fuite strip).
+ *
+ * La vue ne fait que **mesurer** (stage local + taille naturelle de la page) ;
+ * tout le modèle de transform vit dans `shared/page-view-transform.js`.
+ * La page est rendue à sa taille naturelle, le calque `.reader__pan` porte
+ * `translate(-50%,-50%) translate3d(offset) scale(fitScale × zoom)`.
  */
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useReaderStore } from '../stores/reader';
 import { useI18n } from '../composables/useI18n';
 
@@ -11,22 +15,72 @@ const reader = useReaderStore();
 const { t } = useI18n();
 
 defineEmits(['leave']);
+
+const stageEl = ref(null);
+const pageEl = ref(null);
+
+/** @type {ResizeObserver | null} */
+let observer = null;
+
+function measureStage() {
+  const el = stageEl.value;
+  if (!el) return;
+  // clientWidth/Height = dimensions **locales** (le rotate(90deg) du plan
+  // parent ne change pas le layout) → directement exploitables par computeFit.
+  reader.setStageMetrics(el.clientWidth, el.clientHeight);
+}
+
+function measurePage() {
+  const img = pageEl.value;
+  if (!img?.naturalWidth || !img?.naturalHeight) return;
+  reader.setPageMetrics(img.naturalWidth, img.naturalHeight);
+}
+
+onMounted(() => {
+  measureStage();
+  measurePage();
+  if (typeof ResizeObserver === 'function' && stageEl.value) {
+    observer = new ResizeObserver(measureStage);
+    observer.observe(stageEl.value);
+  }
+});
+
+onBeforeUnmount(() => {
+  observer?.disconnect();
+  observer = null;
+});
+
+// Image déjà décodée (cache ObjectURL) : `load` peut ne pas se redéclencher.
+watch(
+  () => reader.pageUrl,
+  () => {
+    requestAnimationFrame(measurePage);
+  },
+);
 </script>
 
 <template>
-  <div class="reader__stage" :data-fit="reader.fitMode" data-reader-path="page">
+  <div
+    ref="stageEl"
+    class="reader__stage"
+    :data-fit="reader.fitMode"
+    :data-measured="reader.isPageMeasured ? '1' : '0'"
+    data-reader-path="page"
+  >
     <div
       v-if="reader.pageUrl"
       class="reader__pan"
-      :style="{ transform: `translate3d(${reader.panX}px, ${reader.panY}px, 0)` }"
+      :class="{ 'is-zoom-smooth': reader.zoomTransition }"
+      :style="reader.pageLayerStyle"
     >
       <img
+        ref="pageEl"
         class="reader__page"
-        :class="{ 'is-zoom-smooth': reader.zoomTransition }"
         :src="reader.pageUrl"
         alt="Page courante"
         draggable="false"
-        :style="reader.imageStyle"
+        :style="reader.pageFilterStyle"
+        @load="measurePage"
       />
     </div>
     <div v-else class="reader__placeholder">
@@ -45,7 +99,7 @@ defineEmits(['leave']);
 </template>
 
 <!--
-  Non-scoped : mêmes règles que ReaderView b7d1f81 (stage dans la vue parente).
+  Non-scopé (le stage vit dans le plan du parent `.reader__plane`).
   Préfixe [data-reader-path='page'] pour isoler du strip.
 -->
 <style>
@@ -57,70 +111,45 @@ defineEmits(['leave']);
   overflow: hidden;
   overscroll-behavior: none;
   touch-action: none;
-  display: grid;
-  /* unsafe : garder le vrai centre même si la page overflow (fit-width/height). */
-  place-items: unsafe center;
 }
 
-/* Pan en translate local — indépendant du scale (origin centre image). */
+/*
+ * Calque unique zoom + pan : ancré au centre du stage, transform-origin centre.
+ * `translate(-50%,-50%)` place le centre de la page sur le centre du stage,
+ * `translate3d(offset)` est en px stage (non mis à l’échelle, il précède scale).
+ */
 .reader__stage[data-reader-path='page'] .reader__pan {
+  position: absolute;
+  left: 50%;
+  top: 50%;
   line-height: 0;
+  transform-origin: center center;
   will-change: transform;
+}
+
+/* Transition uniquement sur les pas discrets (D-Pad / L3 / LB), pas le pan. */
+.reader__stage[data-reader-path='page'] .reader__pan.is-zoom-smooth {
+  transition: transform 180ms ease-out;
+}
+
+/*
+ * Page à sa **taille naturelle** : aucune contrainte CSS de fit.
+ * L’échelle vient intégralement de `scale(fitScale × zoom)` — un seul modèle.
+ */
+.reader__stage[data-reader-path='page'] .reader__page {
+  display: block;
+  width: auto;
+  height: auto;
   max-width: none;
   max-height: none;
-}
-
-.reader__stage[data-reader-path='page'] .reader__page {
-  /* Zoom D-Pad : scale ancré au centre image (= centre écran si pan=0). */
-  display: block;
-  transform-origin: center center;
-  will-change: transform, filter;
   user-select: none;
   pointer-events: none;
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
+  will-change: filter;
 }
 
-/* L3 reset / LB fit : transition width/height (le scale D-Pad est lerp rAF). */
-.reader__stage[data-reader-path='page'] .reader__page.is-zoom-smooth {
-  transition:
-    width 200ms ease-out,
-    height 200ms ease-out,
-    max-width 200ms ease-out,
-    max-height 200ms ease-out;
-}
-
-/*
- * Fit modes dans le plan local (avant / sous rotate(+90°) CSS).
- * Fit Width  → width: 100%  (bord à bord gauche-droite).
- * Fit Height → height: 100%.
- */
-.reader__stage[data-reader-path='page'][data-fit='fit-height'] .reader__page {
-  height: 100%;
-  width: auto;
-  max-width: none;
-  object-fit: unset;
-}
-
-.reader__stage[data-reader-path='page'][data-fit='fit-width'] .reader__page {
-  width: 100%;
-  height: auto;
-  max-height: none;
-  object-fit: unset;
-}
-
-/*
- * custom / zoom-100 : même gabarit que fit-height (base 1×).
- * Le zoom manuel ne doit PAS basculer en taille naturelle (saut vertical).
- */
-.reader__stage[data-reader-path='page'][data-fit='zoom-100'] .reader__page,
-.reader__stage[data-reader-path='page'][data-fit='custom'] .reader__page {
-  height: 100%;
-  width: auto;
-  max-width: none;
-  max-height: none;
-  object-fit: unset;
+/* Avant la première mesure : pas de flash à taille naturelle. */
+.reader__stage[data-reader-path='page'][data-measured='0'] .reader__pan {
+  visibility: hidden;
 }
 
 .reader__stage[data-reader-path='page'] .reader__placeholder {
@@ -145,5 +174,11 @@ defineEmits(['leave']);
 .reader__stage[data-reader-path='page'] .dim {
   color: var(--paper-dim);
   margin: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reader__stage[data-reader-path='page'] .reader__pan.is-zoom-smooth {
+    transition: none;
+  }
 }
 </style>

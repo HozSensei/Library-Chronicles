@@ -87,7 +87,8 @@ Voir [`docs/UX.md`](./docs/UX.md), [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.
 ### Phase 1 — MVP lecteur *(fait)*
 
 - [x] CBZ/ZIP réel via JSZip (pages triées, getPage)
-- [x] Fit Height, pan stick (`translate3d`), zoom D-Pad ±15 %, reset zoom L3
+- [x] Page entière (contain), pan stick (`translate3d`), zoom D-Pad ±15 %, reset zoom L3
+      — modèle unique `page-view-transform.js` (`fitScale` / `zoom ∈ [1,4]` / offset clampé)
 - [x] Pages D-Pad (avec remap portrait)
 
 ### Phase 2 — Lecteur complet *(fait)*
