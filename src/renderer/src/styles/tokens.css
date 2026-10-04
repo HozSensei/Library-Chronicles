@@ -173,6 +173,8 @@
   --radius-sm: 8px;
   --radius-md: 12px;
   --pad: clamp(1.5rem, 3.5vw, 2.5rem);
+  /* Gutter shell menus : anneau focus (≈3px) + translate focus-btn */
+  --shell-inset-x: 0.75rem;
 
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-soft: cubic-bezier(0.4, 0, 0.2, 1);

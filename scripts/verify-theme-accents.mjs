@@ -11,7 +11,12 @@ import {
   normalizeAccent,
   normalizeTheme,
 } from '../src/shared/theme-accents.js';
-import { setupFocusRows, moveSetupFocus, setupFocusables } from '../src/shared/setup-focus.js';
+import {
+  setupFocusRows,
+  moveSetupFocus,
+  setupFocusables,
+  SETUP_CONFIRM_FOCUS_SELECTOR,
+} from '../src/shared/setup-focus.js';
 
 let failed = 0;
 
@@ -57,6 +62,11 @@ idx = moveSetupFocus(prefs, idx, 'right');
 assert(setupFocusables(1)[idx] === 'accent-orange', '←→ accents');
 idx = moveSetupFocus(prefs, idx, 'right');
 assert(setupFocusables(1)[idx] === 'accent-green', '←→ vert');
+
+assert(
+  SETUP_CONFIRM_FOCUS_SELECTOR.includes('accent-swatch'),
+  'A/confirm setup inclut les swatches accent',
+);
 
 if (failed) {
   console.error(`\n${failed} échec(s)`);

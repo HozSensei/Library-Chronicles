@@ -18,6 +18,7 @@ import { markProfileSelected, clearProfileSelected, clearSetupGate } from '../ro
 import {
   setupFocusRows,
   moveSetupFocus,
+  SETUP_CONFIRM_FOCUS_SELECTOR,
 } from '../../../shared/setup-focus.js';
 import {
   focusRootForRoute,
@@ -387,8 +388,8 @@ function createLoop(ctx) {
         vibe('light');
       }
       if (action === 'confirm') {
-        // Confirm/A seul peut activer Parcourir / thème / continuer
-        const focused = document.querySelector('.setup .focus-btn.is-focused');
+        // Confirm/A : FocusButton + swatches accent (pas seulement .focus-btn)
+        const focused = document.querySelector(SETUP_CONFIRM_FOCUS_SELECTOR);
         vibe('confirm');
         focused?.click();
       }

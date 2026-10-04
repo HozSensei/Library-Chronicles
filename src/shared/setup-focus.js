@@ -103,3 +103,11 @@ export function moveSetupFocus(rows, index, dir) {
 
 /** Ids qui ouvrent un sélecteur de dossier — uniquement via Confirm. */
 export const SETUP_FOLDER_IDS = new Set(['library', 'import']);
+
+/**
+ * Cible Confirm/A en setup : FocusButton (.focus-btn) et swatches d’accent.
+ * Les accents ne sont pas des FocusButton — sans ce sélecteur, A ne fait rien
+ * quand un accent est focusé.
+ */
+export const SETUP_CONFIRM_FOCUS_SELECTOR =
+  '.setup .focus-btn.is-focused, .setup .accent-swatch.is-focused';

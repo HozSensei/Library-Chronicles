@@ -411,6 +411,9 @@ defineExpose({
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  /* Marge interne : halo focus des swatches / boutons non rogné par overflow-x */
+  padding-inline: 0.35rem;
+  box-sizing: border-box;
 }
 
 .setup__footer {
@@ -468,6 +471,8 @@ h1 {
   gap: 0.55rem;
   min-width: 0;
   width: 100%;
+  padding: 0.2rem 0.1rem;
+  box-sizing: border-box;
 }
 
 .accent-swatch {

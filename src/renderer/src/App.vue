@@ -191,5 +191,11 @@ watch(
   overflow: hidden;
   overflow-x: hidden;
   position: relative;
+  box-sizing: border-box;
+}
+
+/* Padding L/R menus — évite les halos focus rognés aux bords (hors lecteur). */
+.app-shell:not([data-route='reader']) {
+  padding-inline: var(--shell-inset-x);
 }
 </style>
