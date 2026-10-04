@@ -100,6 +100,11 @@ fs.writeFileSync(path.join(importDir, 'Incoming.cbr'), 'Rar!');
 const impSnap = snapshotSupportedTree(importDir);
 assert.strictEqual(impSnap.size, 1, 'import couvert');
 
+fs.writeFileSync(path.join(libraryDir, 'Novel.epub'), 'PK');
+const snapEpub = snapshotSupportedTree(libraryDir);
+assert.ok(snapEpub.has('Novel.epub'), 'epub supporté par snapshot');
+assert.strictEqual(snapEpub.size, 3, 'cbz + pdf + epub');
+
 // Importer le vrai module pour snapshotsDiffer / snapshotSupportedTree si possible
 try {
   // Mock electron dans le registre module (CJS interop via createRequire n'aide pas ESM).

@@ -114,8 +114,10 @@ assert.match(view, /data-strip/);
 assert.match(view, /data-reader-path/);
 assert.match(view, /StripReaderStage/);
 assert.match(view, /PageReaderStage/);
+assert.match(view, /EpubReaderStage/);
 assert.match(view, /normalizeReadingMode/);
 assert.match(view, /query\.mode/);
+assert.match(view, /isEpubMode/);
 assert.match(stripStage, /reader__strip/);
 assert.match(stripStage, /setPageFromStripScroll/);
 assert.match(stripStage, /data-reader-path="strip"/);
@@ -123,6 +125,18 @@ assert.match(pageStage, /reader__stage/);
 assert.match(pageStage, /data-reader-path="page"/);
 assert.match(pageStage, /reader__pan/);
 assert.match(pageStage, /reader\.pageLayerStyle/);
+
+const epubStage = readFileSync(
+  join(root, 'src/renderer/src/components/EpubReaderStage.vue'),
+  'utf8',
+);
+assert.match(epubStage, /data-reader-path="epub"/);
+assert.match(epubStage, /reader__epub/);
+assert.match(store, /isEpubMode/);
+assert.match(store, /adjustFontSize/);
+assert.match(store, /resolveReadingMode/);
+assert.match(gamepad, /applyEpubReaderAction/);
+assert.match(i18n, /hintEpub:/);
 
 assert.match(book, /BOOK_FOCUS\.READ_STRIP/);
 assert.match(book, /supportsStripReading/);

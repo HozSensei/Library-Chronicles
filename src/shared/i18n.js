@@ -402,6 +402,8 @@ export const MESSAGES = Object.freeze({
       pauseTitle: 'Pause lecture',
       pageByPage: 'page par page',
       continuous: 'continu',
+      epubReflow: 'EPUB reflow',
+      fontSize: 'Police {v}',
       quit: 'Quitter la lecture',
       direction: 'Sens {dir}',
       bookmarkX: 'Signet (X)',
@@ -417,6 +419,8 @@ export const MESSAGES = Object.freeze({
       hint: 'A valider · B fermer · Select pause · ↑↓ focus · Stick pan · ↑↓ zoom · L3 page entière · ←→ page',
       hintStrip:
         'A valider · B fermer · Select pause · ↑↓ focus · Stick scroll · LT/RT chapitre · D-Pad désactivé',
+      hintEpub:
+        'A valider · B fermer · Select pause · Stick scroll · ↑↓ police · L3 police défaut · ←→ chapitre · LT/RT chapitre',
     },
     toast: {
       removed: 'Retiré de la bibliothèque · {label}',
@@ -771,6 +775,8 @@ export const MESSAGES = Object.freeze({
       pauseTitle: 'Reading paused',
       pageByPage: 'page by page',
       continuous: 'continuous',
+      epubReflow: 'EPUB reflow',
+      fontSize: 'Font {v}',
       quit: 'Quit reading',
       direction: 'Direction {dir}',
       bookmarkX: 'Bookmark (X)',
@@ -786,6 +792,8 @@ export const MESSAGES = Object.freeze({
       hint: 'A confirm · B close · Select pause · ↑↓ focus · Stick pan · ↑↓ zoom · L3 full page · ←→ page',
       hintStrip:
         'A confirm · B close · Select pause · ↑↓ focus · Stick scroll · LT/RT chapter · D-Pad off',
+      hintEpub:
+        'A confirm · B close · Select pause · Stick scroll · ↑↓ font · L3 default font · ←→ chapter · LT/RT chapter',
     },
     toast: {
       removed: 'Removed from library · {label}',

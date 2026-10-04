@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 
-const SUPPORTED = new Set(['.cbz', '.cbr', '.pdf', '.zip', '.rar']);
+const SUPPORTED = new Set(['.cbz', '.cbr', '.pdf', '.zip', '.rar', '.epub']);
 
 /**
  * Scan récursif d’un dossier pour fichiers BD.

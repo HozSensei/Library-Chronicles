@@ -3,6 +3,7 @@ import { onMounted, onUnmounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import PageReaderStage from '../components/PageReaderStage.vue';
 import StripReaderStage from '../components/StripReaderStage.vue';
+import EpubReaderStage from '../components/EpubReaderStage.vue';
 import ReaderHud from '../components/ReaderHud.vue';
 import { useReaderStore } from '../stores/reader';
 import { useUiStore } from '../stores/ui';
@@ -104,7 +105,10 @@ function endFocusId(id) {
     class="reader"
     :aria-label="t('reader.aria')"
     :data-strip="reader.isStripMode ? '1' : '0'"
-    :data-reader-path="reader.isStripMode ? 'strip' : 'page'"
+    :data-epub="reader.isEpubMode ? '1' : '0'"
+    :data-reader-path="
+      reader.isEpubMode ? 'epub' : reader.isStripMode ? 'strip' : 'page'
+    "
     :data-css-rotate="ui.readerCssRotate ? '1' : '0'"
   >
     <!--
@@ -114,9 +118,13 @@ function endFocusId(id) {
     -->
     <div class="reader__plane">
       <div class="reader__viewport">
-        <!-- Chemins strictement séparés : StripReaderStage vs PageReaderStage -->
+        <!-- Chemins séparés : Epub / Strip / Page -->
+        <EpubReaderStage
+          v-if="reader.isEpubMode && reader.pageCount > 0"
+          @leave="leave"
+        />
         <StripReaderStage
-          v-if="reader.isStripMode && reader.pageCount > 0"
+          v-else-if="reader.isStripMode && reader.pageCount > 0"
         />
         <PageReaderStage
           v-else-if="reader.pageCount > 0"

@@ -43,6 +43,16 @@ Pan plan +90° CSS : mêmes axes **physiques**, puis `visualPanToLocal` = **mêm
 
 ## Mode Lecture *(directions = écran logique)*
 
+Trois chemins séparés selon le format / mode d’ouverture :
+
+| Chemin | Formats | Stage |
+|--------|---------|-------|
+| **page** | CBZ / CBR / PDF | `PageReaderStage` — zoom/pan image |
+| **strip** | CBZ / CBR / PDF | `StripReaderStage` — scroll vertical pages images |
+| **epub** | EPUB | `EpubReaderStage` — texte reflow (spine) |
+
+### Page (images) — défaut CBZ/CBR/PDF
+
 | Contrôle | Action |
 |----------|--------|
 | Stick L | **Pan** si la page déborde (clampé ; au bord / page entière = no-op) — **pas** de page |
@@ -58,6 +68,45 @@ Pan plan +90° CSS : mêmes axes **physiques**, puis `visualPanToLocal` = **mêm
 | LB | Fit Width |
 | RB | Tome suivant non lu |
 | LT / RT | Chapitre ±1 |
+
+### Strip (continu vertical)
+
+| Contrôle | Action |
+|----------|--------|
+| Stick L | **Scroll** 4 directions (même mapping local que le pan) |
+| D-Pad / L3 / LB | **No-op** (pas de zoom CSS scale) |
+| LT / RT | Chapitre ±1 |
+| Select / A / B / X / Y | Identiques au mode page (pause, sens, signet, HUD, quitter) |
+
+CTA fiche **« Lire en continu »** : disabled pour EPUB (et formats texte).
+
+### EPUB (reflow) — parité partielle
+
+EPUB = XHTML/CSS reflow, **pas** des images page. Pas de zoom/pan image ni strip vertical.
+
+| Contrôle | Action |
+|----------|--------|
+| Stick L | **Scroll** du chapitre (conteneur `.reader__epub`) |
+| D-Pad **↑** / **↓** | Taille police ±10 % (70–200 %) |
+| L3 / R3 | Reset taille police (100 %) |
+| D-Pad ← / → | Chapitre / spine ±1 |
+| LT / RT | Chapitre ±1 |
+| LB Fit Width | **No-op** (pas d’image à fitter) |
+| A / B / X / Y / Select | Sens, quitter, signet, HUD, pause (comme page) |
+
+| Feature | CBZ/PDF page | EPUB |
+|---------|--------------|------|
+| Import / scan / watcher | oui | oui |
+| Lire depuis fiche | oui | oui |
+| Progression (index / %) | oui | oui (spine) |
+| Page / chapitre ± | oui | oui (spine / TOC) |
+| Stick scroll / pan | pan (zoom) | scroll |
+| Thème fond/texte (filtres) | oui | oui (filtres + CSS) |
+| Taille police | non | oui |
+| Zoom image + pan clamp | oui | **non** |
+| Strip vertical pages | oui | **non** (CTA disabled) |
+| Fit-width image | oui | **non** |
+| Jaquette à l’import | page 0 | OPF cover / cover-image |
 
 ### Modèle de transform — mode page
 

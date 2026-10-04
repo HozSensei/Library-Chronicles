@@ -4,7 +4,7 @@
 
 ```
 ┌────────── Renderer (Vue 3) ──────────┐   IPC    ┌────────── Main ──────────┐
-│ Setup / Profiles / Boot / Library    │ ───────► │ extractors/ CBZ CBR PDF  │
+│ Setup / Profiles / Boot / Library    │ ───────► │ extractors/ CBZ CBR PDF EPUB │
 │ Import / Settings / Reader           │ ◄─────── │ database/ SQLite|JSON    │
 │ Pinia  ui · reader · library · …     │          │   books · profiles       │
 │ useGamepad  remap → key-bindings     │          │   bookmarks · series     │
@@ -76,6 +76,7 @@ Build unifié via **electron-vite** :
 
 - `npm run test:remap` — portrait-remap + bindings + parse filename
 - `npm run test:cbz` — extracteur CBZ minimal
+- `npm run test:epub` — extracteur EPUB (OPF/spine + cover + rewrite)
 - `npm run test:pdf` — extracteur PDF (placeholder hors Electron)
 - `npm run test:watcher` — snapshot / diff FS (+ présence poll fallback)
 - `npm run test:haptics` — no-op / dual-rumble / pulse legacy
