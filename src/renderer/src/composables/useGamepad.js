@@ -12,7 +12,8 @@ import {
   sessionOrientationForRoute,
   visualPanToLocal,
 } from '../../../shared/portrait-remap.js';
-import { applyStickToStripScroll } from '../../../shared/reader-stick.js';
+import { applyPageReaderAction } from '../../../shared/reader-page-controls.js';
+import { applyStripReaderAction } from '../../../shared/reader-strip-controls.js';
 import { actionForBinding, GamepadButtons } from '../../../shared/controls.js';
 import { hasHaptics, pulseHaptic } from './useHaptics.js';
 import { markProfileSelected, clearProfileSelected, clearSetupGate } from '../router';
@@ -1225,14 +1226,6 @@ function createLoop(ctx) {
           }
         });
       }
-      if (action === 'page-prev') {
-        vibe('light');
-        reader.stepPage('prev');
-      }
-      if (action === 'page-next') {
-        vibe('light');
-        reader.stepPage('next');
-      }
       if (action === 'chapter-prev') {
         vibe('confirm');
         reader.stepChapter(-1);
@@ -1250,28 +1243,20 @@ function createLoop(ctx) {
             : payload
           : null;
 
+      // Chemins strictement séparés — pas de flag partagé zoom/page.
       if (reader.isStripMode) {
-        // Strip : pas de zoom CSS — D-Pad ↑/↓ sautent de page ;
-        // stick = scroll 4 directions (mêmes axes locaux que pan page).
-        if (action === 'zoom-in') reader.stepPage('prev');
-        if (action === 'zoom-out') reader.stepPage('next');
-        if (stickLocal) {
-          applyStickToStripScroll(
-            document.querySelector('.reader__strip'),
-            stickLocal.x,
-            stickLocal.y,
-          );
-        }
+        // StripReader : stick scroll ; D-Pad zoom/page = no-op (HUD hintStrip).
+        applyStripReaderAction(
+          reader,
+          action,
+          stickLocal,
+          document.querySelector('.reader__strip'),
+        );
       } else {
-        // Mode page — contrôles identiques au pré-strip-cta :
-        // L3 reset zoom fit, LB fit-width, D-Pad ↑↓ zoom, stick pan clampé.
-        if (action === 'reset-zoom' || action === 'toggle-zoom') {
-          reader.resetZoom();
-        }
-        if (action === 'fit-width') reader.setFitWidth();
-        if (action === 'zoom-in') reader.zoomBy(1);
-        if (action === 'zoom-out') reader.zoomBy(-1);
-        if (stickLocal) reader.pan(stickLocal.x, stickLocal.y);
+        // PageReader — contrôles pré-strip-cta :
+        // L3 reset, LB fit-width, D-Pad ↑↓ zoom ←→ pages, stick pan clampé.
+        if (action === 'page-prev' || action === 'page-next') vibe('light');
+        applyPageReaderAction(reader, action, stickLocal);
       }
     }
   }

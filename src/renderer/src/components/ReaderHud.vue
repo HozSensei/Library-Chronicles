@@ -185,7 +185,10 @@ async function quitReading() {
           <div class="hud__meta">
             <span>
               {{ reader.direction.toUpperCase() }}
-              · {{ t('reader.pageByPage') }}
+              ·
+              {{
+                reader.isStripMode ? t('reader.continuous') : t('reader.pageByPage')
+              }}
               · {{ reader.fitMode }}
               <template v-if="reader.currentChapter">
                 · {{ reader.currentChapter.name }}
@@ -410,7 +413,9 @@ async function quitReading() {
         </div>
       </div>
 
-<p class="hud__hint">{{ t('reader.hint') }}</p>
+<p class="hud__hint">
+        {{ reader.isStripMode ? t('reader.hintStrip') : t('reader.hint') }}
+      </p>
     </div>
   </aside>
 </template>

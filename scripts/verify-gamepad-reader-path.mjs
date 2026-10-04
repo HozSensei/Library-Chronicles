@@ -4,6 +4,9 @@
  * Cause historique : dans tick(), `reader.hudVisible` lisait une variable hors
  * scope (pas destructurée depuis handlers) → ReferenceError dès route=reader
  * avec pad connecté → requestAnimationFrame non replanifié → contrôles morts.
+ *
+ * Dual-path : PageReader (`reader-page-controls`) vs StripReader
+ * (`reader-strip-controls`) — D-Pad zoom/page no-op en strip.
  */
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -14,6 +17,16 @@ import {
   resolveKeyBindings,
 } from '../src/shared/key-bindings.js';
 import { GamepadButtons } from '../src/shared/gamepad-codes.js';
+import {
+  applyPageReaderAction,
+  isPageDpadAction,
+} from '../src/shared/reader-page-controls.js';
+import {
+  applyStripReaderAction,
+  isStripDpadNoop,
+  isStripZoomNoop,
+} from '../src/shared/reader-strip-controls.js';
+import { applyStickToStripScroll } from '../src/shared/reader-stick.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 let failed = 0;
@@ -37,6 +50,14 @@ const library = readFileSync(
 );
 const lazyCover = readFileSync(
   join(root, 'src/renderer/src/components/LazyCover.vue'),
+  'utf8',
+);
+const pageControls = readFileSync(
+  join(root, 'src/shared/reader-page-controls.js'),
+  'utf8',
+);
+const stripControls = readFileSync(
+  join(root, 'src/shared/reader-strip-controls.js'),
   'utf8',
 );
 
@@ -134,48 +155,109 @@ assert(
   'remap legacy toggle-zoom → reset-zoom',
 );
 
-const gamepadSrc = gamepad;
+// --- Dual-path modules branchés ------------------------------------------
 assert(
-  gamepadSrc.includes("action === 'reset-zoom'") &&
-    gamepadSrc.includes('reader.resetZoom()'),
-  'dispatch reader : reset-zoom → resetZoom()',
+  gamepad.includes('applyPageReaderAction') &&
+    gamepad.includes('reader-page-controls'),
+  'useGamepad importe applyPageReaderAction (chemin page)',
 );
 assert(
-  !gamepadSrc.includes('reader.toggleZoom()'),
-  'dispatch reader : plus d’appel toggleZoom()',
+  gamepad.includes('applyStripReaderAction') &&
+    gamepad.includes('reader-strip-controls'),
+  'useGamepad importe applyStripReaderAction (chemin strip)',
 );
-// Mode page : L3 / zoom / pan hors branche strip (pas de gate isStripMode sur l’appel).
+assert(
+  !gamepad.includes('applyStickToStripScroll'),
+  'scroll strip délégué au module strip-controls (plus d’inline)',
+);
+assert(
+  pageControls.includes('reader.zoomBy(1)') &&
+    pageControls.includes('reader.resetZoom()') &&
+    pageControls.includes('reader.pan('),
+  'reader-page-controls : zoom + L3 + pan',
+);
+assert(
+  pageControls.includes("action === 'page-prev'") &&
+    pageControls.includes("stepPage('prev')"),
+  'reader-page-controls : D-Pad ← → stepPage',
+);
+assert(
+  stripControls.includes('isStripDpadNoop') &&
+    stripControls.includes('applyStickToStripScroll'),
+  'reader-strip-controls : D-Pad no-op + stick scroll',
+);
+assert(
+  !/stepPage\('prev'\)/.test(stripControls) &&
+    !/zoomBy\(/.test(stripControls),
+  'strip-controls : aucun stepPage / zoomBy (D-Pad no-op)',
+);
+
+// Runtime : page zoom path
 {
-  const pageBranch = gamepadSrc.slice(
-    gamepadSrc.indexOf('// Mode page — contrôles identiques'),
+  const calls = [];
+  const reader = {
+    resetZoom: () => calls.push('reset'),
+    setFitWidth: () => calls.push('fit'),
+    zoomBy: (n) => calls.push(`zoom:${n}`),
+    stepPage: (w) => calls.push(`page:${w}`),
+    pan: (x, y) => calls.push(`pan:${x},${y}`),
+  };
+  assert(isPageDpadAction('zoom-in'), 'zoom-in est action D-Pad page');
+  assert(applyPageReaderAction(reader, 'zoom-in'), 'page zoom-in consommé');
+  assert(applyPageReaderAction(reader, 'zoom-out'), 'page zoom-out consommé');
+  assert(applyPageReaderAction(reader, 'reset-zoom'), 'page reset-zoom consommé');
+  assert(applyPageReaderAction(reader, 'page-prev'), 'page page-prev consommé');
+  assert(
+    applyPageReaderAction(reader, 'pan', { x: 1, y: -1 }),
+    'page stick pan consommé',
   );
   assert(
-    pageBranch.includes('reader.resetZoom()') &&
-      !pageBranch.slice(0, pageBranch.indexOf('reader.resetZoom()')).includes(
-        'isStripMode',
-      ),
-    'mode page : resetZoom() non conditionné par isStripMode',
-  );
-  assert(
-    pageBranch.includes('reader.zoomBy(1)') &&
-      pageBranch.includes('reader.zoomBy(-1)'),
-    'mode page : D-Pad zoomBy ±1',
-  );
-  assert(
-    pageBranch.includes('reader.pan(stickLocal.x, stickLocal.y)'),
-    'mode page : stick → reader.pan (clamp bords)',
+    calls.join('|') === 'zoom:1|zoom:-1|reset|page:prev|pan:1,-1',
+    'page path : zoom±, reset, page, pan (ordre)',
   );
 }
-assert(
-  gamepadSrc.includes('applyStickToStripScroll') &&
-    gamepadSrc.includes('visualPanToLocal'),
-  'strip + page : même mapping visualPanToLocal ; strip scroll via helper',
-);
-assert(
-  !/scrollTop\s*\+=\s*local\.y\s*\*\s*28/.test(gamepadSrc) &&
-    !/scrollLeft\s*\+=\s*local\.x\s*\*\s*10/.test(gamepadSrc),
-  'plus de scroll strip asymétrique y*28 / x*10',
-);
+
+// Runtime : strip D-Pad no-op, stick scroll
+{
+  assert(isStripDpadNoop('zoom-in') && isStripDpadNoop('page-next'), 'strip D-Pad no-op');
+  assert(isStripZoomNoop('reset-zoom') && isStripZoomNoop('fit-width'), 'strip zoom no-op');
+  const el = { scrollLeft: 10, scrollTop: 20 };
+  const reader = {
+    resetZoom: () => {
+      throw new Error('resetZoom ne doit pas être appelé en strip');
+    },
+    zoomBy: () => {
+      throw new Error('zoomBy ne doit pas être appelé en strip');
+    },
+    stepPage: () => {
+      throw new Error('stepPage ne doit pas être appelé en strip (D-Pad)');
+    },
+    pan: () => {
+      throw new Error('pan ne doit pas être appelé en strip');
+    },
+  };
+  assert(
+    applyStripReaderAction(reader, 'zoom-in') === true,
+    'strip zoom-in = no-op consommé',
+  );
+  assert(
+    applyStripReaderAction(reader, 'page-prev') === true,
+    'strip page-prev = no-op consommé',
+  );
+  assert(
+    applyStripReaderAction(reader, 'reset-zoom') === true,
+    'strip reset-zoom = no-op consommé',
+  );
+  assert(
+    applyStripReaderAction(reader, 'pan', { x: 1, y: 0 }, el) === true,
+    'strip stick scroll consommé',
+  );
+  assert(el.scrollLeft !== 10 || el.scrollTop !== 20, 'strip stick a scrollé');
+  // Helper direct toujours disponible
+  const el2 = { scrollLeft: 0, scrollTop: 0 };
+  applyStickToStripScroll(el2, 0, 1);
+  assert(el2.scrollTop < 0 || el2.scrollTop === -14, 'stick helper speed 14');
+}
 
 const store = readFileSync(
   join(root, 'src/renderer/src/stores/reader.js'),
@@ -199,6 +281,14 @@ assert(
     'resetZoom ne bascule pas fitMode',
   );
 }
+assert(
+  /zoomBy\(steps\)\s*\{[\s\S]*?isStripMode[\s\S]*?return/.test(store),
+  'zoomBy guard isStripMode (no-op strip)',
+);
+assert(
+  /pan\(dx,\s*dy[\s\S]*?isStripMode[\s\S]*?return/.test(store),
+  'pan guard isStripMode (no-op strip)',
+);
 assert(
   !/fitMode\s*=\s*this\.fitMode\s*===\s*'fit-width'\s*\?\s*'fit-height'/.test(
     store,

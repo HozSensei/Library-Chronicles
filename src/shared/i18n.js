@@ -394,6 +394,7 @@ export const MESSAGES = Object.freeze({
       tabBookmarks: 'Signets',
       pauseTitle: 'Pause lecture',
       pageByPage: 'page par page',
+      continuous: 'continu',
       quit: 'Quitter la lecture',
       direction: 'Sens {dir}',
       bookmarkX: 'Signet (X)',
@@ -407,6 +408,8 @@ export const MESSAGES = Object.freeze({
       noBookmarks: 'Aucun signet — X pour en ajouter.',
       addHere: 'Ajouter ici',
       hint: 'A valider · B fermer · Select pause · ↑↓ focus · Stick pan · ↑↓ zoom · L3 page entière · ←→ page',
+      hintStrip:
+        'A valider · B fermer · Select pause · ↑↓ focus · Stick scroll · LT/RT chapitre · D-Pad désactivé',
     },
     toast: {
       removed: 'Retiré de la bibliothèque · {label}',
@@ -751,6 +754,7 @@ export const MESSAGES = Object.freeze({
       tabBookmarks: 'Bookmarks',
       pauseTitle: 'Reading paused',
       pageByPage: 'page by page',
+      continuous: 'continuous',
       quit: 'Quit reading',
       direction: 'Direction {dir}',
       bookmarkX: 'Bookmark (X)',
@@ -764,6 +768,8 @@ export const MESSAGES = Object.freeze({
       noBookmarks: 'No bookmarks — press X to add one.',
       addHere: 'Add here',
       hint: 'A confirm · B close · Select pause · ↑↓ focus · Stick pan · ↑↓ zoom · L3 full page · ←→ page',
+      hintStrip:
+        'A confirm · B close · Select pause · ↑↓ focus · Stick scroll · LT/RT chapter · D-Pad off',
     },
     toast: {
       removed: 'Removed from library · {label}',

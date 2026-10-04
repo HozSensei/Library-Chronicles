@@ -49,9 +49,13 @@ assert(hud.includes('aria-modal="true"'), 'ReaderHud aria-modal');
 assert(hud.includes('hud__backdrop'), 'overlay hud__backdrop');
 assert(hud.includes('hud__dialog'), 'panneau centré hud__dialog');
 assert(hud.includes('data-hud-focus'), 'cibles focus manette data-hud-focus');
-assert(hud.includes("t('reader.hint')"), 'hint via i18n reader.hint');
+assert(
+  hud.includes("t('reader.hint')") && hud.includes("t('reader.hintStrip')"),
+  'hints page + strip via i18n',
+);
 assert(i18n.includes('A valider'), 'hint FR A valider');
 assert(i18n.includes('B fermer'), 'hint FR B fermer');
+assert(i18n.includes('hintStrip'), 'hintStrip i18n présent');
 assert(hud.includes('hud-toast'), 'toast progression distinct de la modal');
 assert(
   /\.hud__backdrop\s*\{[\s\S]*?background:\s*var\(--hud-fade\)/.test(hud),
@@ -80,6 +84,23 @@ assert(
   readerView.includes('rotate(90deg)'),
   'plan lecteur rotate(+90°)',
 );
+assert(
+  readerView.includes('PageReaderStage') && readerView.includes('StripReaderStage'),
+  'ReaderView compose PageReaderStage + StripReaderStage',
+);
+
+const pageStage = readFileSync(
+  join(root, 'src/renderer/src/components/PageReaderStage.vue'),
+  'utf8',
+);
+const stripStage = readFileSync(
+  join(root, 'src/renderer/src/components/StripReaderStage.vue'),
+  'utf8',
+);
+const pageControls = readFileSync(
+  join(root, 'src/shared/reader-page-controls.js'),
+  'utf8',
+);
 
 assert(
   orientationCss.includes('modal') || orientationCss.includes('plan'),
@@ -96,10 +117,10 @@ assert(store.includes('hudFocusIndex'), 'store hudFocusIndex');
 assert(store.includes('moveHudFocus'), 'store moveHudFocus');
 assert(store.includes('animateScaleTo'), 'zoom smooth animateScaleTo (rAF)');
 assert(store.includes('targetScale'), 'zoom targetScale');
-assert(readerView.includes('reader__stage'), 'mode page reader__stage');
-assert(readerView.includes('reader__page'), 'mode page reader__page');
-assert(readerView.includes('reader__pan'), 'mode page reader__pan');
-assert(readerView.includes('reader__strip'), 'DOM strip vertical optionnel');
+assert(pageStage.includes('reader__stage'), 'mode page reader__stage');
+assert(pageStage.includes('reader__page'), 'mode page reader__page');
+assert(pageStage.includes('reader__pan'), 'mode page reader__pan');
+assert(stripStage.includes('reader__strip'), 'DOM strip vertical optionnel');
 assert(readerView.includes('data-strip'), 'data-strip mode strip|page');
 assert(store.includes('loadStripWindow'), 'store loadStripWindow (mode strip)');
 assert(!store.includes('toggleReadingMode'), 'pas de toggleReadingMode global');
@@ -107,14 +128,15 @@ assert(store.includes('isStripMode'), 'getter isStripMode');
 assert(store.includes('readingMode'), 'store readingMode strip|page');
 assert(store.includes('zoomBy(steps)'), 'store zoomBy restauré (mode page)');
 assert(
-  gamepad.includes('reader.resetZoom()') &&
-    gamepad.includes('reader.zoomBy(1)') &&
-    gamepad.includes('reader.pan(stickLocal.x, stickLocal.y)'),
-  'gamepad mode page : L3 reset + zoom D-Pad + stick pan',
+  pageControls.includes('reader.resetZoom()') &&
+    pageControls.includes('reader.zoomBy(1)') &&
+    pageControls.includes('reader.pan('),
+  'page-controls : L3 reset + zoom D-Pad + stick pan',
 );
 assert(
-  gamepad.includes('applyStickToStripScroll'),
-  'gamepad strip : stick scroll paritaire (helper)',
+  gamepad.includes('applyPageReaderAction') &&
+    gamepad.includes('applyStripReaderAction'),
+  'gamepad branche dual-path page/strip',
 );
 assert(!store.includes('toggleWebtoon'), 'plus de toggleWebtoon');
 assert(!hud.includes('Mode webtoon'), 'HUD sans bouton Mode webtoon');

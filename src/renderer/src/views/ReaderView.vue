@@ -1,6 +1,8 @@
 <script setup>
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
+import { onMounted, onUnmounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import PageReaderStage from '../components/PageReaderStage.vue';
+import StripReaderStage from '../components/StripReaderStage.vue';
 import ReaderHud from '../components/ReaderHud.vue';
 import { useReaderStore } from '../stores/reader';
 import { useUiStore } from '../stores/ui';
@@ -15,12 +17,6 @@ const route = useRoute();
 const reader = useReaderStore();
 const ui = useUiStore();
 const { t } = useI18n();
-const stripEl = ref(null);
-
-/** Strip : filtres seuls — le stick scrolle le conteneur (pas de pan CSS). */
-const stripStyle = computed(() => ({
-  filter: reader.filterCss,
-}));
 
 function modeFromRoute() {
   return normalizeReadingMode(route.query.mode);
@@ -52,6 +48,7 @@ async function openFromRoute() {
 /**
  * Ouverture fichier uniquement.
  * Le resize / setSessionMode est géré UNE FOIS par App.vue (watch route → reader).
+ * Mode posé depuis ?mode=page|strip — jamais d’héritage sticky entre sessions.
  */
 onMounted(async () => {
   try {
@@ -79,17 +76,6 @@ watch(
   },
 );
 
-/** Nav programmatique uniquement — ne pas combattre le scroll utilisateur. */
-watch(
-  () => reader.stripScrollToken,
-  async () => {
-    if (!reader.isStripMode) return;
-    await nextTick();
-    const el = stripEl.value?.querySelector(`[data-page="${reader.pageIndex}"]`);
-    el?.scrollIntoView({ block: 'start', behavior: 'smooth' });
-  },
-);
-
 async function leave() {
   await reader.close();
   router.push({ name: 'library' });
@@ -111,28 +97,6 @@ function endFocusId(id) {
   if (reader.nextVolumeOffer) ids.push('next-volume');
   return ids[reader.endFocusIndex] === id;
 }
-
-async function onStripScroll() {
-  if (!stripEl.value || !reader.isStripMode) return;
-  const el = stripEl.value;
-  const nodes = [...el.querySelectorAll('[data-page]')];
-  if (!nodes.length) return;
-  const top = el.scrollTop + 40;
-  let best = reader.pageIndex;
-  for (const node of nodes) {
-    if (node.offsetTop <= top) best = Number(node.dataset.page);
-  }
-  if (best === reader.pageIndex) return;
-  const marker = el.querySelector(`[data-page="${best}"]`);
-  const offsetBefore = marker?.offsetTop ?? 0;
-  const scrollBefore = el.scrollTop;
-  await reader.setPageFromStripScroll(best);
-  await nextTick();
-  const after = el.querySelector(`[data-page="${best}"]`);
-  if (!after) return;
-  const delta = after.offsetTop - offsetBefore;
-  if (Math.abs(delta) > 0.5) el.scrollTop = scrollBefore + delta;
-}
 </script>
 
 <template>
@@ -140,6 +104,7 @@ async function onStripScroll() {
     class="reader"
     :aria-label="t('reader.aria')"
     :data-strip="reader.isStripMode ? '1' : '0'"
+    :data-reader-path="reader.isStripMode ? 'strip' : 'page'"
     :data-css-rotate="ui.readerCssRotate ? '1' : '0'"
   >
     <!--
@@ -149,59 +114,14 @@ async function onStripScroll() {
     -->
     <div class="reader__plane">
       <div class="reader__viewport">
-        <!-- Mode strip : pages empilées, scroll vertical continu -->
-        <div
+        <!-- Chemins strictement séparés : StripReaderStage vs PageReaderStage -->
+        <StripReaderStage
           v-if="reader.isStripMode && reader.pageCount > 0"
-          ref="stripEl"
-          class="reader__strip"
-          @scroll.passive="onStripScroll"
-        >
-          <div class="reader__strip-inner" :style="stripStyle">
-            <img
-              v-for="page in reader.stripPages"
-              :key="page.index"
-              class="reader__strip-page"
-              :class="{ 'is-current': page.index === reader.pageIndex }"
-              :src="page.url"
-              :data-page="page.index"
-              :alt="`Page ${page.index + 1}`"
-              draggable="false"
-            />
-          </div>
-        </div>
-
-        <!-- Mode page : une page + zoom/pan -->
-        <div
+        />
+        <PageReaderStage
           v-else-if="reader.pageCount > 0"
-          class="reader__stage"
-          :data-fit="reader.fitMode"
-        >
-          <div
-            v-if="reader.pageUrl"
-            class="reader__pan"
-            :style="{ transform: `translate3d(${reader.panX}px, ${reader.panY}px, 0)` }"
-          >
-            <img
-              class="reader__page"
-              :class="{ 'is-zoom-smooth': reader.zoomTransition }"
-              :src="reader.pageUrl"
-              alt="Page courante"
-              draggable="false"
-              :style="reader.imageStyle"
-            />
-          </div>
-          <div v-else class="reader__placeholder">
-            <p class="reader__brand">Library Chronicles</p>
-            <p v-if="reader.loading">{{ t('reader.loading') }}</p>
-            <p v-else-if="reader.error">{{ reader.error }}</p>
-            <template v-else>
-              <p>{{ t('reader.empty') }}</p>
-              <p class="dim">{{ t('reader.emptyLead') }}</p>
-            </template>
-            <button type="button" class="ghost" @click="leave">{{ t('reader.back') }}</button>
-          </div>
-        </div>
-
+          @leave="leave"
+        />
         <div v-else class="reader__placeholder">
           <p class="reader__brand">Library Chronicles</p>
           <p v-if="reader.loading">{{ t('reader.loading') }}</p>
@@ -305,107 +225,6 @@ async function onStripScroll() {
   min-width: 0;
   min-height: 0;
   touch-action: none;
-}
-
-.reader__strip {
-  position: absolute;
-  inset: 0;
-  overflow: auto;
-  overscroll-behavior: contain;
-}
-
-.reader__strip-inner {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  will-change: filter;
-  min-height: 100%;
-}
-
-/*
- * Fit width implicite : pages bord à bord sur la largeur locale.
- * Pas de zoom CSS scale en strip (conflit scroll multi-pages + rotate) —
- * stick = scroll 4 directions (mêmes axes locaux que pan page) ;
- * D-Pad ↑↓ saute de page.
- */
-.reader__strip-page {
-  width: 100%;
-  height: auto;
-  display: block;
-  user-select: none;
-  pointer-events: none;
-}
-
-.reader__stage {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  overscroll-behavior: none;
-  touch-action: none;
-  display: grid;
-  /* unsafe : garder le vrai centre même si la page overflow (fit-width/height). */
-  place-items: unsafe center;
-}
-
-/* Pan en translate local — indépendant du scale (origin centre image). */
-.reader__pan {
-  line-height: 0;
-  will-change: transform;
-  max-width: none;
-  max-height: none;
-}
-
-.reader__page {
-  /* Zoom D-Pad : scale ancré au centre image (= centre écran si pan=0). */
-  display: block;
-  transform-origin: center center;
-  will-change: transform, filter;
-  user-select: none;
-  pointer-events: none;
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
-}
-
-/* L3 reset / LB fit : transition width/height (le scale D-Pad est lerp rAF). */
-.reader__page.is-zoom-smooth {
-  transition:
-    width 200ms ease-out,
-    height 200ms ease-out,
-    max-width 200ms ease-out,
-    max-height 200ms ease-out;
-}
-
-/*
- * Fit modes dans le plan local (avant / sous rotate(+90°) CSS).
- * Fit Width  → width: 100%  (bord à bord gauche-droite).
- * Fit Height → height: 100%.
- */
-.reader__stage[data-fit='fit-height'] .reader__page {
-  height: 100%;
-  width: auto;
-  max-width: none;
-  object-fit: unset;
-}
-
-.reader__stage[data-fit='fit-width'] .reader__page {
-  width: 100%;
-  height: auto;
-  max-height: none;
-  object-fit: unset;
-}
-
-/*
- * custom / zoom-100 : même gabarit que fit-height (base 1×).
- * Le zoom manuel ne doit PAS basculer en taille naturelle (saut vertical).
- */
-.reader__stage[data-fit='zoom-100'] .reader__page,
-.reader__stage[data-fit='custom'] .reader__page {
-  height: 100%;
-  width: auto;
-  max-width: none;
-  max-height: none;
-  object-fit: unset;
 }
 
 .reader__placeholder {

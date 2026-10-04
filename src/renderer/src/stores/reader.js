@@ -650,6 +650,8 @@ export const useReaderStore = defineStore('reader', {
      * Clamp strict : pas de pan hors des bords de page.
      */
     pan(dx, dy, speed = READER_STICK_SPEED) {
+      // Pan CSS = chemin page uniquement (strip scrolle via applyStickToStripScroll).
+      if (this.isStripMode) return;
       if (this.fitMode === 'fit-width') {
         this.panY += dy * speed * 1.4;
         this.panX += dx * speed * 0.4;
@@ -660,13 +662,17 @@ export const useReaderStore = defineStore('reader', {
       this.clampPan();
     },
     zoomBy(steps) {
+      // Zoom scale = chemin page uniquement (strip = no-op D-Pad).
+      if (this.isStripMode) return;
       this.animateScaleTo(this.targetScale + Number(steps) * ZOOM_STEP);
     },
     /**
      * L3 / R3 — reset zoom unique : page entière (fit stage), pan recentré.
      * Ne bascule PAS Fit Height ↔ Fit Width (fitMode stable).
+     * No-op en strip (pas de zoom CSS).
      */
     resetZoom() {
+      if (this.isStripMode) return;
       this.pulseZoomTransition();
       this.panX = 0;
       this.panY = 0;
@@ -676,8 +682,9 @@ export const useReaderStore = defineStore('reader', {
     toggleZoom() {
       this.resetZoom();
     },
-    /** LB — Fit Width direct. */
+    /** LB — Fit Width direct (mode page). No-op en strip. */
     setFitWidth() {
+      if (this.isStripMode) return;
       this.pulseZoomTransition();
       this.fitMode = 'fit-width';
       this.panX = 0;
