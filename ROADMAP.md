@@ -113,7 +113,7 @@ Voir [`docs/UX.md`](./docs/UX.md), [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.
 - [x] **Profils locaux** — nom + couleur, choix au lancement, gestion Paramètres ; progression / signets / prefs par profil
 - [x] **Séries / tomes** — détection filename + fallback dossier parent (hors dossiers génériques) + `series_id` / volume en DB ; vue séries ; reprise « tome suivant non lu » (API metadata reste prioritaire)
 - [x] **Signets** — ajout (X) / liste / suppression par livre & profil ; panneau HUD
-- [x] **Mode webtoon** — défilement vertical continu ; stick = scroll ; prefs persistées
+- [x] **Mode page unique** — zoom / pan stick / D-Pad pages (strip continu retiré, à refaire from scratch plus tard)
 - [x] **Filtres lecture** — luminosité / contraste / sépia (CSS GPU) ; preset nuit + reset ; panneau HUD
 
 ### Phase 5 — Polish & packaging *(fait)*
@@ -170,7 +170,7 @@ Setup (1ʳᵉ fois)
   → Boot
   → Import (dossier import → métadonnées → bibliothèque)
   → Bibliothèque (catalogue : héro / récents / grille / séries)
-  → Lecteur (CBZ/CBR/PDF + webtoon + filtres + signets)
+  → Lecteur (CBZ/CBR/PDF + page unique + filtres + signets)
   → Paramètres (thème / profils / remap / providers méta)
 ```
 

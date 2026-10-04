@@ -94,26 +94,23 @@ assert(store.includes('hudFocusIndex'), 'store hudFocusIndex');
 assert(store.includes('moveHudFocus'), 'store moveHudFocus');
 assert(store.includes('animateScaleTo'), 'zoom smooth animateScaleTo (rAF)');
 assert(store.includes('targetScale'), 'zoom targetScale');
-assert(readerView.includes('reader__strip'), 'strip vertical DOM');
-assert(readerView.includes('data-strip'), 'reader data-strip');
-assert(readerView.includes('data-reading-mode'), 'reader data-reading-mode');
 assert(readerView.includes('reader__stage'), 'mode page reader__stage');
 assert(readerView.includes('reader__page'), 'mode page reader__page');
-assert(
-  /\.reader__strip-page\s*\{[\s\S]*?width:\s*100%/.test(readerView),
-  'strip pages fit-width implicite (width 100%)',
-);
-assert(store.includes('loadStripWindow'), 'store loadStripWindow');
-assert(store.includes('setPageFromStripScroll'), 'store setPageFromStripScroll');
-assert(store.includes('readingMode'), 'store readingMode strip|page');
-assert(store.includes('toggleReadingMode'), 'store toggleReadingMode');
+assert(readerView.includes('reader__pan'), 'mode page reader__pan');
+assert(!readerView.includes('reader__strip'), 'plus de DOM strip vertical');
+assert(!readerView.includes('data-strip'), 'plus de data-strip');
+assert(!store.includes('loadStripWindow'), 'plus de loadStripWindow');
+assert(!store.includes('toggleReadingMode'), 'plus de toggleReadingMode');
+assert(!store.includes('isStripMode'), 'plus de isStripMode');
+assert(!store.includes('readingMode'), 'plus de readingMode strip|page');
 assert(store.includes('zoomBy(steps)'), 'store zoomBy restauré');
 assert(!store.includes('toggleWebtoon'), 'plus de toggleWebtoon');
 assert(!hud.includes('Mode webtoon'), 'HUD sans bouton Mode webtoon');
-assert(hud.includes('Page par page'), 'HUD bascule Page par page');
-assert(hud.includes('Strip vertical'), 'HUD bascule Strip vertical');
-assert(hud.includes('toggleReadingMode'), 'HUD appelle toggleReadingMode');
+assert(!hud.includes('Strip vertical'), 'HUD sans bascule Strip vertical');
+assert(!hud.includes('toggleReadingMode'), 'HUD sans toggleReadingMode');
 assert(hud.includes('Stick'), 'HUD hints manette stick/zoom');
+assert(hud.includes('←→ page'), 'HUD hint pages ←→');
+assert(hud.includes('↑↓ zoom'), 'HUD hint zoom ↑↓');
 
 assert(gamepad.includes('reader.hudVisible'), 'gamepad branche modal pause');
 assert(gamepad.includes('closeHud()'), 'B/Select → closeHud en pause');

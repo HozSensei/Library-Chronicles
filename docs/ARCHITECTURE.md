@@ -42,7 +42,7 @@ Build unifié via **electron-vite** :
 2. **Profils** (chaque lancement) → choix profil local actif
 3. **Import** → scan dossier import → review meta → copie library + SQLite
 4. **Library** → catalogue + vue séries (+ refresh auto via watcher)
-5. **Reader** → `open` → `getPage` → blob URL + transforms/filtres GPU (+ webtoon strip)
+5. **Reader** → `open` → `getPage` → blob URL + transforms/filtres GPU (page unique)
 6. **Settings** → thème, profils, remapping, providers métadonnées (+ clés si besoin)
 
 ## Données locales

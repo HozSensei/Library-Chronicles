@@ -1,5 +1,5 @@
 <script setup>
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
+import { onMounted, onUnmounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import ReaderHud from '../components/ReaderHud.vue';
 import { useReaderStore } from '../stores/reader';
@@ -9,14 +9,6 @@ const router = useRouter();
 const route = useRoute();
 const reader = useReaderStore();
 const ui = useUiStore();
-const stripEl = ref(null);
-const planeEl = ref(null);
-
-const stripStyle = computed(() => ({
-  filter: reader.filterCss,
-  transform: `translate3d(${reader.panX}px, ${reader.panY}px, 0) scale(${reader.scale})`,
-  transformOrigin: 'center top',
-}));
 
 /**
  * Ouverture fichier uniquement.
@@ -52,17 +44,6 @@ watch(
   },
 );
 
-/** Nav programmatique uniquement — ne pas combattre le scroll utilisateur. */
-watch(
-  () => reader.stripScrollToken,
-  async () => {
-    if (!reader.isStripMode) return;
-    await nextTick();
-    const el = stripEl.value?.querySelector(`[data-page="${reader.pageIndex}"]`);
-    el?.scrollIntoView({ block: 'start', behavior: 'smooth' });
-  },
-);
-
 async function leave() {
   await reader.close();
   router.push({ name: 'library' });
@@ -81,36 +62,12 @@ function endFocusId(id) {
   if (reader.nextVolumeOffer) ids.push('next-volume');
   return ids[reader.endFocusIndex] === id;
 }
-
-async function onStripScroll() {
-  if (!stripEl.value || !reader.isStripMode) return;
-  const el = stripEl.value;
-  const nodes = [...el.querySelectorAll('[data-page]')];
-  if (!nodes.length) return;
-  const top = el.scrollTop + 40;
-  let best = reader.pageIndex;
-  for (const node of nodes) {
-    if (node.offsetTop <= top) best = Number(node.dataset.page);
-  }
-  if (best === reader.pageIndex) return;
-  const marker = el.querySelector(`[data-page="${best}"]`);
-  const offsetBefore = marker?.offsetTop ?? 0;
-  const scrollBefore = el.scrollTop;
-  await reader.setPageFromStripScroll(best);
-  await nextTick();
-  const after = el.querySelector(`[data-page="${best}"]`);
-  if (!after) return;
-  const delta = after.offsetTop - offsetBefore;
-  if (Math.abs(delta) > 0.5) el.scrollTop = scrollBefore + delta;
-}
 </script>
 
 <template>
   <section
     class="reader"
     aria-label="Lecteur"
-    :data-strip="reader.isStripMode ? '1' : '0'"
-    :data-reading-mode="reader.readingMode"
     :data-css-rotate="ui.readerCssRotate ? '1' : '0'"
   >
     <!--
@@ -118,32 +75,10 @@ async function onStripScroll() {
       dimensions portrait (100vh × 100vw) puis rotate(+90° CW) pour Ally
       tenue CCW (D-Pad en bas). Inclut HUD pour rester dans le même repère.
     -->
-    <div ref="planeEl" class="reader__plane">
+    <div class="reader__plane">
       <div class="reader__viewport">
-        <!-- Mode strip vertical (défaut) -->
         <div
-          v-if="reader.isStripMode && reader.pageCount > 0"
-          ref="stripEl"
-          class="reader__strip"
-          @scroll.passive="onStripScroll"
-        >
-          <div class="reader__strip-inner" :style="stripStyle">
-            <img
-              v-for="page in reader.stripPages"
-              :key="page.index"
-              class="reader__strip-page"
-              :class="{ 'is-current': page.index === reader.pageIndex }"
-              :src="page.url"
-              :data-page="page.index"
-              :alt="`Page ${page.index + 1}`"
-              draggable="false"
-            />
-          </div>
-        </div>
-
-        <!-- Mode page par page -->
-        <div
-          v-else-if="reader.isPageMode && reader.pageCount > 0"
+          v-if="reader.pageCount > 0"
           class="reader__stage"
           :data-fit="reader.fitMode"
         >
@@ -348,30 +283,6 @@ async function onStripScroll() {
   max-width: none;
   max-height: none;
   object-fit: unset;
-}
-
-.reader__strip {
-  position: absolute;
-  inset: 0;
-  overflow: auto;
-  overscroll-behavior: contain;
-}
-
-.reader__strip-inner {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  will-change: transform, filter;
-  min-height: 100%;
-}
-
-/* Fit width implicite : pages bord à bord sur la largeur locale. */
-.reader__strip-page {
-  width: 100%;
-  height: auto;
-  display: block;
-  user-select: none;
-  pointer-events: none;
 }
 
 .reader__placeholder {

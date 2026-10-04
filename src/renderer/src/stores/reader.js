@@ -1,9 +1,5 @@
 import { defineStore } from 'pinia';
 import { ZOOM_STEP } from '../../../shared/gamepad-codes.js';
-import {
-  stripPrefetchRange,
-  stripWindowRange,
-} from '../../../shared/reader-strip.js';
 import { findAdjacentVolume } from '../../../shared/series.js';
 import {
   measureReaderZoomGeometry,
@@ -17,16 +13,13 @@ const NIGHT_PRESET = { brightness: 0.78, contrast: 1.12, sepia: 0.35 };
 const RESET_FILTERS = { brightness: 1, contrast: 1, sepia: 0 };
 /** Durée d’interpolation zoom D-Pad / L3 (ms), ease-out. */
 const ZOOM_ANIM_MS = 200;
-/** Seuil « zoomé » pour pan stick (strip). */
+/** Seuil « zoomé » pour pan stick. */
 const ZOOMED_EPS = 1.02;
+/** Voisines gardées en cache ObjectURL (prefetch page ±N). */
+const PAGE_CACHE_RADIUS = 2;
 
 function clampScale(value) {
   return Math.min(4, Math.max(0.25, value));
-}
-
-/** @param {unknown} value */
-function normalizeReadingMode(value) {
-  return value === 'page' ? 'page' : 'strip';
 }
 
 export const useReaderStore = defineStore('reader', {
@@ -41,11 +34,6 @@ export const useReaderStore = defineStore('reader', {
     pageCount: 0,
     direction: 'ltr',
     fitMode: 'fit-height',
-    /**
-     * Mode lecture : `strip` (défaut, multi-pages vertical) | `page` (page unique).
-     * Persisté via pref legacy `webtoon_mode` (0=strip, 1=page).
-     */
-    readingMode: 'strip',
     /** Échelle affichée (interpolée). */
     scale: 1,
     /** Cible logique du zoom (±15 % par pas). */
@@ -62,8 +50,6 @@ export const useReaderStore = defineStore('reader', {
     /** Toast progression (page ±) — distinct de la modal. */
     toastVisible: false,
     pageUrl: null,
-    /** Pages empilées strip vertical { index, url } — fenêtre ~4–5. */
-    stripPages: [],
     chapters: [],
     chapterIndex: 0,
     bookmarks: [],
@@ -83,9 +69,7 @@ export const useReaderStore = defineStore('reader', {
     _hudTimer: null,
     _zoomRaf: null,
     _zoomTransitionTimer: null,
-    /** Demande scrollIntoView après nav programmatique (pas scroll utilisateur). */
-    stripScrollToken: 0,
-    /** Cache ObjectURL pages { index → url } (fenêtre + prefetch). */
+    /** Cache ObjectURL pages { index → url } (courante + prefetch). */
     _pageUrlCache: {},
     /** @type {Record<number, Promise<string|null>>} */
     _pagePending: {},
@@ -98,11 +82,9 @@ export const useReaderStore = defineStore('reader', {
     filterCss(s) {
       return `brightness(${s.brightness}) contrast(${s.contrast}) sepia(${s.sepia})`;
     },
-    isStripMode: (s) => s.readingMode !== 'page',
-    isPageMode: (s) => s.readingMode === 'page',
     isZoomed: (s) => s.scale >= ZOOMED_EPS,
     imageStyle(s) {
-      // Fit height/width : CSS [data-fit] sur .reader__stage (mode page).
+      // Fit height/width : CSS [data-fit] sur .reader__stage.
       // Scale seul ici — le pan est sur .reader__pan (évite double translate).
       return {
         transform: s.transform,
@@ -167,7 +149,6 @@ export const useReaderStore = defineStore('reader', {
         const prefs = await window.vdr.profiles.getPrefs();
         this.direction = prefs.readingDirection || 'ltr';
         this.fitMode = prefs.defaultFitMode || 'fit-height';
-        this.readingMode = normalizeReadingMode(prefs.readingMode);
         this.brightness = prefs.brightness ?? 1;
         this.contrast = prefs.contrast ?? 1;
         this.sepia = prefs.sepia ?? 0;
@@ -177,12 +158,7 @@ export const useReaderStore = defineStore('reader', {
     },
     async persistPrefs(patch) {
       try {
-        const safe = { ...(patch || {}) };
-        if (safe.readingMode != null) {
-          safe.readingMode = normalizeReadingMode(safe.readingMode);
-        }
-        const prefs = await window.vdr.profiles.setPrefs(safe);
-        this.readingMode = normalizeReadingMode(prefs.readingMode);
+        const prefs = await window.vdr.profiles.setPrefs(patch || {});
         this.brightness = prefs.brightness ?? this.brightness;
         this.contrast = prefs.contrast ?? this.contrast;
         this.sepia = prefs.sepia ?? this.sepia;
@@ -222,7 +198,7 @@ export const useReaderStore = defineStore('reader', {
           start = meta.resumePage;
         }
         this.pageIndex = start;
-        await this.loadCurrentPage({ scrollToCurrent: true });
+        await this.loadCurrentPage();
         await this.refreshBookmarks();
         this.flashHud(1800);
         return meta;
@@ -233,25 +209,15 @@ export const useReaderStore = defineStore('reader', {
         this.loading = false;
       }
     },
-    async loadCurrentPage({ scrollToCurrent = false } = {}) {
+    async loadCurrentPage() {
       if (!this.filePath || this.pageCount === 0) return;
-      if (this.isStripMode) {
-        await this.loadStripWindow();
-        if (scrollToCurrent) this.requestStripScroll();
-      } else {
-        await this.revokeStrip();
-        const url = await this.ensurePageUrl(this.pageIndex);
-        this.pageUrl = url;
-        this.trimPageCache();
-        void this.prefetchNeighbors(this.pageIndex);
-      }
+      const url = await this.ensurePageUrl(this.pageIndex);
+      this.pageUrl = url;
+      this.trimPageCache();
+      void this.prefetchNeighbors(this.pageIndex);
       this.syncChapterIndex();
       this.persistProgress();
       if (this.isFinished) await this.checkNextVolume();
-    },
-    /** Signale à ReaderView de scroller la page courante (nav A/B, signet…). */
-    requestStripScroll() {
-      this.stripScrollToken += 1;
     },
     blobUrlFromPage(page) {
       const bin = atob(page.data);
@@ -284,31 +250,27 @@ export const useReaderStore = defineStore('reader', {
       })();
       return this._pagePending[index];
     },
-    /**
-     * Prefetch hors fenêtre DOM (voisines ±STRIP_PREFETCH).
-     * Ne bloque pas le rendu de la fenêtre visible.
-     */
+    /** Prefetch voisines ±PAGE_CACHE_RADIUS (hors page courante). */
     async prefetchNeighbors(center = this.pageIndex) {
-      const { start, end } = stripPrefetchRange(center, this.pageCount);
-      const win = stripWindowRange(center, this.pageCount);
       const jobs = [];
-      for (let i = start; i <= end; i += 1) {
-        if (i < win.start || i > win.end) jobs.push(this.ensurePageUrl(i));
+      for (let i = center - PAGE_CACHE_RADIUS; i <= center + PAGE_CACHE_RADIUS; i += 1) {
+        if (i === center) continue;
+        if (i >= 0 && i < this.pageCount) jobs.push(this.ensurePageUrl(i));
       }
       if (jobs.length) await Promise.all(jobs);
       this.trimPageCache(center);
     },
-    /** Garde fenêtre strip + prefetch ; révoque le reste. */
+    /** Garde page courante + prefetch ; révoque le reste. */
     trimPageCache(center = this.pageIndex) {
-      const { start, end } = stripPrefetchRange(center, this.pageCount);
       const keep = new Set();
-      for (let i = start; i <= end; i += 1) keep.add(i);
-      const stripUrls = new Set(this.stripPages.map((p) => p.url).filter(Boolean));
+      for (let i = center - PAGE_CACHE_RADIUS; i <= center + PAGE_CACHE_RADIUS; i += 1) {
+        if (i >= 0 && i < this.pageCount) keep.add(i);
+      }
       for (const key of Object.keys(this._pageUrlCache)) {
         const idx = Number(key);
         if (!keep.has(idx)) {
           const url = this._pageUrlCache[idx];
-          if (url && url !== this.pageUrl && !stripUrls.has(url)) {
+          if (url && url !== this.pageUrl) {
             try {
               URL.revokeObjectURL(url);
             } catch {
@@ -331,49 +293,6 @@ export const useReaderStore = defineStore('reader', {
       }
       this._pageUrlCache = {};
       this._pagePending = {};
-      this.stripPages = [];
-    },
-    async revokeStrip() {
-      // URLs détenues par _pageUrlCache — ne pas double-revoke.
-      this.stripPages = [];
-    },
-    /**
-     * Charge ~4–5 pages dans le strip DOM + prefetch voisines (cache partagé).
-     */
-    async loadStripWindow() {
-      if (!this.filePath || this.pageCount === 0) {
-        this.stripPages = [];
-        this.pageUrl = null;
-        return;
-      }
-      const { start, end } = stripWindowRange(this.pageIndex, this.pageCount);
-      const jobs = [];
-      for (let i = start; i <= end; i += 1) {
-        jobs.push(this.ensurePageUrl(i));
-      }
-      await Promise.all(jobs);
-      const next = [];
-      for (let i = start; i <= end; i += 1) {
-        const url = this._pageUrlCache[i];
-        if (url) next.push({ index: i, url });
-      }
-      this.stripPages = next;
-      this.pageUrl = this._pageUrlCache[this.pageIndex] || null;
-      void this.prefetchNeighbors(this.pageIndex);
-    },
-    /**
-     * Scroll utilisateur : maj index + glisse la fenêtre si besoin.
-     * @param {number} index
-     */
-    async setPageFromStripScroll(index) {
-      const i = Number(index);
-      if (!Number.isFinite(i) || i < 0 || i >= this.pageCount) return;
-      if (i === this.pageIndex) return;
-      this.pageIndex = i;
-      this.syncChapterIndex();
-      this.persistProgress();
-      await this.loadStripWindow();
-      if (this.isFinished) await this.checkNextVolume();
     },
     syncChapterIndex() {
       if (!this.chapters.length) {
@@ -473,7 +392,6 @@ export const useReaderStore = defineStore('reader', {
       this.clearZoomAnim();
       this.scale = 1;
       this.targetScale = 1;
-      await this.revokeStrip();
       this.revokePageCache();
       this.pageUrl = null;
       await window.vdr.reader.close();
@@ -545,7 +463,6 @@ export const useReaderStore = defineStore('reader', {
     },
     /**
      * Interpole `scale` → `targetScale` en ~200 ms ease-out (rAF).
-     * Conservé pour chemins fit/zoom résiduels ; strip vertical n’y passe pas.
      * Chaque frame ancre le zoom au centre écran (pas de dérive / faux scroll).
      */
     animateScaleTo(target, { duration = ZOOM_ANIM_MS } = {}) {
@@ -617,12 +534,6 @@ export const useReaderStore = defineStore('reader', {
      * si CSS rotate). Sous rotate(90deg) : local(+X)→bas écran, local(+Y)→gauche.
      */
     pan(dx, dy, speed = 14) {
-      if (this.isStripMode) {
-        // Strip zoomé : pan libre ; sinon fallback (scroll natif prioritaire).
-        this.panY += dy * speed * 1.8;
-        this.panX += dx * speed * (this.isZoomed ? 1 : 0.25);
-        return;
-      }
       if (this.fitMode === 'fit-width') {
         this.panY += dy * speed * 1.4;
         this.panX += dx * speed * 0.4;
@@ -632,41 +543,18 @@ export const useReaderStore = defineStore('reader', {
       this.panY += dy * speed;
     },
     zoomBy(steps) {
-      // Zoom D-Pad : multiplie via transform scale ancré au centre (strip + page).
       this.animateScaleTo(this.targetScale + Number(steps) * ZOOM_STEP);
     },
-    /**
-     * L3 / R3 —
-     * - mode page : toggle Fit Height ↔ Fit Width
-     * - mode strip : reset zoom si zoomé, sinon zoom lecture (~1.5×)
-     */
+    /** L3 / R3 — toggle Fit Height ↔ Fit Width. */
     toggleZoom() {
-      if (this.isStripMode) {
-        this.pulseZoomTransition();
-        if (this.isZoomed || Math.abs(this.targetScale - 1) > 0.05) {
-          this.panX = 0;
-          this.panY = 0;
-          this.animateScaleTo(1);
-        } else {
-          this.animateScaleTo(1.5);
-        }
-        return;
-      }
       this.pulseZoomTransition();
       this.fitMode = this.fitMode === 'fit-width' ? 'fit-height' : 'fit-width';
       this.panX = 0;
       this.panY = 0;
       this.animateScaleTo(1);
     },
-    /** LB — Fit Width direct (mode page) ; en strip = reset zoom. */
+    /** LB — Fit Width direct. */
     setFitWidth() {
-      if (this.isStripMode) {
-        this.pulseZoomTransition();
-        this.panX = 0;
-        this.panY = 0;
-        this.animateScaleTo(1);
-        return;
-      }
       this.pulseZoomTransition();
       this.fitMode = 'fit-width';
       this.panX = 0;
@@ -677,23 +565,6 @@ export const useReaderStore = defineStore('reader', {
       this.direction = this.direction === 'ltr' ? 'rtl' : 'ltr';
       this.persistPrefs({ readingDirection: this.direction });
       window.vdr.setConfig({ readingDirection: this.direction });
-    },
-    /** Bascule Strip vertical ↔ Page par page (persist profil). */
-    async toggleReadingMode() {
-      this.readingMode = this.isStripMode ? 'page' : 'strip';
-      this.resetTransform();
-      await this.persistPrefs({ readingMode: this.readingMode });
-      await this.loadCurrentPage({ scrollToCurrent: true });
-      this.flashHud(1200);
-    },
-    async setReadingMode(mode) {
-      const next = normalizeReadingMode(mode);
-      if (next === this.readingMode) return;
-      this.readingMode = next;
-      this.resetTransform();
-      await this.persistPrefs({ readingMode: this.readingMode });
-      await this.loadCurrentPage({ scrollToCurrent: true });
-      this.flashHud(1200);
     },
     toggleHud() {
       this.clearHudTimer();
@@ -763,7 +634,7 @@ export const useReaderStore = defineStore('reader', {
       if (bm == null) return;
       this.pageIndex = bm.page;
       this.resetTransform();
-      await this.loadCurrentPage({ scrollToCurrent: true });
+      await this.loadCurrentPage();
       this.flashHud(900);
     },
     async stepPage(which) {
@@ -775,8 +646,8 @@ export const useReaderStore = defineStore('reader', {
         return false;
       }
       this.pageIndex = next;
-      if (this.isPageMode) this.resetTransform();
-      await this.loadCurrentPage({ scrollToCurrent: true });
+      this.resetTransform();
+      await this.loadCurrentPage();
       this.flashHud(900);
       return true;
     },
@@ -788,8 +659,8 @@ export const useReaderStore = defineStore('reader', {
         );
         if (next === this.pageIndex) return false;
         this.pageIndex = next;
-        if (this.isPageMode) this.resetTransform();
-        await this.loadCurrentPage({ scrollToCurrent: true });
+        this.resetTransform();
+        await this.loadCurrentPage();
         this.flashHud(900);
         return true;
       }
@@ -797,8 +668,8 @@ export const useReaderStore = defineStore('reader', {
       if (nextIdx < 0 || nextIdx >= this.chapters.length) return false;
       this.chapterIndex = nextIdx;
       this.pageIndex = this.chapters[nextIdx].startIndex;
-      if (this.isPageMode) this.resetTransform();
-      await this.loadCurrentPage({ scrollToCurrent: true });
+      this.resetTransform();
+      await this.loadCurrentPage();
       this.flashHud(900);
       return true;
     },

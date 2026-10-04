@@ -150,20 +150,20 @@ export function pageSlideFromVisualPan(stickX, stickY) {
 
 /**
  * Action lecture associée à une direction logique D-Pad.
- * Spec UX Steam OS (repère écran portrait) :
- *   ← / →  → zoom ±
- *   ↑ / ↓  → pages
+ * Spec UX (repère écran portrait) — axes invertis :
+ *   ← / →  → pages
+ *   ↑ / ↓  → zoom ±
  */
 export function readingActionForLogicalDpad(dir) {
   switch (dir) {
-    case LogicalDir.RIGHT:
-      return 'zoom-in';
     case LogicalDir.LEFT:
-      return 'zoom-out';
-    case LogicalDir.UP:
       return 'page-prev';
-    case LogicalDir.DOWN:
+    case LogicalDir.RIGHT:
       return 'page-next';
+    case LogicalDir.UP:
+      return 'zoom-out';
+    case LogicalDir.DOWN:
+      return 'zoom-in';
     default:
       return null;
   }

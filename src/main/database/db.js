@@ -64,7 +64,7 @@ CREATE TABLE IF NOT EXISTS profile_prefs (
   profile_id INTEGER PRIMARY KEY REFERENCES profiles(id) ON DELETE CASCADE,
   reading_direction TEXT DEFAULT 'ltr',
   default_fit_mode TEXT DEFAULT 'fit-height',
-  webtoon_mode INTEGER DEFAULT 0, /* 0=strip (défaut), 1=page — legacy name */
+  webtoon_mode INTEGER DEFAULT 1, /* legacy unused — lecteur page unique */
   brightness REAL DEFAULT 1,
   contrast REAL DEFAULT 1,
   sepia REAL DEFAULT 0,
@@ -184,7 +184,7 @@ function defaultPrefsRow(profileId) {
     profile_id: profileId,
     reading_direction: 'ltr',
     default_fit_mode: 'fit-height',
-    webtoon_mode: 0,
+    webtoon_mode: 1,
     brightness: 1,
     contrast: 1,
     sepia: 0,
