@@ -101,10 +101,19 @@ assert(
   settingsView.includes('void setTheme') &&
     settingsView.includes('void setAccent') &&
     settingsView.includes('prevSec') &&
+    settingsView.includes('data-focus-row="theme"') &&
+    settingsView.includes('data-focus-row="accent"') &&
     /settingsFocusIndex[\s\S]{0,600}setAccent[\s\S]{0,400}setTheme/.test(
       settingsView,
     ),
-  'settings : thème + accent appliqués au focus (watch settingsFocusIndex)',
+  'settings : thème + accent au focus + data-focus-row (grille ←→)',
+);
+
+const gamepad = read('src/renderer/src/composables/useGamepad.js');
+assert(
+  gamepad.includes('moveSettingsFocus') &&
+    gamepad.includes('settingsFocusRowsFromElements'),
+  'settings gamepad : grille moveSettingsFocus (↓ ne traverse pas le thème)',
 );
 
 const keys = read('src/shared/key-bindings.js');

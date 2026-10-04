@@ -213,7 +213,8 @@ Footer compact (pas d’overflow boutons). Scroll `.shell-scroll`.
 
 | Contrôle | Action |
 |----------|--------|
-| ↑↓←→ / stick | Focus dans la section (providers, champs, liens, remap…) |
+| ←→ / stick | Dans une rangée (thème clair/sombre, pastilles accent) |
+| ↑↓ / stick | Change de rangée / liste verticale (pas de wrap horizontal) |
 | LB / RB | Section précédente / suivante |
 | A | Valider / écouter (remap) / focus champ |
 | B | Retour bibliothèque |
