@@ -159,6 +159,25 @@ function registerAppIpc() {
   ipcMain.handle(IpcChannels.APP_SET_SESSION_MODE, (_e, { mode, force } = {}) =>
     applySessionMode(mode, { force: Boolean(force) }),
   );
+  ipcMain.handle(IpcChannels.APP_GET_FULLSCREEN, () => {
+    if (!mainWindow || mainWindow.isDestroyed()) {
+      return { fullscreen: false };
+    }
+    return { fullscreen: Boolean(mainWindow.isFullScreen()) };
+  });
+  ipcMain.handle(IpcChannels.APP_SET_FULLSCREEN, (_e, payload) => {
+    if (!mainWindow || mainWindow.isDestroyed()) {
+      return { fullscreen: false };
+    }
+    const enabled =
+      typeof payload === 'boolean'
+        ? payload
+        : payload && typeof payload === 'object' && 'enabled' in payload
+          ? Boolean(payload.enabled)
+          : !mainWindow.isFullScreen();
+    mainWindow.setFullScreen(enabled);
+    return { fullscreen: Boolean(mainWindow.isFullScreen()) };
+  });
   ipcMain.handle(IpcChannels.APP_GET_DEFAULT_PATHS, () => getDefaultPaths());
   ipcMain.handle(IpcChannels.APP_PICK_DIRECTORY, async (_e, { title } = {}) => {
     const result = await dialog.showOpenDialog({

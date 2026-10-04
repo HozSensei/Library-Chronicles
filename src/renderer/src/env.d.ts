@@ -17,6 +17,8 @@ interface VdrApi {
   onOrientationChanged: (
     handler: (payload: { orientation: string; cssRotate?: boolean }) => void,
   ) => () => void;
+  getFullscreen: () => Promise<{ fullscreen: boolean }>;
+  setFullscreen: (enabled: boolean) => Promise<{ fullscreen: boolean }>;
   library: {
     selectRoot: () => Promise<string | null>;
     selectImport: () => Promise<string | null>;

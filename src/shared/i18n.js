@@ -424,6 +424,8 @@ export const MESSAGES = Object.freeze({
         'A valider · B fermer · Select pause · ↑↓ focus · Stick scroll · LT/RT chapitre · D-Pad désactivé',
       hintEpub:
         'A valider · B fermer · Select pause · Stick scroll · ↑↓ police · L3 police défaut · ←→ chapitre · LT/RT chapitre',
+      fullscreen: 'Plein écran',
+      fullscreenExit: 'Quitter plein écran',
     },
     toast: {
       removed: 'Retiré de la bibliothèque · {label}',
@@ -440,6 +442,7 @@ export const MESSAGES = Object.freeze({
       sheetSaveFail: 'Échec de l’enregistrement',
       providerTestOk: 'Test OK · {label}',
       providerTestFail: 'Test échoué · {label}',
+      readerStartMenu: 'Start · Menu lecteur',
     },
     bind: {
       'toggle-direction': 'Sens LTR / RTL',
@@ -800,6 +803,8 @@ export const MESSAGES = Object.freeze({
         'A confirm · B close · Select pause · ↑↓ focus · Stick scroll · LT/RT chapter · D-Pad off',
       hintEpub:
         'A confirm · B close · Select pause · Stick scroll · ↑↓ font · L3 default font · ←→ chapter · LT/RT chapter',
+      fullscreen: 'Fullscreen',
+      fullscreenExit: 'Exit fullscreen',
     },
     toast: {
       removed: 'Removed from library · {label}',
@@ -816,6 +821,7 @@ export const MESSAGES = Object.freeze({
       sheetSaveFail: 'Failed to save',
       providerTestOk: 'Test OK · {label}',
       providerTestFail: 'Test failed · {label}',
+      readerStartMenu: 'Start · Reader menu',
     },
     bind: {
       'toggle-direction': 'LTR / RTL direction',
