@@ -48,9 +48,20 @@ assert(store.includes('resolveRecentOpen'), 'resolveRecentOpen');
 assert(store.includes('resolveSeriesOpen'), 'resolveSeriesOpen');
 assert(store.includes('getSeriesById'), 'getSeriesById');
 
-assert(router.includes("path: '/series/:seriesId'"), 'route /series/:seriesId');
-assert(router.includes("name: 'series'"), 'name series');
-assert(router.includes("path: '/book/:id'"), 'route /book/:id conservée');
+assert(
+  router.includes("path: '/library/series/:seriesId'") ||
+    router.includes("path: '/series/:seriesId'"),
+  'route /series/:seriesId',
+);
+assert(
+  router.includes('LIBRARY_SERIES') || router.includes("name: 'series'"),
+  'name series',
+);
+assert(
+  router.includes("path: '/library/book/:id'") ||
+    router.includes("path: '/book/:id'"),
+  'route /book/:id conservée',
+);
 assert(router.includes('SeriesDetailView'), 'SeriesDetailView branchée');
 
 assert(view.includes('openSeries'), 'LibraryView openSeries');
@@ -73,7 +84,10 @@ assert(
 );
 assert(pad.includes('resolveSeriesOpen'), 'A séries → resolveSeriesOpen');
 assert(pad.includes('resolveRecentOpen'), 'A récents → resolveRecentOpen');
-assert(pad.includes("name: 'series'"), 'push fiche série');
+assert(
+  pad.includes('LIBRARY_SERIES') || pad.includes("name: 'series'"),
+  'push fiche série',
+);
 
 assert(ux.includes('listRecentSeries') || ux.includes('une entrée par série'), 'docs UX récents');
 assert(ux.includes('/series/:seriesId') || ux.includes('Fiche série'), 'docs UX fiche série');
