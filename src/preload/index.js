@@ -63,6 +63,8 @@ contextBridge.exposeInMainWorld('vdr', {
       ipcRenderer.invoke(IpcChannels.METADATA_SET_API_KEY, { provider, key }),
     hasApiKey: (provider) =>
       ipcRenderer.invoke(IpcChannels.METADATA_HAS_API_KEY, provider),
+    testProvider: (provider) =>
+      ipcRenderer.invoke(IpcChannels.METADATA_TEST_PROVIDER, provider),
     openHelp: (payload) =>
       ipcRenderer.invoke(IpcChannels.METADATA_OPEN_HELP, payload),
   },

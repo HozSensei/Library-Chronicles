@@ -9,6 +9,12 @@
 
 import { getConfigInternal, setConfig } from '../config.js';
 import { createTtlCache } from '../../shared/perf-cache.js';
+import {
+  PROVIDER_TEST_QUERY,
+  interpretProviderTestResults,
+  normalizeProviderTestStatus,
+  providerShowsOkBadge,
+} from '../../shared/provider-test-status.js';
 import { detectFromFilename } from './parse-filename.js';
 import {
   normalizeMetadataQuery,
@@ -21,7 +27,13 @@ import { anilistProvider } from './providers/anilist.js';
 import { mangadexProvider } from './providers/mangadex.js';
 import { googleBooksProvider } from './providers/googlebooks.js';
 
-export { normalizeMetadataQuery, prepareMetadataSearchQuery };
+export {
+  normalizeMetadataQuery,
+  prepareMetadataSearchQuery,
+  PROVIDER_TEST_QUERY,
+  interpretProviderTestResults,
+  providerShowsOkBadge,
+};
 
 /** @type {import('./types.js').MetadataProvider[]} */
 const PROVIDERS = [
@@ -50,8 +62,14 @@ export function getProvider(id) {
 export function setApiKey(providerId, key) {
   const cfg = getConfigInternal();
   const apiKeys = { ...(cfg.apiKeys || {}) };
-  if (!key) delete apiKeys[providerId];
-  else apiKeys[providerId] = String(key).trim();
+  const nextKey = key ? String(key).trim() : '';
+  const prev = apiKeys[providerId] ? String(apiKeys[providerId]) : '';
+  if (!nextKey) delete apiKeys[providerId];
+  else apiKeys[providerId] = nextKey;
+  // Clé changée / effacée → invalider le dernier test (évite check vert stale).
+  if (prev !== nextKey) {
+    clearProviderTestStatus(providerId);
+  }
   setConfig({ apiKeys });
   return { ok: true, hasKey: Boolean(apiKeys[providerId]) };
 }
@@ -59,6 +77,127 @@ export function setApiKey(providerId, key) {
 export function hasApiKey(providerId) {
   const cfg = getConfigInternal();
   return Boolean(cfg.apiKeys?.[providerId]);
+}
+
+function readTestStatusMap() {
+  const cfg = getConfigInternal();
+  return { ...(cfg.providerTestStatus || {}) };
+}
+
+export function getProviderTestStatus(providerId) {
+  return normalizeProviderTestStatus(readTestStatusMap()[providerId]);
+}
+
+function writeProviderTestStatus(providerId, status) {
+  const map = readTestStatusMap();
+  if (!status) delete map[providerId];
+  else map[providerId] = normalizeProviderTestStatus(status);
+  setConfig({ providerTestStatus: map });
+  return map[providerId] || null;
+}
+
+export function clearProviderTestStatus(providerId) {
+  const map = readTestStatusMap();
+  if (!(providerId in map)) return;
+  delete map[providerId];
+  setConfig({ providerTestStatus: map });
+}
+
+/**
+ * Ping search minimal pour valider clé / disponibilité.
+ * Persiste `{ ok, testedAt, error }` dans la config publique.
+ * @param {string} providerId
+ * @returns {Promise<{
+ *   ok: boolean,
+ *   error?: string|null,
+ *   testedAt: number|null,
+ *   provider: string,
+ *   providers: ReturnType<typeof listProviders>,
+ *   activeProvider: string,
+ * }>}
+ */
+export async function testProvider(providerId) {
+  const impl = BY_ID[providerId];
+  if (!impl) {
+    return {
+      ok: false,
+      error: 'Provider inconnu',
+      testedAt: null,
+      provider: String(providerId || ''),
+      providers: listProviders(),
+      activeProvider: getActiveProviderId(),
+    };
+  }
+
+  const testedAt = Date.now();
+
+  if (impl.id === 'stub') {
+    const status = writeProviderTestStatus(impl.id, {
+      ok: true,
+      testedAt,
+      error: null,
+    });
+    return {
+      ok: true,
+      error: null,
+      testedAt: status?.testedAt ?? testedAt,
+      provider: impl.id,
+      providers: listProviders(),
+      activeProvider: getActiveProviderId(),
+    };
+  }
+
+  if (impl.requiresApiKey && !hasApiKey(impl.id)) {
+    const status = writeProviderTestStatus(impl.id, {
+      ok: false,
+      testedAt,
+      error: 'Clé API manquante',
+    });
+    return {
+      ok: false,
+      error: status?.error || 'Clé API manquante',
+      testedAt: status?.testedAt ?? testedAt,
+      provider: impl.id,
+      providers: listProviders(),
+      activeProvider: getActiveProviderId(),
+    };
+  }
+
+  const cfg = getConfigInternal();
+  const apiKey = cfg.apiKeys?.[impl.id] || null;
+
+  try {
+    const results = await impl.search(PROVIDER_TEST_QUERY, { apiKey });
+    const verdict = interpretProviderTestResults(impl.id, results);
+    const status = writeProviderTestStatus(impl.id, {
+      ok: verdict.ok,
+      testedAt,
+      error: verdict.error,
+    });
+    return {
+      ok: verdict.ok,
+      error: verdict.error,
+      testedAt: status?.testedAt ?? testedAt,
+      provider: impl.id,
+      providers: listProviders(),
+      activeProvider: getActiveProviderId(),
+    };
+  } catch (err) {
+    const message = err?.message || String(err);
+    const status = writeProviderTestStatus(impl.id, {
+      ok: false,
+      testedAt,
+      error: message,
+    });
+    return {
+      ok: false,
+      error: status?.error || message,
+      testedAt: status?.testedAt ?? testedAt,
+      provider: impl.id,
+      providers: listProviders(),
+      activeProvider: getActiveProviderId(),
+    };
+  }
 }
 
 export function setMetadataProvider(providerId) {
@@ -153,7 +292,10 @@ export async function searchMetadata(query, { provider, force = false } = {}) {
 }
 
 function publicMeta(p) {
-  return {
+  const status = getProviderTestStatus(p.id);
+  const hasKey = p.requiresApiKey ? hasApiKey(p.id) : false;
+  const testOk = Boolean(status?.ok);
+  const meta = {
     id: p.id,
     label: p.label,
     requiresApiKey: Boolean(p.requiresApiKey),
@@ -163,6 +305,13 @@ function publicMeta(p) {
     helpText: p.helpText || null,
     helpUrl: p.helpUrl || null,
     helpLinkLabel: p.helpLinkLabel || null,
-    hasKey: p.requiresApiKey ? hasApiKey(p.id) : false,
+    hasKey,
+    testOk,
+    testedAt: status?.testedAt ?? null,
+    testError: status?.error ?? null,
+    /** true si le provider peut être testé (tous sauf absence totale) */
+    canTest: true,
   };
+  meta.configuredOk = providerShowsOkBadge(meta);
+  return meta;
 }

@@ -203,7 +203,7 @@ onMounted(async () => {
   // Deep-link : shell fiche tout de suite, mais scan sans reloadDraft —
   // syncFromRoute hydrate une seule fois (pas de méta flash vide/rechargée).
   applyFlowFromRoute();
-  await imp.loadProviders();
+  await imp.loadProviders({ force: true });
   await imp.scan({ reloadDraft: false });
   await syncFromRoute();
   nextTick(() => scheduleScrollFocusedIntoView('.import'));
@@ -800,14 +800,22 @@ defineExpose({
                   ui.setImportFocus(IMPORT_SEARCH_FIELDS.PROVIDER);
                 "
               >
-                <label>Source API</label>
+                <label>
+                  Source API
+                  <span
+                    v-if="imp.selectedProviderMeta?.configuredOk"
+                    class="import__provider-ok"
+                    :aria-label="t('settings.configuredOk')"
+                    :title="t('settings.configuredOk')"
+                  >✓</span>
+                </label>
                 <select
                   class="import__select"
                   :value="imp.activeProvider"
                   @change="imp.setProvider($event.target.value)"
                 >
                   <option v-for="p in imp.providers" :key="p.id" :value="p.id">
-                    {{ p.label }} — {{ p.freeLabel }}
+                    {{ p.configuredOk ? '✓ ' : '' }}{{ p.label }} — {{ p.freeLabel }}
                   </option>
                 </select>
                 <p
@@ -1594,6 +1602,22 @@ defineExpose({
   margin: 0.35rem 0 0;
   font-size: 0.75rem;
   color: var(--paper-dim);
+}
+
+.import__provider-ok {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 0.35rem;
+  width: 1.05rem;
+  height: 1.05rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--success) 22%, transparent);
+  color: var(--success);
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1;
+  vertical-align: middle;
 }
 
 .link-btn {

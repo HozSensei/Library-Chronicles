@@ -27,6 +27,7 @@ export const IpcChannels = Object.freeze({
   METADATA_HAS_API_KEY: 'metadata:has-api-key',
   METADATA_LIST_PROVIDERS: 'metadata:list-providers',
   METADATA_SET_PROVIDER: 'metadata:set-provider',
+  METADATA_TEST_PROVIDER: 'metadata:test-provider',
   METADATA_OPEN_HELP: 'metadata:open-help',
 
   READER_OPEN: 'reader:open',
