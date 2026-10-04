@@ -1,7 +1,8 @@
 /**
  * Open Library — livres / BD parfois. Gratuit, sans clé.
  * Docs: https://openlibrary.org/dev/docs/api/search
- * Pagination : page (1-based) ou offset + limit (max raisonnable 100).
+ * Pagination : offset + limit (préféré à `page` — évite les trous quand
+ * le dernier lot a une taille < pageSize).
  */
 
 import { fetchJson } from '../fetch.js';
@@ -31,11 +32,11 @@ export const openLibraryProvider = {
       const pageSize = metadataSearchLimit('openlibrary');
       const results = await collectSearchPages({
         pageSize,
-        fetchPage: async ({ page, limit }) => {
+        fetchPage: async ({ offset, limit }) => {
           const url = new URL('https://openlibrary.org/search.json');
           url.searchParams.set('q', q);
           url.searchParams.set('limit', String(limit));
-          url.searchParams.set('page', String(page));
+          url.searchParams.set('offset', String(offset));
           url.searchParams.set(
             'fields',
             'key,title,author_name,first_publish_year,cover_i,subtitle,number_of_pages_median',
@@ -55,7 +56,7 @@ export const openLibraryProvider = {
           return {
             items: docs.map((doc, i) => mapDoc(doc, i, q)),
             total,
-            hasMore: total != null ? (page - 1) * limit + docs.length < total : null,
+            hasMore: total != null ? offset + docs.length < total : null,
           };
         },
       });

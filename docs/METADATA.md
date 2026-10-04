@@ -33,7 +33,7 @@ séparées de `vdr-config.json`. **Jamais** commités dans le dépôt.
 ## Comportement réseau
 
 - Timeout ~8 s par requête, User-Agent identifié.
-- Pagination : AniList `page`/`pageInfo`, MangaDex/ComicVine `offset`, Open Library `page`, Google Books `startIndex` — arrêt sur page incomplète, `hasMore: false`, total atteint, ou plafond 250. Échec page 2+ : conserve les hits déjà collectés.
+- Pagination : AniList `page`/`pageInfo`, MangaDex/ComicVine/Open Library `offset`, Google Books `startIndex` — arrêt sur page incomplète, `hasMore: false`, total atteint, ou plafond 250. Échec page 2+ : conserve les hits déjà collectés.
 - Erreur / timeout / clé manquante → résultats stub annotés + `warning` IPC (pas de crash).
 - Provider actif persisté dans la config (`metadataProvider`).
 

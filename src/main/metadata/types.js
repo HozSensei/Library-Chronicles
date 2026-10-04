@@ -96,10 +96,11 @@ export async function collectSearchPages({
   let offset = 0;
 
   for (let i = 0; i < maxPages && out.length < cap; i += 1) {
-    const batchLimit = Math.min(limit, cap - out.length);
+    // Toujours demander une page pleine : réduire `limit` sur le dernier lot
+    // casse la pagination page-based (AniList / OL) et crée des trous.
     let payload;
     try {
-      payload = await fetchPage({ page, offset, limit: batchLimit });
+      payload = await fetchPage({ page, offset, limit });
     } catch (err) {
       // Page 2+ en échec : conserver les hits déjà collectés (ne pas stubber).
       if (out.length) {
@@ -134,9 +135,9 @@ export async function collectSearchPages({
         ? Number(payload.total)
         : null;
     if (payload?.hasMore === false) break;
-    if (total != null && out.length >= total) break;
+    if (total != null && offset + items.length >= total) break;
     // Page incomplète → dernière page (sauf hasMore forcé à true).
-    if (items.length < batchLimit && payload?.hasMore !== true) break;
+    if (items.length < limit && payload?.hasMore !== true) break;
 
     page += 1;
     offset += items.length;

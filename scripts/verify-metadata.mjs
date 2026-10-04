@@ -173,28 +173,21 @@ globalThis.fetch = async (url, opts = {}) => {
 
   if (href.includes('openlibrary.org/search.json')) {
     const u = new URL(href);
-    const page = Number(u.searchParams.get('page') || '1');
+    const offset = Number(u.searchParams.get('offset') || '0');
+    const limit = Number(u.searchParams.get('limit') || '100');
     seen.openlibrary = {
       q: u.searchParams.get('q'),
       limit: u.searchParams.get('limit'),
-      page: u.searchParams.get('page'),
+      offset: u.searchParams.get('offset'),
     };
-    pageHits.openlibrary.push(page);
+    pageHits.openlibrary.push(offset);
     if (u.searchParams.get('q') === 'MultiPageOL') {
-      const docs =
-        page === 1
-          ? Array.from({ length: 100 }, (_, i) => ({
-              key: `/works/OL${i}W`,
-              title: `OL Hit ${i}`,
-              author_name: ['A'],
-              first_publish_year: 2000,
-            }))
-          : Array.from({ length: 50 }, (_, i) => ({
-              key: `/works/OL${100 + i}W`,
-              title: `OL Hit ${100 + i}`,
-              author_name: ['A'],
-              first_publish_year: 2001,
-            }));
+      const docs = Array.from({ length: Math.min(limit, 150 - offset) }, (_, i) => ({
+        key: `/works/OL${offset + i}W`,
+        title: `OL Hit ${offset + i}`,
+        author_name: ['A'],
+        first_publish_year: 2000,
+      }));
       return jsonResponse({ docs, numFound: 150 });
     }
     return jsonResponse({
@@ -496,7 +489,7 @@ try {
   pageHits.openlibrary = [];
   const olMulti = await openLibraryProvider.search('MultiPageOL');
   assert.equal(olMulti.length, 150);
-  assert.ok(pageHits.openlibrary.includes(1) && pageHits.openlibrary.includes(2));
+  assert.ok(pageHits.openlibrary.includes(0) && pageHits.openlibrary.includes(100));
 
   pageHits.anilist = [];
   const alMulti = await anilistProvider.search('MultiPageAL');
