@@ -93,6 +93,13 @@ function setAccent(accent) {
   ui.applyAccent(form.accent);
 }
 
+/** Accent appliqué dès le focus (←→), comme la couleur profil — A optionnel. */
+watch(focusedId, (id) => {
+  if (id?.startsWith('accent-')) {
+    setAccent(id.slice('accent-'.length));
+  }
+});
+
 function next() {
   if (step.value < steps.length - 1) {
     step.value += 1;
