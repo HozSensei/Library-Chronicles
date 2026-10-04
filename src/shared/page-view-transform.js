@@ -225,6 +225,32 @@ export function resetView() {
 }
 
 /**
+ * Change de zoom en gardant fixe le point de la page sous le **centre du stage**.
+ *
+ * La page étant toujours centrée par construction (`translate(-50%,-50%)`), le
+ * point sous le centre est `p = −offset / scale` ; l’y maintenir après coup donne
+ * `offset' = offset × (zoom' / zoom)`. Pas de géométrie d’écran à mesurer : c’est
+ * toute la complexité de l’ancien `panForZoomToScreenCenter` qui disparaît.
+ *
+ * @param {{ x?: number, y?: number } | null} offset
+ * @param {unknown} fromZoom
+ * @param {unknown} toZoom
+ * @param {typeof EMPTY_FIT} [fit]
+ * @returns {{ zoom: number, x: number, y: number }}
+ */
+export function zoomAboutCenter(offset, fromZoom, toZoom, fit = EMPTY_FIT) {
+  const from = clampZoom(fromZoom, fit);
+  const to = clampZoom(toZoom, fit);
+  const ratio = from > 0 ? to / from : 1;
+  const next = clampOffset(
+    { x: num(offset?.x) * ratio, y: num(offset?.y) * ratio },
+    to,
+    fit,
+  );
+  return { zoom: to, x: next.x, y: next.y };
+}
+
+/**
  * Au moins un axe déborde ⇒ le pan a un sens.
  * @param {unknown} zoom
  * @param {typeof EMPTY_FIT} [fit]
