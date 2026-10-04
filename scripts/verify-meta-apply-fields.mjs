@@ -49,11 +49,21 @@ const gbFull = metadataPatchFromEnrichResult(
     title: 'Solo Leveling, Vol. 9 (comic)',
     series: 'Solo Leveling',
     volume: 9,
+    authors: ['Chugong'],
+    synopsis: 'Jinwoo returns.',
     coverUrl:
       'https://books.google.com/books/content?id=o1wVEQAAQBAJ&printsec=frontcover&img=1&zoom=3&source=gbs_api',
+    provider: 'googlebooks',
+    providerId: 'o1wVEQAAQBAJ',
     source: 'googlebooks',
   },
   { title: 'file', series: 'folder', volume: 9 },
+);
+assert(gbFull.author === 'Chugong', 'authors[0] → author dans patch');
+assert(gbFull.description === 'Jinwoo returns.', 'synopsis → description');
+assert(
+  gbFull.coverUrl?.startsWith('https://'),
+  'coverUrl https depuis contrat',
 );
 const gbCover = filterMetaPatchBySelection(gbFull, {
   ...defaultMetaApplySelection(),

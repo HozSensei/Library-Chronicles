@@ -9,9 +9,9 @@ import {
   USER_AGENT,
   metadataSearchLimit,
   collectSearchPages,
-  stripHtml,
 } from '../types.js';
 import { stubProvider } from './stub.js';
+import { mapAnilistItem } from '../mappers/anilist.js';
 
 const ENDPOINT = 'https://graphql.anilist.co';
 
@@ -89,7 +89,7 @@ export const anilistProvider = {
           const media = pageData.media || [];
           const pageInfo = pageData.pageInfo || {};
           return {
-            items: media.map(mapMedia),
+            items: media.map(mapAnilistItem),
             hasMore: Boolean(pageInfo.hasNextPage),
             total:
               pageInfo.total != null && Number.isFinite(Number(pageInfo.total))
@@ -107,36 +107,11 @@ export const anilistProvider = {
   },
 };
 
-function mapMedia(item) {
-  const title =
-    item.title?.english || item.title?.romaji || item.title?.native || 'Manga';
-  const author = pickAuthor(item.staff?.edges);
-  return {
-    id: `anilist:${item.id}`,
-    title,
-    series: item.title?.romaji || item.title?.english || title,
-    // `volumes` AniList = total de la série, pas le n° de tome courant.
-    volume: null,
-    author,
-    year: item.startDate?.year || null,
-    description: stripHtml(item.description),
-    coverUrl: item.coverImage?.large || item.coverImage?.medium || null,
-    source: 'anilist',
-    confidence: 0.85,
-  };
-}
-
-function pickAuthor(edges) {
-  if (!Array.isArray(edges) || !edges.length) return null;
-  const story = edges.find((e) => /story|author|écrivain|manga/i.test(e.role || ''));
-  const edge = story || edges[0];
-  return edge?.node?.name?.full || null;
-}
-
 async function softFallback(q, note) {
   const stub = await stubProvider.search(q);
   return stub.map((r) => ({
     ...r,
     description: `${r.description || ''} (${note})`.trim(),
+    synopsis: `${r.synopsis || r.description || ''} (${note})`.trim(),
   }));
 }

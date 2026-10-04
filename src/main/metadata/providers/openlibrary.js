@@ -10,9 +10,9 @@ import {
   USER_AGENT,
   metadataSearchLimit,
   collectSearchPages,
-  extractYear,
 } from '../types.js';
 import { stubProvider } from './stub.js';
+import { mapOpenLibraryDoc } from '../mappers/openlibrary.js';
 
 /** @type {import('../types.js').MetadataProvider} */
 export const openLibraryProvider = {
@@ -54,7 +54,9 @@ export const openLibraryProvider = {
               ? Number(totalRaw)
               : null;
           return {
-            items: docs.map((doc, i) => mapDoc(doc, i, q)),
+            items: docs.map((doc, i) =>
+              mapOpenLibraryDoc(doc, { index: i, fallbackTitle: q }),
+            ),
             total,
             hasMore: total != null ? offset + docs.length < total : null,
           };
@@ -69,34 +71,11 @@ export const openLibraryProvider = {
   },
 };
 
-function mapDoc(doc, i, q) {
-  const coverId = doc.cover_i;
-  const seriesRaw = Array.isArray(doc.series) ? doc.series[0] : doc.series;
-  const series =
-    seriesRaw != null && String(seriesRaw).trim()
-      ? String(seriesRaw).trim()
-      : null;
-  return {
-    id: `openlibrary:${doc.key || i}`,
-    title: doc.title || q,
-    series,
-    volume: null,
-    author: Array.isArray(doc.author_name) ? doc.author_name[0] : null,
-    year: extractYear(doc.first_publish_year),
-    description: doc.subtitle || null,
-    // -L = large (meilleur pour jacket catalogue que -M medium)
-    coverUrl: coverId
-      ? `https://covers.openlibrary.org/b/id/${coverId}-L.jpg`
-      : null,
-    source: 'openlibrary',
-    confidence: 0.7,
-  };
-}
-
 async function softFallback(q, note) {
   const stub = await stubProvider.search(q);
   return stub.map((r) => ({
     ...r,
     description: `${r.description || ''} (${note})`.trim(),
+    synopsis: `${r.synopsis || r.description || ''} (${note})`.trim(),
   }));
 }

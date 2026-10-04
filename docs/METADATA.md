@@ -3,6 +3,28 @@
 Enrichissement à l’import via une interface pluggable (`search` / métadonnées UI).  
 **Aucune obligation réseau** : le stub offline + l’édition manuelle restent toujours disponibles.
 
+## Contrat `NormalizedMeta`
+
+Chaque provider mappe sa réponse brute via un **mapper dédié**
+(`src/main/metadata/mappers/`) vers un contrat strict :
+
+| Champ | Règle |
+|-------|--------|
+| `title` | string non vide |
+| `series` | string \| null |
+| `volume` | number \| null (tome courant — jamais le total de série) |
+| `authors` | `string[]` (peut être vide) |
+| `year` | number \| null |
+| `synopsis` | string \| null (≤ 600) |
+| `coverUrl` | **https absolu** ou `null` (jamais http, relatif, `//`, data:) |
+| `provider` | id provider (`googlebooks`, `anilist`, …) |
+| `providerId` | id distant string \| null |
+| `confidence` | 0…1 |
+| aliases | `id` = `` `${provider}:${providerId}` ``, `author` = `authors[0]`, `description` = `synopsis`, `source` = `provider` |
+
+Helpers : `createNormalizedMeta`, `absoluteHttpsCoverUrl`, `ensureNormalizedMeta`
+(`src/shared/normalized-meta.js`).
+
 ## Providers
 
 | Id | Label | Clé | Aide / doc |
@@ -19,12 +41,18 @@ Enrichissement à l’import via une interface pluggable (`search` / métadonné
 Les clés API sont stockées dans `userData/vdr-secrets.json` (chmod 600 si possible),  
 séparées de `vdr-config.json`. **Jamais** commités dans le dépôt.
 
+Probe optionnel (jamais de clé dans le repo) :
+
+```bash
+GOOGLE_BOOKS_API_KEY=xxx node scripts/probe-google-books.mjs "Solo Leveling"
+```
+
 ## UI
 
 - **Paramètres → API métadonnées** : liste des providers, badge gratuit / clé requise, bouton **Tester** visible sur chaque ligne (sauf stub) + rappel sous les champs clé, check vert ✓ si configuré/OK (`hasKey` + dernier test OK pour les providers à clé ; dernier test OK pour les gratuits), texte d’aide + lien (`shell.openExternal`, pas de webview). Statut persisté dans `providerTestStatus` (config publique). À l’**Import → Recherche**, ✓ à côté de « Source API » et dans le select quand le provider est OK.
 - **Import (fiche détail)** : sélecteur de provider (✓ vert sur sources OK) + champ **mots-clés** éditable (clavier virtuel) ; `search(query)` via le provider actif ; choisir un résultat pour appliquer les méta (`metaSource: selected`, pastille verte), puis Importer ce tome (X) ou tout importer (Y).
 - **Résolution méta (X/Y)** : `selectedMeta` si choix API, sinon méta détectées / nom de fichier. Pastilles liste : bleu = `detected`, rouge = `empty`, vert = `selected`.
-- **Jackets** : `coverUrl` des résultats API est conservé dans `selectedMeta` / draft et téléchargé au commit (`ensureCoverFromUrl`) — fallback page 0 de l’archive si échec réseau. Le scan bibliothèque privilégie `metadata.coverUrl` (`coverSource: remote`) et ne laisse pas le watcher écraser une jaquette API avec la page 0.
+- **Jackets** : `coverUrl` du contrat est conservé dans `selectedMeta` / draft et téléchargé au commit (`ensureCoverFromUrl`) — fallback page 0 de l’archive si échec réseau. **Apply sur livre déjà en bibliothèque** : `LIBRARY_UPDATE_BOOK` télécharge immédiatement la jacket (`coverSource: remote` + `coverPath`). Toast info si cover absente chez le provider ou téléchargement échoué. Le scan bibliothèque privilégie `metadata.coverUrl` (`coverSource: remote`) et ne laisse pas le watcher écraser une jaquette API avec la page 0.
 - **Google Books** : `imageLinks` → `coverUrl` (http→https, `zoom=3`, sans `edge=curl`) ; série/tome via `seriesInfo.bookDisplayNumber` + parse titre (`Vol. N`, `Title 04`). Pas d’URL jacket inventée si `imageLinks` est absent (placeholders).
 - **Recherche** : deux chemins — (1) **préremplissage auto** depuis le nom de fichier / draft : `normalizeMetadataQuery` retire `Tome N` / `Vol. N` (« One Piece - Tome 03 » → « One Piece ») ; (2) **mots-clés tapés** : `prepareMetadataSearchQuery` (trim seulement) — « Solo Leveling Tome 44 » part tel quel vers l’API. Taille de page = max API (`METADATA_SEARCH_LIMITS` : AniList 50, MangaDex/Open Library/ComicVine 100, Google Books 40) ; **multi-pages** via `collectSearchPages` jusqu’à `METADATA_SEARCH_MAX_TOTAL` (250). UI : compteur « Résultats · N », jaquette (proxy CSP), titre, série, tome.
 - **Fiche livre** : titre / série / tome / année / auteur / synopsis éditables post-import (`library.updateBook`) ; statut / pages / provider restent en lecture seule.
@@ -42,4 +70,7 @@ séparées de `vdr-config.json`. **Jamais** commités dans le dépôt.
 
 ```bash
 npm run test:metadata
+npm run test:meta-mappers
+npm run test:import-meta-jacket
+npm run test:meta-apply-fields
 ```

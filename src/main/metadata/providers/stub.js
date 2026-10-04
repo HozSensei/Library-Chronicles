@@ -4,6 +4,7 @@
 
 import { detectFromFilename } from '../parse-filename.js';
 import { slug } from '../types.js';
+import { createNormalizedMeta } from '../../../shared/normalized-meta.js';
 
 /** @type {import('../types.js').MetadataProvider} */
 export const stubProvider = {
@@ -21,30 +22,30 @@ export const stubProvider = {
 
     const base = detectFromFilename(`${q}.cbz`);
     return [
-      {
-        id: `stub:${slug(q)}:1`,
+      createNormalizedMeta({
         title: base.title || q,
         series: base.series || q,
         volume: base.volume,
-        author: 'Auteur (stub)',
+        authors: ['Auteur (stub)'],
         year: base.year || 2020,
-        description: `Résultat stub pour « ${q} ». Choisis un provider en ligne ou édite manuellement.`,
+        synopsis: `Résultat stub pour « ${q} ». Choisis un provider en ligne ou édite manuellement.`,
         coverUrl: null,
-        source: 'stub',
+        provider: 'stub',
+        providerId: `${slug(q)}:1`,
         confidence: 0.5,
-      },
-      {
-        id: `stub:${slug(q)}:2`,
+      }),
+      createNormalizedMeta({
         title: `${base.title || q} — édition collector`,
         series: base.series || q,
         volume: base.volume != null ? base.volume : 1,
-        author: 'Studio (stub)',
+        authors: ['Studio (stub)'],
         year: (base.year || 2020) - 1,
-        description: 'Variante stub pour comparer / choisir manuellement.',
+        synopsis: 'Variante stub pour comparer / choisir manuellement.',
         coverUrl: null,
-        source: 'stub',
+        provider: 'stub',
+        providerId: `${slug(q)}:2`,
         confidence: 0.35,
-      },
+      }),
     ];
   },
 };

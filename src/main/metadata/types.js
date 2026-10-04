@@ -2,18 +2,12 @@
  * Types et helpers partagés pour les providers de métadonnées.
  */
 
-/** @typedef {{
- *   id: string,
- *   title: string,
- *   series?: string|null,
- *   volume?: number|null,
- *   author?: string|null,
- *   year?: number|null,
- *   description?: string|null,
- *   coverUrl?: string|null,
- *   source: string,
- *   confidence: number
- * }} MetadataResult */
+/**
+ * Résultat search = NormalizedMeta (contrat strict).
+ * Compat : `author` / `description` / `source` restent peuplés
+ * (aliases de `authors[0]` / `synopsis` / `provider`).
+ * @typedef {import('../../shared/normalized-meta.js').NormalizedMeta} MetadataResult
+ */
 
 /** @typedef {{
  *   id: string,

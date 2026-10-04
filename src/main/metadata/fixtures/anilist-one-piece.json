@@ -1,0 +1,23 @@
+{
+  "id": 101759,
+  "title": {
+    "romaji": "One Piece",
+    "english": "One Piece",
+    "native": "ワンピース"
+  },
+  "volumes": 109,
+  "startDate": { "year": 1997 },
+  "description": "Gol D. Roger was known as the Pirate King...",
+  "coverImage": {
+    "large": "https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx30013-ulXRn0sWLBl0.jpg",
+    "medium": "https://s4.anilist.co/file/anilistcdn/media/manga/cover/medium/bx30013-ulXRn0sWLBl0.jpg"
+  },
+  "staff": {
+    "edges": [
+      {
+        "role": "Story & Art",
+        "node": { "name": { "full": "Eiichiro Oda" } }
+      }
+    ]
+  }
+}

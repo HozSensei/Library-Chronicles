@@ -1,0 +1,20 @@
+{
+  "id": "a1c7c5b8-0c8f-4c5e-9a2b-7e4d1f0a9b3c",
+  "attributes": {
+    "title": { "en": "Solo Leveling", "ja": "俺だけレベルアップな件" },
+    "year": 2018,
+    "description": {
+      "en": "10 years ago, after the Gate that connected the real world with the monster world opened..."
+    }
+  },
+  "relationships": [
+    {
+      "type": "author",
+      "attributes": { "name": "Chugong" }
+    },
+    {
+      "type": "cover_art",
+      "attributes": { "fileName": "abc123-cover.jpg" }
+    }
+  ]
+}
