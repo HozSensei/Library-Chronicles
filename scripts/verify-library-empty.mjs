@@ -51,7 +51,7 @@ assert(
   'sections catalogue derrière !isEmpty',
 );
 assert(view.includes('goImport'), 'helper goImport');
-assert(view.includes('catalog__header--empty'), 'header layout empty');
+assert(view.includes('catalog__chrome--empty'), 'header layout empty');
 assert(
   /isEmpty[\s\S]*importer/.test(view) || view.includes("label: 'importer'"),
   'hints manette simplifiés si vide',

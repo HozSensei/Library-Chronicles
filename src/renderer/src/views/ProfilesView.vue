@@ -224,83 +224,87 @@ defineExpose({
   <section class="profiles" aria-label="Choix du profil">
     <div class="profiles__atmosphere" aria-hidden="true">
       <div class="profiles__wash" />
+      <div class="profiles__vignette" />
     </div>
 
-    <header class="profiles__head">
-      <AppBrandLogo size="lg" class="profiles__brand" />
-      <h1>Qui lit ?</h1>
-      <p class="lead">
-        Chaque profil a sa bibliothèque, ses dossiers et ses préférences.
-      </p>
-    </header>
+    <div class="profiles__stage">
+      <header class="profiles__brand">
+        <AppBrandLogo size="hero" class="profiles__logo" />
+        <p class="profiles__prompt">Qui lit ?</p>
+      </header>
 
-    <div class="profiles__grid" role="list" :aria-hidden="isNaming ? 'true' : undefined">
-      <button
-        v-for="(p, index) in profiles.profiles"
-        :key="p.id"
-        type="button"
-        class="avatar"
-        :class="{ 'is-focused': !isNaming && index === focused }"
-        role="listitem"
-        @click="choose(index)"
+      <div
+        class="profiles__grid"
+        role="list"
+        :aria-hidden="isNaming ? 'true' : undefined"
       >
-        <span
-          class="avatar__disk"
-          :style="{
-            background: p.avatarPath
-              ? `center / cover url(${p.avatarPath})`
-              : p.color,
-          }"
+        <button
+          v-for="(p, index) in profiles.profiles"
+          :key="p.id"
+          type="button"
+          class="avatar"
+          :class="{ 'is-focused': !isNaming && index === focused }"
+          role="listitem"
+          @click="choose(index)"
         >
-          <template v-if="!p.avatarPath">{{ (p.name || '?').slice(0, 1).toUpperCase() }}</template>
-        </span>
-        <span class="avatar__name">{{ p.name }}</span>
-      </button>
+          <span
+            class="avatar__disk"
+            :style="{
+              background: p.avatarPath
+                ? `center / cover url(${p.avatarPath})`
+                : p.color,
+            }"
+          >
+            <template v-if="!p.avatarPath">{{ (p.name || '?').slice(0, 1).toUpperCase() }}</template>
+          </span>
+          <span class="avatar__name">{{ p.name }}</span>
+        </button>
 
-      <button
-        type="button"
-        class="avatar avatar--add"
-        :class="{ 'is-focused': !isNaming && isAddFocused }"
-        role="listitem"
-        aria-label="Ajouter un profil"
-        @click="onAddClick"
+        <button
+          type="button"
+          class="avatar avatar--add"
+          :class="{ 'is-focused': !isNaming && isAddFocused }"
+          role="listitem"
+          aria-label="Ajouter un profil"
+          @click="onAddClick"
+        >
+          <span class="avatar__disk avatar__disk--add">+</span>
+          <span class="avatar__name">Ajouter</span>
+        </button>
+      </div>
+
+      <form
+        v-if="isNaming"
+        class="profiles__create"
+        @submit.prevent="submitName"
       >
-        <span class="avatar__disk avatar__disk--add">+</span>
-        <span class="avatar__name">Ajouter</span>
-      </button>
+        <label>
+          {{ formTitle }}
+          <input
+            ref="nameInput"
+            v-model="newName"
+            type="text"
+            maxlength="32"
+            placeholder="Pseudo"
+            autocomplete="off"
+            enterkeyhint="done"
+            inputmode="text"
+            :class="{ 'is-focused': formFocus === 0 }"
+            @focus="formFocus = 0"
+          />
+        </label>
+        <button
+          type="submit"
+          class="btn-primary"
+          :class="{ 'is-focused': formFocus === 1 }"
+          :disabled="creating"
+          @focus="formFocus = 1"
+        >
+          {{ submitLabel }}
+        </button>
+        <button type="button" class="ghost" @click="cancelNaming">Annuler</button>
+      </form>
     </div>
-
-    <form
-      v-if="isNaming"
-      class="profiles__create"
-      @submit.prevent="submitName"
-    >
-      <label>
-        {{ formTitle }}
-        <input
-          ref="nameInput"
-          v-model="newName"
-          type="text"
-          maxlength="32"
-          placeholder="Pseudo"
-          autocomplete="off"
-          enterkeyhint="done"
-          inputmode="text"
-          :class="{ 'is-focused': formFocus === 0 }"
-          @focus="formFocus = 0"
-        />
-      </label>
-      <button
-        type="submit"
-        class="btn-primary"
-        :class="{ 'is-focused': formFocus === 1 }"
-        :disabled="creating"
-        @focus="formFocus = 1"
-      >
-        {{ submitLabel }}
-      </button>
-      <button type="button" class="ghost" @click="cancelNaming">Annuler</button>
-    </form>
 
     <footer>
       <ControlHint :items="hints" />
@@ -315,7 +319,7 @@ defineExpose({
   display: flex;
   flex-direction: column;
   padding: var(--pad);
-  gap: 1.5rem;
+  gap: 1rem;
   overflow: hidden;
   overflow-x: hidden;
   min-height: 0;
@@ -330,54 +334,93 @@ defineExpose({
 
 .profiles__wash {
   position: absolute;
-  inset: -20%;
+  inset: -18%;
   background:
-    radial-gradient(ellipse at 30% 20%, color-mix(in srgb, var(--brass) 22%, transparent), transparent 55%),
-    radial-gradient(ellipse at 80% 80%, color-mix(in srgb, var(--ink-soft, var(--ink-800)) 40%, transparent), transparent 50%);
+    radial-gradient(
+      ellipse 55% 42% at 50% 18%,
+      color-mix(in srgb, var(--brass) 18%, transparent),
+      transparent 62%
+    ),
+    radial-gradient(
+      ellipse 70% 50% at 12% 88%,
+      color-mix(in srgb, var(--ink-800) 55%, transparent),
+      transparent 58%
+    ),
+    radial-gradient(
+      ellipse 50% 40% at 92% 72%,
+      color-mix(in srgb, var(--ink-soft, var(--ink-800)) 35%, transparent),
+      transparent 55%
+    );
 }
 
-.profiles__head,
-.profiles__grid,
-.profiles__create,
+.profiles__vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse 80% 70% at 50% 45%,
+    transparent 40%,
+    color-mix(in srgb, var(--ink-950) 55%, transparent) 100%
+  );
+}
+
+.profiles__stage,
 footer {
   position: relative;
   z-index: 1;
 }
 
+.profiles__stage {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(1.25rem, 3.5vh, 2.25rem);
+  width: 100%;
+}
+
 .profiles__brand {
+  display: grid;
+  justify-items: center;
+  gap: 0.85rem;
+  text-align: center;
+  max-width: min(100%, 36rem);
+}
+
+.profiles__logo {
   margin: 0;
 }
 
-.profiles__head h1 {
-  margin: 0.35rem 0 0.25rem;
-  font-family: var(--font-display);
-  font-size: clamp(1.6rem, 3vw, 2rem);
-}
-
-.lead {
+.profiles__prompt {
   margin: 0;
+  font-family: var(--font-body, inherit);
+  font-size: clamp(0.95rem, 1.6vw, 1.1rem);
+  font-weight: 500;
+  letter-spacing: 0.04em;
   color: var(--paper-dim);
-  max-width: 36ch;
 }
 
 .profiles__grid {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 1.5rem 2rem;
-  flex: 1;
+  gap: 1.35rem 1.85rem;
+  width: 100%;
+  max-width: 52rem;
   min-height: 0;
+  max-height: min(42vh, 22rem);
   align-content: center;
   overflow: auto;
   overflow-x: hidden;
-  padding: 1rem 0;
+  padding: 0.35rem 0.5rem;
 }
 
 .avatar {
   display: grid;
   justify-items: center;
-  gap: 0.75rem;
-  padding: 0.5rem;
+  gap: 0.7rem;
+  padding: 0.35rem;
   border: none;
   background: transparent;
   color: var(--paper);
@@ -395,8 +438,8 @@ footer {
 }
 
 .avatar__disk {
-  width: 5.5rem;
-  height: 5.5rem;
+  width: 5.25rem;
+  height: 5.25rem;
   border-radius: 50%;
   display: grid;
   place-items: center;
@@ -416,7 +459,7 @@ footer {
 }
 
 .avatar__name {
-  font-size: 1rem;
+  font-size: 0.95rem;
   text-align: center;
   font-weight: 600;
 }
@@ -428,7 +471,6 @@ footer {
   align-items: end;
   justify-content: center;
   max-width: 28rem;
-  margin: 0 auto;
   width: 100%;
   min-width: 0;
 }
@@ -477,6 +519,10 @@ footer {
 @media (prefers-reduced-motion: reduce) {
   .avatar {
     transition: none;
+  }
+
+  .profiles__logo {
+    filter: none;
   }
 }
 </style>

@@ -2,7 +2,6 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import ReaderHud from '../components/ReaderHud.vue';
-import AppBrandLogo from '../components/AppBrandLogo.vue';
 import { useReaderStore } from '../stores/reader';
 import { useUiStore } from '../stores/ui';
 
@@ -139,7 +138,7 @@ async function onStripScroll() {
         </div>
 
         <div v-else class="reader__placeholder">
-          <AppBrandLogo size="md" class="reader__brand" />
+          <p class="reader__brand">Library Chronicles</p>
           <p v-if="reader.loading">Chargement…</p>
           <p v-else-if="reader.error">{{ reader.error }}</p>
           <template v-else>
@@ -280,6 +279,10 @@ async function onStripScroll() {
 
 .reader__brand {
   margin: 0 0 0.5rem;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.4rem;
+  color: var(--brass-bright);
 }
 
 .reader__next {

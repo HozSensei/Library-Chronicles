@@ -170,72 +170,81 @@ function selectTab(tab) {
     <div class="catalog__bg pointer-events-none absolute inset-0" aria-hidden="true" />
 
     <div class="relative z-10 flex h-full min-h-0 min-w-0 flex-col overflow-x-hidden">
-      <!-- Header -->
-      <header class="catalog__header" :class="{ 'catalog__header--empty': library.isEmpty }">
-        <AppBrandLogo size="md" class="catalog__logo" />
+      <!-- Bandeau foncé + logo à cheval (straddle) -->
+      <header
+        class="catalog__chrome"
+        :class="{ 'catalog__chrome--empty': library.isEmpty }"
+        aria-label="Navigation catalogue"
+      >
+        <div class="catalog__bar">
+          <div class="catalog__brand">
+            <AppBrandLogo size="straddle" class="catalog__logo" />
+          </div>
 
-        <nav v-if="!library.isEmpty" class="catalog__nav" aria-label="Sections">
-          <button
-            v-for="item in navItems"
-            :key="item.id"
-            type="button"
-            class="catalog__nav-link"
-            :class="{
-              'is-active': library.catalogTab === item.id,
-              'is-focused': navFocused(item.id),
-            }"
-            @click="selectTab(item.id)"
-          >
-            {{ item.label }}
-          </button>
-        </nav>
-
-        <div class="catalog__tools">
-          <button
-            type="button"
-            class="ghost catalog__tool"
-            :class="{ 'is-focused': navFocused('scan') }"
-            @click="library.focusNav(library.headerNav.findIndex((n) => n.id === 'scan')); library.scan()"
-          >
-            Scanner
-          </button>
-          <button
-            type="button"
-            class="ghost catalog__tool"
-            :class="{ 'is-focused': navFocused('import') }"
-            @click="goImport()"
-          >
-            Import
-          </button>
-          <button
-            type="button"
-            class="catalog__settings"
-            :class="{ 'is-focused': navFocused('settings') }"
-            title="Paramètres (Start)"
-            aria-label="Paramètres"
-            @click="library.focusNav(library.headerNav.findIndex((n) => n.id === 'settings')); router.push({ name: 'settings' })"
-          >
-            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="currentColor">
-              <path
-                d="M19.14 12.94c.04-.31.06-.63.06-.94s-.02-.63-.06-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.07 7.07 0 0 0-1.63-.94l-.36-2.54A.5.5 0 0 0 13.9 2h-3.8a.5.5 0 0 0-.49.42l-.36 2.54c-.58.24-1.13.55-1.63.94l-2.39-.96a.5.5 0 0 0-.6.22L2.71 8.48a.5.5 0 0 0 .12.64l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94L2.83 14.58a.5.5 0 0 0-.12.64l1.92 3.32c.14.24.43.34.68.22l2.39-.96c.5.39 1.05.71 1.63.94l.36 2.54c.05.24.25.42.49.42h3.8c.24 0 .44-.18.49-.42l.36-2.54c.58-.24 1.13-.55 1.63-.94l2.39.96c.25.12.54.02.68-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58ZM12 15.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7Z"
-              />
-            </svg>
-          </button>
-          <button
-            type="button"
-            class="catalog__profile"
-            :class="{ 'is-focused': navFocused('profile') }"
-            :title="library.profileName || 'Profil'"
-            @click="library.focusNav(library.headerNav.findIndex((n) => n.id === 'profile')); switchProfile()"
-          >
-            <span
-              class="catalog__avatar"
-              :style="{ background: profiles.activeProfile?.color || 'var(--brass)' }"
+          <nav v-if="!library.isEmpty" class="catalog__nav" aria-label="Sections">
+            <button
+              v-for="item in navItems"
+              :key="item.id"
+              type="button"
+              class="catalog__nav-link"
+              :class="{
+                'is-active': library.catalogTab === item.id,
+                'is-focused': navFocused(item.id),
+              }"
+              @click="selectTab(item.id)"
             >
-              {{ (library.profileName || '?').slice(0, 1).toUpperCase() }}
-            </span>
-            <span class="catalog__profile-name">{{ library.profileName || 'Profil' }}</span>
-          </button>
+              {{ item.label }}
+            </button>
+          </nav>
+          <div v-else class="catalog__nav-spacer" aria-hidden="true" />
+
+          <div class="catalog__tools">
+            <button
+              type="button"
+              class="ghost catalog__tool"
+              :class="{ 'is-focused': navFocused('scan') }"
+              @click="library.focusNav(library.headerNav.findIndex((n) => n.id === 'scan')); library.scan()"
+            >
+              Scanner
+            </button>
+            <button
+              type="button"
+              class="ghost catalog__tool"
+              :class="{ 'is-focused': navFocused('import') }"
+              @click="goImport()"
+            >
+              Import
+            </button>
+            <button
+              type="button"
+              class="catalog__settings"
+              :class="{ 'is-focused': navFocused('settings') }"
+              title="Paramètres (Start)"
+              aria-label="Paramètres"
+              @click="library.focusNav(library.headerNav.findIndex((n) => n.id === 'settings')); router.push({ name: 'settings' })"
+            >
+              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="currentColor">
+                <path
+                  d="M19.14 12.94c.04-.31.06-.63.06-.94s-.02-.63-.06-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.07 7.07 0 0 0-1.63-.94l-.36-2.54A.5.5 0 0 0 13.9 2h-3.8a.5.5 0 0 0-.49.42l-.36 2.54c-.58.24-1.13.55-1.63.94l-2.39-.96a.5.5 0 0 0-.6.22L2.71 8.48a.5.5 0 0 0 .12.64l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94L2.83 14.58a.5.5 0 0 0-.12.64l1.92 3.32c.14.24.43.34.68.22l2.39-.96c.5.39 1.05.71 1.63.94l.36 2.54c.05.24.25.42.49.42h3.8c.24 0 .44-.18.49-.42l.36-2.54c.58-.24 1.13-.55 1.63-.94l2.39.96c.25.12.54.02.68-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58ZM12 15.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7Z"
+                />
+              </svg>
+            </button>
+            <button
+              type="button"
+              class="catalog__profile"
+              :class="{ 'is-focused': navFocused('profile') }"
+              :title="library.profileName || 'Profil'"
+              @click="library.focusNav(library.headerNav.findIndex((n) => n.id === 'profile')); switchProfile()"
+            >
+              <span
+                class="catalog__avatar"
+                :style="{ background: profiles.activeProfile?.color || 'var(--brass)' }"
+              >
+                {{ (library.profileName || '?').slice(0, 1).toUpperCase() }}
+              </span>
+              <span class="catalog__profile-name">{{ library.profileName || 'Profil' }}</span>
+            </button>
+          </div>
         </div>
       </header>
 
@@ -547,24 +556,56 @@ function selectTab(tab) {
     var(--ink-950);
 }
 
-.catalog__header {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 1rem 1.5rem;
-  padding: 1.1rem clamp(1rem, 2.5vw, 2rem) 0.75rem;
+.catalog__chrome {
+  position: relative;
+  z-index: 20;
+  flex-shrink: 0;
+  /* réserve pour le débordement du logo sous le bandeau */
+  padding-bottom: clamp(1.15rem, 2.4vw, 1.65rem);
   min-width: 0;
   max-width: 100%;
   box-sizing: border-box;
 }
 
-.catalog__header--empty {
-  grid-template-columns: auto 1fr auto;
+.catalog__bar {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.85rem 1.35rem;
+  min-height: 3.15rem;
+  padding: 0.45rem clamp(1rem, 2.5vw, 2rem);
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  /* bandeau plus foncé que le fond catalogue */
+  background: color-mix(in srgb, var(--ink-950) 38%, #050607 62%);
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+  box-shadow: 0 10px 28px color-mix(in srgb, #000 28%, transparent);
+}
+
+.catalog__chrome--empty .catalog__bar {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.catalog__brand {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: flex-start;
+  align-self: stretch;
+  min-width: 0;
+  padding-top: 0.2rem;
 }
 
 .catalog__logo {
   margin: 0;
   flex-shrink: 0;
+  /* à cheval : moitié basse déborde sur le contenu */
+  margin-bottom: calc(-1 * clamp(1.15rem, 2.4vw, 1.65rem));
+}
+
+.catalog__nav-spacer {
+  min-width: 0;
 }
 
 .catalog__nav {
@@ -692,7 +733,8 @@ function selectTab(tab) {
 }
 
 .catalog__scroll-inner {
-  padding: 0.5rem clamp(1rem, 2.5vw, 2rem) 1.5rem;
+  /* un peu d’air sous le logo à cheval */
+  padding: 0.85rem clamp(1rem, 2.5vw, 2rem) 1.5rem;
   max-width: 100%;
   box-sizing: border-box;
 }
@@ -999,19 +1041,33 @@ function selectTab(tab) {
 }
 
 @media (max-width: 960px) {
-  .catalog__header {
+  .catalog__bar {
     grid-template-columns: 1fr;
     justify-items: start;
+    row-gap: 0.65rem;
+    padding-top: 0.55rem;
+    padding-bottom: 0.65rem;
   }
 
   .catalog__nav {
     justify-content: flex-start;
     flex-wrap: wrap;
     gap: 1rem;
+    order: 3;
+    width: 100%;
+  }
+
+  .catalog__tools {
+    width: 100%;
+    justify-content: flex-start;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .catalog__logo {
+    filter: none;
+  }
+
   .poster__art {
     transition: none;
   }

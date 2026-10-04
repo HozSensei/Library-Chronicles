@@ -3,7 +3,6 @@ import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import ControlHint from '../components/ControlHint.vue';
 import LazyCover from '../components/LazyCover.vue';
-import AppBrandLogo from '../components/AppBrandLogo.vue';
 import { useLibraryStore } from '../stores/library';
 import { useUiStore } from '../stores/ui';
 import {
@@ -303,7 +302,7 @@ function onEditableKeydown(ev) {
 
     <header class="book-detail__head">
       <div class="book-detail__head-main">
-        <AppBrandLogo size="sm" class="book-detail__brand" />
+        <p class="book-detail__brand">Library Chronicles</p>
         <p class="book-detail__status">{{ loading ? 'Chargement…' : statusHint }}</p>
       </div>
       <ControlHint class="book-detail__hints" :items="hints" />
@@ -660,6 +659,10 @@ function onEditableKeydown(ev) {
 
 .book-detail__brand {
   margin: 0;
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--brass);
 }
 
 .book-detail__status {
