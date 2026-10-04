@@ -79,7 +79,7 @@ watch(
         :src="reader.pageUrl"
         alt="Page courante"
         draggable="false"
-        :style="reader.imageStyle"
+        :style="reader.pageFilterStyle"
         @load="measurePage"
       />
     </div>

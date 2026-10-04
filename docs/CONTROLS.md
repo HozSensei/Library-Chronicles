@@ -97,6 +97,10 @@ il n’est pas mis à l’échelle.
 - **Redimensionnement** (rotation, resize fenêtre) : le `zoom` est conservé,
   `fitScale` recalculé, l’offset reclampé aux nouvelles bornes.
 - **Nouvelle page** : refit automatique en page entière à la mesure suivante.
+- **Zoom ancré au centre** : `zoomAboutCenter` multiplie l’offset par le ratio
+  de zoom, ce qui garde fixe le point de la page sous le centre du stage. La
+  page étant toujours centrée par construction, aucune géométrie d’écran n’est
+  mesurée (c’est ce que faisait l’ancien `panForZoomToScreenCenter`).
 
 **Presets** (tous ≥ `fitScale`, donc toujours dans les bornes)
 

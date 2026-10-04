@@ -30,6 +30,7 @@ import {
   resetView,
   resolveStickIntent,
   scaleForZoom,
+  zoomAboutCenter,
   zoomForFitHeight,
   zoomForFitWidth,
   zoomStep,
@@ -200,6 +201,31 @@ assert(
   assert(
     clampZoom(resetView().zoom, EMPTY_FIT) === 1,
     'reset valide même sans mesure (zoom neutre)',
+  );
+}
+
+// ——— 4 bis. Zoom ancré au centre du stage ——————————————————————————
+{
+  // Point de la page sous le centre du stage : p = −offset / scale.
+  const centerPoint = (offset, zoom) => ({
+    x: -offset.x / scaleForZoom(zoom, fit),
+    y: -offset.y / scaleForZoom(zoom, fit),
+  });
+
+  const from = { x: 60, y: -40 };
+  const before = centerPoint(from, 2);
+  const after = zoomAboutCenter(from, 2, 2.3, fit);
+  const moved = centerPoint(after, after.zoom);
+  assert(
+    nearly(moved.x, before.x, 1e-6) && nearly(moved.y, before.y, 1e-6),
+    'zoomAboutCenter : le point sous le centre reste fixe',
+  );
+  assert(nearly(after.x, 60 * (2.3 / 2)), 'zoomAboutCenter : offset × ratio');
+
+  const out = zoomAboutCenter(from, 2, 1, fit);
+  assert(
+    out.zoom === 1 && out.x === 0 && out.y === 0,
+    'zoomAboutCenter vers la page entière : offset reclampé à 0',
   );
 }
 
@@ -465,6 +491,10 @@ assert(
 assert(
   pageStage.includes('reader.pageLayerStyle'),
   'vue : calque unique zoom+pan (pageLayerStyle)',
+);
+assert(
+  /zoomBy\(steps\)\s*\{[\s\S]*?zoomAboutCenter/.test(storeSrc),
+  'store zoomBy : ancré au centre du stage',
 );
 assert(
   !/\[data-fit=/.test(pageStage),

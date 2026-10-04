@@ -20,6 +20,7 @@ import {
   resetView,
   resolveStickIntent,
   scaleForZoom,
+  zoomAboutCenter,
   zoomForFitHeight,
   zoomForFitWidth,
   zoomStep,
@@ -151,7 +152,8 @@ export const useReaderStore = defineStore('reader', {
         willChange: 'transform',
       };
     },
-    imageStyle(s) {
+    /** Filtres de lecture (luminosité / contraste / sépia) — pas de transform. */
+    pageFilterStyle(s) {
       return {
         filter: `brightness(${s.brightness}) contrast(${s.contrast}) sepia(${s.sepia})`,
         willChange: 'filter',
@@ -685,7 +687,15 @@ export const useReaderStore = defineStore('reader', {
       const next = zoomStep(this.zoom, steps, this.fit);
       if (Math.abs(next - this.zoom) < 1e-6) return;
       this.pulseZoomTransition();
-      this.applyView({ zoom: next, x: this.offsetX, y: this.offsetY });
+      // Ancré au centre du stage : on zoome sur ce qu’on regarde.
+      this.applyView(
+        zoomAboutCenter(
+          { x: this.offsetX, y: this.offsetY },
+          this.zoom,
+          next,
+          this.fit,
+        ),
+      );
       this.fitMode = this.zoom > 1.001 ? 'zoom' : 'fit-page';
     },
     /**
