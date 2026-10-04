@@ -308,10 +308,12 @@ assert(store.includes('enrichCoverPreviews'), 'store jaquettes résultats');
 assert(store.includes('loadEnrichCoverPreviews'), 'store charge jackets résultats');
 
 assert(view.includes('ouvrir fiche'), 'hint A ouvrir fiche');
-assert(view.includes('Importer ce tome'), 'hint X importer ce tome');
+assert(view.includes('Importer ce tome'), 'hint X importer ce tome (liste)');
+assert(view.includes('Importer le livre'), 'CTA / hint X fiche brouillon');
 assert(view.includes('Tout importer'), 'hint Y tout importer');
+assert(view.includes('Importer des méta'), 'CTA Importer des méta');
 assert(view.includes("key: 'X'"), 'hint key X');
-assert(view.includes("key: 'LB/RB'"), 'hint LB/RB onglets');
+assert(view.includes("key: 'LB/RB'"), 'hint LB/RB onglets recherche');
 assert(view.includes('import__dot'), 'pastille CSS');
 assert(view.includes('import__dot--detected'), 'pastille bleu/détecté');
 assert(view.includes('import__dot--empty'), 'pastille rouge/vide');
@@ -322,9 +324,15 @@ assert(view.includes('Source API'), 'select source API');
 assert(view.includes('@submit.prevent="doSearch"'), 'form submit recherche');
 assert(view.includes('onSearchQueryKeydown'), 'keydown Enter recherche');
 assert(view.includes('enterkeyhint="search"'), 'enterkeyhint search OSK');
-assert(view.includes('import__tabs'), 'onglets fiche');
-assert(view.includes('Infos'), 'onglet Infos');
+assert(view.includes('import__tabs'), 'onglets recherche');
 assert(view.includes('Recherche'), 'onglet Recherche');
+assert(view.includes('import__sheet'), 'fiche brouillon style BookDetail');
+assert(view.includes('import__sheet-hero'), 'hero cover + méta');
+assert(view.includes('import__sheet-headline'), 'titre formulaire');
+assert(view.includes('import__sheet-actions'), 'footer actions fiche');
+assert(view.includes('openMetaSearch'), 'ouvrir recherche méta');
+assert(view.includes('existingBookId'), 'route vers BookDetail si importé');
+assert(view.includes("from: 'import'"), 'query from=import');
 assert(view.includes('import__enrich-cover'), 'carte résultat jaquette');
 assert(view.includes('import__enrich-title'), 'carte résultat titre');
 assert(view.includes('import__enrich-series'), 'carte résultat série');
@@ -336,14 +344,19 @@ assert(view.includes('import__done'), 'marqueur ✓ importé');
 assert(view.includes('alreadyInLibrary'), 'flag alreadyInLibrary');
 assert(!view.includes('import__pick'), 'plus de multi-select checkbox');
 assert(!view.includes('Importer sélection'), 'plus Importer sélection');
-assert(!view.includes('import__actions'), 'plus footer boutons actions');
+assert(!view.includes('import__actions'), 'plus ancien footer import__actions');
 assert(!view.includes('Rescanner'), 'plus bouton Rescanner');
 assert(!view.includes('Lancer recherche'), 'plus bouton Lancer recherche');
 assert(!view.includes('Retour biblio</span>'), 'plus bouton Retour biblio');
 assert(!view.includes('conf.'), 'plus clutter confiance résultat');
 assert(view.includes('ControlHint'), 'footer = ControlHint');
 
-assert(gamepad.includes('imp.openDetail'), 'gamepad A → openDetail');
+assert(gamepad.includes('imp.openDetail'), 'gamepad A → openDetail (brouillon)');
+assert(
+  gamepad.includes('existingBookId'),
+  'gamepad A → BookDetail si déjà importé',
+);
+assert(gamepad.includes("from: 'import'"), 'gamepad query from=import');
 assert(gamepad.includes("action === 'import-one'"), 'gamepad import-one');
 assert(gamepad.includes("action === 'import-all'"), 'gamepad import-all');
 assert(gamepad.includes('imp.commitSelected'), 'gamepad X → commitSelected');

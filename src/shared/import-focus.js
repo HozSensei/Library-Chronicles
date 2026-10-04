@@ -2,17 +2,19 @@
  * Focus manette — Import (liste + fiche Infos / Recherche).
  *
  * Bindings stables :
- * - Liste : A=ouvrir fiche · X=importer ce tome · Y=tout importer · B=retour biblio
- * - Fiche Infos : A=éditer champ · B=retour liste · ↑↓ navigation champs ·
- *   LB/RB=onglets · X=importer ce tome
+ * - Liste : A=ouvrir fiche biblio (si déjà importé) ou fiche brouillon alignée BookDetail ·
+ *   X=importer ce tome · Y=tout importer · B=retour biblio
+ * - Fiche Infos (brouillon) : même look que BookDetailView · A=éditer champ ·
+ *   B=retour liste · X=Importer le livre · Y=Importer des méta (Recherche) ·
+ *   ↑↓ navigation champs
  * - Fiche Recherche : A=appliquer résultat focusé / éditer ·
- *   B=retour Infos · Y=lancer search · Enter/clavier=lancer search · LB/RB=onglets
+ *   B=retour fiche · Y=lancer search · Enter/clavier=lancer search · LB/RB=onglets
  *
  * Zones : `list` | `fields` | `results`
  * Onglets fiche : `infos` | `search`
  *
- * Pas de rangée de boutons footer (hints manette seulement, comme Bibliothèque).
- * Voir `import-meta.js` pour metaSource / pastilles.
+ * Footer Infos : boutons Importer le livre | Importer des méta (clic) ;
+ * manette X/Y restent les bindings. Voir `import-meta.js` pour metaSource / pastilles.
  */
 
 /** Onglets de la fiche détail. */

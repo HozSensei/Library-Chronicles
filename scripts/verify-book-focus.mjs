@@ -1,5 +1,5 @@
 /**
- * Focus fiche livre — champs méta éditables + CTA footer (style Import detail).
+ * Focus fiche livre — champs méta éditables + CTA footer (Lire | Importer des méta).
  */
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -34,18 +34,20 @@ assert(BOOK_FOCUS.PAGES === 6, 'PAGES = 6');
 assert(BOOK_FOCUS.PROVIDER === 7, 'PROVIDER = 7');
 assert(BOOK_FOCUS.SYNOPSIS === 8, 'SYNOPSIS = 8');
 assert(BOOK_FOCUS.READ === 9, 'READ = 9');
-assert(BOOK_FOCUS.BACK === 10, 'BACK = 10');
-assert(BOOK_FOCUS.OPTIONS === 11, 'OPTIONS = 11');
-assert(BOOK_FOCUS.MAX === 11, 'MAX = 11');
+assert(BOOK_FOCUS.META === 10, 'META = 10');
+assert(BOOK_FOCUS.MAX === 10, 'MAX = 10');
+assert(BOOK_FOCUS.BACK === undefined, 'pas de BACK footer (B manette)');
+assert(BOOK_FOCUS.OPTIONS === undefined, 'OPTIONS renommé META');
 
 assert(clampBookFocus(-1) === 0, 'clamp bas');
-assert(clampBookFocus(99) === 11, 'clamp haut');
+assert(clampBookFocus(99) === 10, 'clamp haut');
 assert(clampBookFocus(2.9) === 2, 'clamp trunc');
 assert(clampBookFocus(NaN) === BOOK_FOCUS.READ, 'clamp NaN → READ');
 
 assert(!isBookActionFocus(BOOK_FOCUS.SYNOPSIS), 'synopsis = contenu');
 assert(!isBookActionFocus(BOOK_FOCUS.TITLE), 'titre = contenu');
 assert(isBookActionFocus(BOOK_FOCUS.READ), 'lire = action');
+assert(isBookActionFocus(BOOK_FOCUS.META), 'méta = action');
 assert(isBookEditableFocus(BOOK_FOCUS.TITLE), 'titre éditable');
 assert(isBookEditableFocus(BOOK_FOCUS.SYNOPSIS), 'synopsis éditable');
 assert(!isBookEditableFocus(BOOK_FOCUS.STATUS), 'statut non éditable');
@@ -56,6 +58,10 @@ assert(
 assert(
   resolveBookConfirmAction(BOOK_FOCUS.READ) === 'activate-action',
   'A lire → activate-action',
+);
+assert(
+  resolveBookConfirmAction(BOOK_FOCUS.META) === 'activate-action',
+  'A méta → activate-action',
 );
 
 const view = readFileSync(
@@ -88,6 +94,22 @@ assert(
 );
 assert(view.includes('book-detail__meta'), 'méta labels + valeurs');
 assert(view.includes('grid-template-columns'), 'layout grid (pas absolute croisé)');
+assert(view.includes('Importer des méta'), 'CTA Importer des méta');
+assert(view.includes('goImportMeta'), 'handler recherche API');
+assert(view.includes("from === 'import'"), 'retour liste si from=import');
+assert(
+  !view.includes('action-label">Retour</span>'),
+  'pas de bouton Retour redondant (B suffit)',
+);
+assert(
+  !view.includes('BOOK_FOCUS.BACK'),
+  'plus de focus BACK footer',
+);
+assert(
+  view.includes('background: var(--surface)') &&
+    view.includes('border: 1px solid var(--border)'),
+  'champs style formulaire (surface + bordure)',
+);
 
 const pad = readFileSync(
   join(root, 'src/renderer/src/composables/useGamepad.js'),
@@ -98,6 +120,10 @@ assert(pad.includes("route === 'book'"), 'handler route book');
 assert(pad.includes('resolveBookConfirmAction'), 'confirm resolve book');
 assert(pad.includes('focusTextInputForEdit'), 'confirm édite champ méta');
 assert(pad.includes('data-book-action'), 'confirm cible actions fiche');
+assert(
+  pad.includes("query?.from === 'import'"),
+  'B fiche depuis import → liste',
+);
 // Ne pas casser le chemin reader (scope tick)
 const tickBody = pad.slice(pad.indexOf('function tick()'));
 assert(

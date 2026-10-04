@@ -528,7 +528,15 @@ function createLoop(ctx) {
     if (route === 'book') {
       if (action === 'back') {
         vibe('light');
-        router.push({ name: 'library' });
+        // Depuis import : B → liste import (pas de bouton Retour redondant)
+        if (router.currentRoute.value.query?.from === 'import') {
+          imp.closeDetail();
+          ui.setImportFocusZone('list');
+          ui.setImportFocus(0);
+          router.push({ name: 'import' });
+        } else {
+          router.push({ name: 'library' });
+        }
       }
       // ↑↓ / stick : parcours blocs focusables (méta, synopsis…) → scrollIntoView
       // ←→ : même chaîne (footer CTA inclus), comme Import en paysage console.
@@ -775,24 +783,37 @@ function createLoop(ctx) {
           }
         }
 
-        // X sur fiche = importer ce tome
+        // X sur fiche = Importer le livre → puis fiche bibliothèque
         if (action === 'import-one') {
           if (imp.selected && !imp.committing) {
             vibe('confirm');
             void (async () => {
-              await imp.commitSelected({ copyToLibrary: true });
+              const result = await imp.commitSelected({ copyToLibrary: true });
+              const bookId =
+                result?.book?.id ?? imp.selected?.existingBookId;
+              if (bookId != null) {
+                imp.closeDetail();
+                router.push({
+                  name: 'book',
+                  params: { id: String(bookId) },
+                  query: { from: 'import' },
+                });
+                return;
+              }
               closeToList();
             })();
           }
         }
 
-        // Y : Recherche → relancer search ; Infos → onglet Recherche + search
+        // Y : Infos → Importer des méta (Recherche) ; Recherche → lancer search
         if (action === 'import-all' || action === 'enrich') {
           void (async () => {
             if (tab !== IMPORT_DETAIL_TABS.SEARCH) {
               imp.setDetailTab(IMPORT_DETAIL_TABS.SEARCH);
               ui.setImportFocusZone('fields');
               ui.setImportFocus(IMPORT_SEARCH_FIELDS.QUERY);
+              afterFocusMove();
+              return;
             }
             // Sync query depuis le DOM (clavier virtuel)
             const input = document.querySelector(
@@ -834,9 +855,19 @@ function createLoop(ctx) {
         afterFocusMove();
       }
       if (action === 'confirm') {
-        // Liste : A = ouvrir fiche (onglet Infos) — pas d’import immédiat
+        // Liste : A = ouvrir fiche bibliothèque (ou draft import aligné)
         vibe('confirm');
         void (async () => {
+          const item = imp.selected;
+          if (item?.existingBookId != null) {
+            imp.closeDetail();
+            router.push({
+              name: 'book',
+              params: { id: String(item.existingBookId) },
+              query: { from: 'import' },
+            });
+            return;
+          }
           const ok = await imp.openDetail();
           if (ok) {
             ui.setImportFocusZone('fields');

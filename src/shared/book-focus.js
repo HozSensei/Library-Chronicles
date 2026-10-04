@@ -1,7 +1,8 @@
 /**
  * Indices focus manette — fiche livre (BookDetailView).
  * 0–8 : champs méta focusables (+ synopsis) — éditables sauf statut/pages/provider
- * 9–11 : CTA footer fixe (Lire, Retour, Options)
+ * 9–10 : CTA footer fixe (Lire, Importer des méta)
+ * Pas de bouton Retour — B manette gère le retour (biblio ou liste import).
  */
 export const BOOK_FOCUS = {
   TITLE: 0,
@@ -14,10 +15,12 @@ export const BOOK_FOCUS = {
   PROVIDER: 7,
   SYNOPSIS: 8,
   READ: 9,
-  BACK: 10,
-  OPTIONS: 11,
-  MAX: 11,
+  META: 10,
+  MAX: 10,
 };
+
+/** @deprecated alias — OPTIONS = Importer des méta */
+export const BOOK_FOCUS_OPTIONS = BOOK_FOCUS.META;
 
 /** Premier index des actions footer. */
 export const BOOK_FOCUS_ACTIONS_START = BOOK_FOCUS.READ;

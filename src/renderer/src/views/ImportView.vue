@@ -1,5 +1,6 @@
 <script setup>
 import { computed, nextTick, onMounted, watch } from 'vue';
+import { useRouter } from 'vue-router';
 import ControlHint from '../components/ControlHint.vue';
 import { useImportStore } from '../stores/import';
 import { useUiStore } from '../stores/ui';
@@ -13,6 +14,7 @@ import {
 import { metaSourceLabel } from '../../../shared/import-meta.js';
 import { focusTextInputForEdit } from '../../../shared/virtual-keyboard.js';
 
+const router = useRouter();
 const imp = useImportStore();
 const ui = useUiStore();
 
@@ -26,9 +28,9 @@ const listHints = [
 
 const infosHints = [
   { key: '↑↓', label: 'champ' },
-  { key: 'LB/RB', label: 'onglet' },
   { key: 'A', label: 'éditer' },
-  { key: 'X', label: 'Importer ce tome' },
+  { key: 'X', label: 'Importer le livre' },
+  { key: 'Y', label: 'Importer des méta' },
   { key: 'B', label: 'retour liste' },
 ];
 
@@ -37,7 +39,7 @@ const searchHints = [
   { key: 'LB/RB', label: 'onglet' },
   { key: 'A', label: 'appliquer / éditer' },
   { key: 'Y', label: 'lancer recherche' },
-  { key: 'B', label: 'retour Infos' },
+  { key: 'B', label: 'retour fiche' },
 ];
 
 const hints = computed(() => {
@@ -49,13 +51,21 @@ const statusLabel = computed(() => {
   if (imp.loading) return 'Scan…';
   if (imp.committing) return 'Import en cours…';
   if (imp.isDetail) {
-    const name = imp.selected?.detected?.title || imp.selected?.name || 'Tome';
-    const tab = imp.isSearchTab ? 'Recherche' : 'Infos';
-    return `Fiche import · ${name} · ${tab}`;
+    const name =
+      imp.draft?.title ||
+      imp.selected?.detected?.title ||
+      imp.selected?.name ||
+      'Tome';
+    if (imp.isSearchTab) return `Recherche méta · ${name}`;
+    return `Fiche · ${name} · brouillon`;
   }
   if (!imp.items.length) return 'Aucun fichier dans le dossier import';
   return `${imp.items.length} fichier(s)`;
 });
+
+const draftFormatLabel = computed(() =>
+  imp.selected?.format ? String(imp.selected.format).toUpperCase() : '—',
+);
 
 onMounted(async () => {
   await imp.loadProviders();
@@ -78,7 +88,25 @@ watch(
   () => nextTick(() => scheduleScrollFocusedIntoView('.import')),
 );
 
+/**
+ * Ouvre la fiche bibliothèque si déjà importé, sinon la fiche brouillon
+ * (même look BookDetail) dans le flux import.
+ */
 async function openDetailAt(index) {
+  if (typeof index === 'number' && imp.items[index]) {
+    imp.cursor = index;
+  }
+  const item = imp.selected;
+  if (!item) return;
+  if (item.existingBookId != null) {
+    imp.closeDetail();
+    router.push({
+      name: 'book',
+      params: { id: String(item.existingBookId) },
+      query: { from: 'import' },
+    });
+    return;
+  }
   const ok = await imp.openDetail(index);
   if (!ok) return;
   ui.setImportFocusZone('fields');
@@ -109,8 +137,23 @@ function switchTab(tab) {
 
 async function doImportOne() {
   if (!imp.selected || imp.committing) return;
-  await imp.commitSelected({ copyToLibrary: true });
+  const result = await imp.commitSelected({ copyToLibrary: true });
+  const bookId = result?.book?.id ?? imp.selected?.existingBookId;
+  if (bookId != null) {
+    imp.closeDetail();
+    router.push({
+      name: 'book',
+      params: { id: String(bookId) },
+      query: { from: 'import' },
+    });
+    return;
+  }
   backToList();
+}
+
+/** Bouton / Y Infos → onglet Recherche API (Importer des méta). */
+function openMetaSearch() {
+  switchTab(IMPORT_DETAIL_TABS.SEARCH);
 }
 
 async function doSearch() {
@@ -244,7 +287,7 @@ function dotLabel(item) {
 }
 
 // Exposé pour tests / manette (commit depuis fiche)
-defineExpose({ doSearch, doImportOne, switchTab, backToList });
+defineExpose({ doSearch, doImportOne, switchTab, backToList, openMetaSearch, openDetailAt });
 </script>
 
 <template>
@@ -255,7 +298,7 @@ defineExpose({ doSearch, doImportOne, switchTab, backToList });
       <div class="import__head-main">
         <p class="import__brand">Library Chronicles</p>
         <h1 class="import__title">
-          {{ imp.isDetail ? 'Fiche import' : 'Import' }}
+          {{ imp.isDetail ? (imp.isSearchTab ? 'Recherche méta' : 'Fiche') : 'Import' }}
         </h1>
         <p class="import__status">{{ statusLabel }}</p>
         <p v-if="imp.root && !imp.isDetail" class="import__root">{{ imp.root }}</p>
@@ -322,21 +365,24 @@ defineExpose({ doSearch, doImportOne, switchTab, backToList });
       </div>
     </div>
 
-    <!-- FICHE DÉTAIL -->
+    <!-- FICHE DÉTAIL (brouillon non importé — même look que BookDetailView) -->
     <template v-else>
-      <nav class="import__tabs" aria-label="Onglets fiche import">
+      <nav
+        v-if="imp.isSearchTab"
+        class="import__tabs"
+        aria-label="Onglets fiche import"
+      >
         <button
           type="button"
           class="import__tab"
           :class="{ 'is-active': imp.isInfosTab }"
           @click="switchTab(IMPORT_DETAIL_TABS.INFOS)"
         >
-          Infos
+          Fiche
         </button>
         <button
           type="button"
-          class="import__tab"
-          :class="{ 'is-active': imp.isSearchTab }"
+          class="import__tab is-active"
           @click="switchTab(IMPORT_DETAIL_TABS.SEARCH)"
         >
           Recherche
@@ -345,108 +391,129 @@ defineExpose({ doSearch, doImportOne, switchTab, backToList });
 
       <div class="import__scroll shell-scroll">
         <div class="import__scroll-inner">
-          <!-- ONGLET INFOS -->
+          <!-- ONGLET INFOS = fiche bibliothèque (draft) -->
           <div
             v-if="imp.isInfosTab"
-            class="import__detail"
-            aria-label="Métadonnées d’import"
+            class="import__sheet"
+            aria-label="Fiche livre (brouillon)"
           >
-            <div class="import__detail-top">
-              <div class="import__cover">
-                <img
-                  v-if="imp.coverPreview"
-                  :src="imp.coverPreview"
-                  alt=""
-                />
-                <div v-else class="import__cover-ph">Aperçu</div>
-              </div>
+            <div class="import__sheet-hero">
+              <aside class="import__sheet-cover">
+                <div class="import__sheet-cover-frame">
+                  <img
+                    v-if="imp.coverPreview"
+                    :src="imp.coverPreview"
+                    alt=""
+                  />
+                  <div v-else class="import__cover-ph">Aperçu</div>
+                </div>
+              </aside>
 
-              <div class="import__fields">
+              <div class="import__sheet-info">
                 <div
-                  class="field"
+                  class="field import__sheet-field import__sheet-field--title"
                   data-import-field="title"
                   :class="{ 'is-focused': fieldFocused(IMPORT_INFOS_FIELDS.TITLE) }"
                   @click="onInfosFieldActivate(IMPORT_INFOS_FIELDS.TITLE)"
                 >
-                  <label>Titre</label>
+                  <label class="visually-hidden" for="import-field-title">Titre</label>
                   <input
+                    id="import-field-title"
+                    class="import__sheet-headline"
                     v-model="imp.draft.title"
                     type="text"
                     inputmode="text"
                     autocomplete="off"
                   />
                 </div>
-                <div
-                  class="field"
-                  data-import-field="series"
-                  :class="{ 'is-focused': fieldFocused(IMPORT_INFOS_FIELDS.SERIES) }"
-                  @click="onInfosFieldActivate(IMPORT_INFOS_FIELDS.SERIES)"
-                >
-                  <label>Série</label>
-                  <input
-                    v-model="imp.draft.series"
-                    type="text"
-                    inputmode="text"
-                    autocomplete="off"
-                  />
-                </div>
-                <div class="import__fields-row">
+
+                <div class="import__sheet-fields" aria-label="Métadonnées">
                   <div
-                    class="field"
-                    data-import-field="volume"
-                    :class="{ 'is-focused': fieldFocused(IMPORT_INFOS_FIELDS.VOLUME) }"
-                    @click="onInfosFieldActivate(IMPORT_INFOS_FIELDS.VOLUME)"
+                    class="field import__sheet-field import__sheet-meta"
+                    data-import-field="series"
+                    :class="{ 'is-focused': fieldFocused(IMPORT_INFOS_FIELDS.SERIES) }"
+                    @click="onInfosFieldActivate(IMPORT_INFOS_FIELDS.SERIES)"
                   >
-                    <label>Tome</label>
+                    <label for="import-field-series">Série</label>
                     <input
-                      v-model.number="imp.draft.volume"
-                      type="number"
-                      min="0"
-                      inputmode="numeric"
+                      id="import-field-series"
+                      v-model="imp.draft.series"
+                      type="text"
+                      inputmode="text"
+                      autocomplete="off"
                     />
                   </div>
+
+                  <div class="import__sheet-fields-row">
+                    <div
+                      class="field import__sheet-field import__sheet-meta"
+                      data-import-field="volume"
+                      :class="{ 'is-focused': fieldFocused(IMPORT_INFOS_FIELDS.VOLUME) }"
+                      @click="onInfosFieldActivate(IMPORT_INFOS_FIELDS.VOLUME)"
+                    >
+                      <label for="import-field-volume">Tome</label>
+                      <input
+                        id="import-field-volume"
+                        v-model.number="imp.draft.volume"
+                        type="number"
+                        min="0"
+                        inputmode="numeric"
+                      />
+                    </div>
+                    <div
+                      class="field import__sheet-field import__sheet-meta"
+                      data-import-field="year"
+                      :class="{ 'is-focused': fieldFocused(IMPORT_INFOS_FIELDS.YEAR) }"
+                      @click="onInfosFieldActivate(IMPORT_INFOS_FIELDS.YEAR)"
+                    >
+                      <label for="import-field-year">Année</label>
+                      <input
+                        id="import-field-year"
+                        v-model.number="imp.draft.year"
+                        type="number"
+                        min="1900"
+                        inputmode="numeric"
+                      />
+                    </div>
+                  </div>
+
                   <div
-                    class="field"
-                    data-import-field="year"
-                    :class="{ 'is-focused': fieldFocused(IMPORT_INFOS_FIELDS.YEAR) }"
-                    @click="onInfosFieldActivate(IMPORT_INFOS_FIELDS.YEAR)"
+                    class="field import__sheet-field import__sheet-meta"
+                    data-import-field="author"
+                    :class="{ 'is-focused': fieldFocused(IMPORT_INFOS_FIELDS.AUTHOR) }"
+                    @click="onInfosFieldActivate(IMPORT_INFOS_FIELDS.AUTHOR)"
                   >
-                    <label>Année</label>
+                    <label for="import-field-author">Auteur</label>
                     <input
-                      v-model.number="imp.draft.year"
-                      type="number"
-                      min="1900"
-                      inputmode="numeric"
+                      id="import-field-author"
+                      v-model="imp.draft.author"
+                      type="text"
+                      inputmode="text"
+                      autocomplete="off"
                     />
                   </div>
-                </div>
-                <div
-                  class="field"
-                  data-import-field="author"
-                  :class="{ 'is-focused': fieldFocused(IMPORT_INFOS_FIELDS.AUTHOR) }"
-                  @click="onInfosFieldActivate(IMPORT_INFOS_FIELDS.AUTHOR)"
-                >
-                  <label>Auteur</label>
-                  <input
-                    v-model="imp.draft.author"
-                    type="text"
-                    inputmode="text"
-                    autocomplete="off"
-                  />
-                </div>
-                <div
-                  class="field"
-                  data-import-field="synopsis"
-                  :class="{ 'is-focused': fieldFocused(IMPORT_INFOS_FIELDS.SYNOPSIS) }"
-                  @click="onInfosFieldActivate(IMPORT_INFOS_FIELDS.SYNOPSIS)"
-                >
-                  <label>Synopsis</label>
-                  <textarea
-                    v-model="imp.draft.description"
-                    rows="3"
-                    class="import__textarea"
-                    inputmode="text"
-                  />
+
+                  <div class="import__sheet-chips" aria-hidden="true">
+                    <span class="import__sheet-chip">{{ draftFormatLabel }}</span>
+                    <span class="import__sheet-chip">Brouillon</span>
+                  </div>
+
+                  <div
+                    class="field import__sheet-field import__sheet-field--synopsis"
+                    data-import-field="synopsis"
+                    :class="{ 'is-focused': fieldFocused(IMPORT_INFOS_FIELDS.SYNOPSIS) }"
+                    @click="onInfosFieldActivate(IMPORT_INFOS_FIELDS.SYNOPSIS)"
+                  >
+                    <label for="import-field-synopsis">Synopsis</label>
+                    <textarea
+                      id="import-field-synopsis"
+                      v-model="imp.draft.description"
+                      rows="5"
+                      class="import__textarea"
+                      inputmode="text"
+                      placeholder="Enrichis les métadonnées via Importer des méta."
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -578,6 +645,30 @@ defineExpose({ doSearch, doImportOne, switchTab, backToList });
     </template>
 
     <footer class="import__foot">
+      <div
+        v-if="imp.isDetail && imp.isInfosTab"
+        class="import__sheet-actions"
+        role="toolbar"
+        aria-label="Actions fiche"
+      >
+        <button
+          type="button"
+          class="import__sheet-action is-primary"
+          :disabled="imp.committing || !imp.selected"
+          @click="doImportOne"
+        >
+          <span class="import__sheet-action-label">Importer le livre</span>
+          <span class="import__sheet-action-sub">Ajouter à la bibliothèque</span>
+        </button>
+        <button
+          type="button"
+          class="import__sheet-action import__sheet-action--ghost"
+          @click="openMetaSearch"
+        >
+          <span class="import__sheet-action-label">Importer des méta</span>
+          <span class="import__sheet-action-sub">Recherche API</span>
+        </button>
+      </div>
       <ControlHint class="import__hints" :items="hints" />
     </footer>
   </section>
@@ -656,10 +747,6 @@ defineExpose({ doSearch, doImportOne, switchTab, backToList });
   color: var(--paper-dim);
   word-break: break-all;
   max-width: 56ch;
-}
-
-.import__hints {
-  flex-shrink: 0;
 }
 
 .import__tabs {
@@ -842,23 +929,46 @@ defineExpose({ doSearch, doImportOne, switchTab, backToList });
   max-width: 52rem;
 }
 
-.import__detail-top {
+/* Fiche brouillon — même composition que BookDetailView */
+.import__sheet {
   display: flex;
-  gap: 1.1rem;
+  flex-direction: column;
+  gap: 1.25rem;
+  min-width: 0;
+  max-width: 64rem;
+}
+
+.import__sheet-hero {
+  display: grid;
+  grid-template-columns: clamp(9rem, 22vw, 15rem) minmax(0, 1fr);
+  gap: 1.35rem clamp(1.25rem, 3vw, 2.5rem);
+  align-items: start;
   min-width: 0;
 }
 
-.import__cover {
-  width: 6.5rem;
-  flex-shrink: 0;
+.import__sheet-cover {
+  width: 100%;
+  min-width: 0;
 }
 
-.import__cover img,
-.import__cover-ph {
+.import__sheet-cover-frame {
+  position: relative;
+  isolation: isolate;
   aspect-ratio: 2 / 3;
   width: 100%;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   border: 1px solid var(--border);
+  background: var(--ink-800);
+  overflow: hidden;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+}
+
+.import__sheet-cover-frame img,
+.import__cover-ph {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   object-fit: cover;
 }
 
@@ -868,20 +978,188 @@ defineExpose({ doSearch, doImportOne, switchTab, backToList });
   background: var(--ink-800);
   color: var(--paper-dim);
   font-size: 0.8rem;
+  position: absolute;
+  inset: 0;
 }
 
-.import__fields {
-  flex: 1;
-  min-width: 0;
+.import__sheet-info {
   display: flex;
   flex-direction: column;
-  gap: 0.65rem;
+  gap: 0.85rem;
+  min-width: 0;
 }
 
-.import__fields-row {
+.import__sheet-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.import__sheet-fields-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 0.65rem;
+  gap: 0.45rem 1rem;
+  min-width: 0;
+}
+
+.import__sheet-field {
+  border-radius: var(--radius-sm);
+  min-width: 0;
+}
+
+.import__sheet-headline {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0.45rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--paper);
+  font-family: var(--font-display);
+  font-size: clamp(1.55rem, 3vw, 2.25rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+.import__sheet-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.15rem;
+}
+
+.import__sheet-meta label,
+.import__sheet-field--synopsis label {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--brass);
+}
+
+.import__sheet-meta input {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--paper);
+  padding: 0.55rem 0.65rem;
+  font: inherit;
+  font-size: 0.98rem;
+  font-weight: 600;
+}
+
+.import__sheet-field--synopsis {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.15rem;
+  margin-top: 0.15rem;
+}
+
+.import__sheet-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  padding: 0.15rem 0.15rem 0.25rem;
+}
+
+.import__sheet-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.28rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--paper);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.import__sheet-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.55rem;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.import__sheet-action {
+  appearance: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
+  min-width: 0;
+  padding: 0.55rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--paper);
+  font: inherit;
+  cursor: pointer;
+  transition:
+    border-color 160ms var(--ease-soft),
+    box-shadow 160ms var(--ease-soft),
+    background 160ms var(--ease-soft);
+}
+
+.import__sheet-action.is-primary {
+  border-color: color-mix(in srgb, var(--brass) 55%, var(--border));
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--brass) 28%, transparent),
+    color-mix(in srgb, var(--brass-deep) 14%, transparent)
+  );
+}
+
+.import__sheet-action--ghost {
+  color: var(--paper-dim);
+  background: transparent;
+}
+
+.import__sheet-action:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.import__sheet-action:focus-visible {
+  outline: none;
+  border-color: var(--brass-bright);
+  box-shadow: 0 0 0 3px var(--focus-glow);
+  color: var(--paper);
+}
+
+.import__sheet-action-label {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.95rem;
+  white-space: nowrap;
+}
+
+.import__sheet-action-sub {
+  font-size: 0.7rem;
+  color: var(--paper-dim);
+  white-space: nowrap;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .import__search-block {
@@ -906,8 +1184,16 @@ defineExpose({ doSearch, doImportOne, switchTab, backToList });
 }
 
 .field.is-focused {
+  background: color-mix(in srgb, var(--brass) 6%, transparent);
+}
+
+.field.is-focused .import__sheet-headline,
+.field.is-focused.import__sheet-meta input,
+.field.is-focused .import__textarea,
+.field.is-focused input:not(.import__sheet-headline),
+.field.is-focused select {
+  border-color: var(--brass-bright);
   box-shadow: 0 0 0 3px var(--focus-glow);
-  background: color-mix(in srgb, var(--brass) 8%, transparent);
 }
 
 .field label {
@@ -919,7 +1205,12 @@ defineExpose({ doSearch, doImportOne, switchTab, backToList });
   color: var(--paper-dim);
 }
 
-.field input,
+.import__sheet-meta label {
+  margin-bottom: 0;
+  color: var(--brass);
+}
+
+.field input:not(.import__sheet-headline),
 .import__select,
 .import__textarea {
   width: 100%;
@@ -935,6 +1226,9 @@ defineExpose({ doSearch, doImportOne, switchTab, backToList });
 
 .import__textarea {
   resize: vertical;
+  min-height: 6.5rem;
+  line-height: 1.55;
+  font-weight: 400;
 }
 
 .import__help {
@@ -1066,8 +1360,9 @@ defineExpose({ doSearch, doImportOne, switchTab, backToList });
 .import__foot {
   flex-shrink: 0;
   display: flex;
-  justify-content: center;
-  padding: 0.5rem clamp(1rem, 2.5vw, 2.5rem) 1.1rem;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 0.65rem clamp(1rem, 2.5vw, 2.5rem) 1.1rem;
   border-top: 1px solid var(--border);
   background: color-mix(in srgb, var(--ink-950) 88%, transparent);
   backdrop-filter: blur(10px);
@@ -1076,13 +1371,32 @@ defineExpose({ doSearch, doImportOne, switchTab, backToList });
   box-sizing: border-box;
 }
 
-@media (max-width: 900px) {
-  .import__detail-top {
+.import__hints {
+  flex-shrink: 0;
+  align-self: center;
+}
+
+@media (max-width: 720px) {
+  .import__sheet-hero {
+    grid-template-columns: 1fr;
+    justify-items: stretch;
+  }
+
+  .import__sheet-cover {
+    width: min(11rem, 48vw);
+    justify-self: center;
+  }
+
+  .import__sheet-fields-row {
+    grid-template-columns: 1fr;
+  }
+
+  .import__sheet-actions {
     flex-direction: column;
   }
 
-  .import__cover {
-    width: 5.5rem;
+  .import__sheet-action {
+    width: 100%;
   }
 }
 
@@ -1090,6 +1404,7 @@ defineExpose({ doSearch, doImportOne, switchTab, backToList });
   .import__row,
   .import__enrich-item,
   .import__tab,
+  .import__sheet-action,
   .field {
     transition: none;
   }
