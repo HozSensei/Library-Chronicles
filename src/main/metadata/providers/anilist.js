@@ -4,7 +4,7 @@
  */
 
 import { fetchJson } from '../fetch.js';
-import { USER_AGENT, stripHtml } from '../types.js';
+import { USER_AGENT, METADATA_SEARCH_LIMIT, stripHtml } from '../types.js';
 import { stubProvider } from './stub.js';
 
 const ENDPOINT = 'https://graphql.anilist.co';
@@ -56,7 +56,7 @@ export const anilistProvider = {
         },
         body: JSON.stringify({
           query: SEARCH_QUERY,
-          variables: { search: q, page: 1, perPage: 8 },
+          variables: { search: q, page: 1, perPage: METADATA_SEARCH_LIMIT },
         }),
       });
 

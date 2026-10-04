@@ -28,6 +28,9 @@
 
 export const USER_AGENT = 'VerticalDeckReader/0.1 (Library-Chronicles; +https://github.com/HozSensei/Library-Chronicles)';
 
+/** Nombre max de résultats demandés aux APIs de recherche méta (import). */
+export const METADATA_SEARCH_LIMIT = 16;
+
 export function parseVolume(v) {
   if (v == null || v === '') return null;
   const n = Number(String(v).replace(/[^\d]/g, ''));

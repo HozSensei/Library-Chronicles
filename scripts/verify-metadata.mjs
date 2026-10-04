@@ -9,6 +9,7 @@ import {
   slug,
   stripHtml,
   normalizeMetadataQuery,
+  METADATA_SEARCH_LIMIT,
 } from '../src/main/metadata/types.js';
 import { stubProvider } from '../src/main/metadata/providers/stub.js';
 import { comicvineProvider } from '../src/main/metadata/providers/comicvine.js';
@@ -32,6 +33,7 @@ assert.equal(
 assert.equal(normalizeMetadataQuery('One Piece - Vol. 03'), 'One Piece');
 assert.equal(normalizeMetadataQuery('Naruto T01'), 'Naruto');
 assert.equal(normalizeMetadataQuery('Akira'), 'Akira');
+assert.equal(METADATA_SEARCH_LIMIT, 16);
 
 const parsed = detectFromFilename('/lib/One Piece - Tome 03 (2019).cbz');
 assert.equal(parsed.series, 'One Piece');
@@ -66,10 +68,15 @@ assert.ok(String(gbNoKey[0].description).includes('clé API manquante'));
 // --- mock fetch pour parsers réseau ---
 const originalFetch = globalThis.fetch;
 
+/** Captures last request payloads to assert query + limit. */
+const seen = { openlibrary: null, anilist: null, mangadex: null, googlebooks: null, comicvine: null };
+
 globalThis.fetch = async (url, opts = {}) => {
   const href = String(url);
 
   if (href.includes('openlibrary.org/search.json')) {
+    const u = new URL(href);
+    seen.openlibrary = { q: u.searchParams.get('q'), limit: u.searchParams.get('limit') };
     return jsonResponse({
       docs: [
         {
@@ -85,6 +92,8 @@ globalThis.fetch = async (url, opts = {}) => {
   }
 
   if (href.includes('graphql.anilist.co')) {
+    const body = JSON.parse(opts.body || '{}');
+    seen.anilist = body.variables || null;
     return jsonResponse({
       data: {
         Page: {
@@ -107,6 +116,8 @@ globalThis.fetch = async (url, opts = {}) => {
   }
 
   if (href.includes('api.mangadex.org/manga')) {
+    const u = new URL(href);
+    seen.mangadex = { title: u.searchParams.get('title'), limit: u.searchParams.get('limit') };
     return jsonResponse({
       data: [
         {
@@ -127,6 +138,8 @@ globalThis.fetch = async (url, opts = {}) => {
   }
 
   if (href.includes('googleapis.com/books')) {
+    const u = new URL(href);
+    seen.googlebooks = { q: u.searchParams.get('q'), maxResults: u.searchParams.get('maxResults') };
     return jsonResponse({
       items: [
         {
@@ -144,6 +157,8 @@ globalThis.fetch = async (url, opts = {}) => {
   }
 
   if (href.includes('comicvine.gamespot.com')) {
+    const u = new URL(href);
+    seen.comicvine = { query: u.searchParams.get('query'), limit: u.searchParams.get('limit') };
     return jsonResponse({
       results: [
         {
@@ -168,6 +183,8 @@ try {
   assert.equal(ol[0].author, 'Katsuhiro Otomo');
   assert.equal(ol[0].year, 1984);
   assert.ok(ol[0].coverUrl.includes('covers.openlibrary.org'));
+  assert.equal(seen.openlibrary.q, 'Akira');
+  assert.equal(seen.openlibrary.limit, String(METADATA_SEARCH_LIMIT));
 
   const al = await anilistProvider.search('One Piece');
   assert.equal(al.length, 1);
@@ -175,6 +192,8 @@ try {
   assert.equal(al[0].title, 'One Piece');
   assert.equal(al[0].author, 'Eiichiro Oda');
   assert.equal(al[0].year, 1997);
+  assert.equal(seen.anilist.search, 'One Piece');
+  assert.equal(seen.anilist.perPage, METADATA_SEARCH_LIMIT);
 
   const md = await mangadexProvider.search('Fullmetal');
   assert.equal(md.length, 1);
@@ -182,18 +201,24 @@ try {
   assert.equal(md[0].title, 'Fullmetal Alchemist');
   assert.equal(md[0].author, 'Hiromu Arakawa');
   assert.ok(md[0].coverUrl.includes('uploads.mangadex.org'));
+  assert.equal(seen.mangadex.title, 'Fullmetal');
+  assert.equal(seen.mangadex.limit, String(METADATA_SEARCH_LIMIT));
 
   const gb = await googleBooksProvider.search('Watchmen', { apiKey: 'test-key' });
   assert.equal(gb.length, 1);
   assert.equal(gb[0].source, 'googlebooks');
   assert.equal(gb[0].title, 'Watchmen');
   assert.equal(gb[0].author, 'Alan Moore');
+  assert.equal(seen.googlebooks.q, 'Watchmen');
+  assert.equal(seen.googlebooks.maxResults, String(METADATA_SEARCH_LIMIT));
 
   const cv = await comicvineProvider.search('Batman', { apiKey: 'cv-key' });
   assert.equal(cv.length, 1);
   assert.equal(cv[0].source, 'comicvine');
   assert.equal(cv[0].title, 'Batman');
   assert.equal(cv[0].year, 1939);
+  assert.equal(seen.comicvine.query, 'Batman');
+  assert.equal(seen.comicvine.limit, String(METADATA_SEARCH_LIMIT));
 
   // Timeout / réseau → soft fallback stub
   globalThis.fetch = async () => {

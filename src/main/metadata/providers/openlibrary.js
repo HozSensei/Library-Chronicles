@@ -4,7 +4,7 @@
  */
 
 import { fetchJson } from '../fetch.js';
-import { USER_AGENT, extractYear } from '../types.js';
+import { USER_AGENT, METADATA_SEARCH_LIMIT, extractYear } from '../types.js';
 import { stubProvider } from './stub.js';
 
 /** @type {import('../types.js').MetadataProvider} */
@@ -24,7 +24,7 @@ export const openLibraryProvider = {
     try {
       const url = new URL('https://openlibrary.org/search.json');
       url.searchParams.set('q', q);
-      url.searchParams.set('limit', '8');
+      url.searchParams.set('limit', String(METADATA_SEARCH_LIMIT));
       url.searchParams.set(
         'fields',
         'key,title,author_name,first_publish_year,cover_i,subtitle,number_of_pages_median',
