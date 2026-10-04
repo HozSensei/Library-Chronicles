@@ -1,10 +1,17 @@
 /**
  * Google Books API — livres/BD. Quota gratuit mais clé API requise.
  * Docs: https://developers.google.com/books/docs/v1/using
+ * Pagination : startIndex (0-based) + maxResults (max 40), totalItems.
  */
 
 import { fetchJson } from '../fetch.js';
-import { USER_AGENT, metadataSearchLimit, extractYear, parseVolume } from '../types.js';
+import {
+  USER_AGENT,
+  metadataSearchLimit,
+  collectSearchPages,
+  extractYear,
+  parseVolume,
+} from '../types.js';
 import { stubProvider } from './stub.js';
 
 /** @type {import('../types.js').MetadataProvider} */
@@ -30,41 +37,34 @@ export const googleBooksProvider = {
     }
 
     try {
-      const url = new URL('https://www.googleapis.com/books/v1/volumes');
-      url.searchParams.set('q', q);
-      url.searchParams.set(
-        'maxResults',
-        String(metadataSearchLimit('googlebooks')),
-      );
-      url.searchParams.set('printType', 'books');
-      url.searchParams.set('key', apiKey);
+      const pageSize = metadataSearchLimit('googlebooks');
+      const results = await collectSearchPages({
+        pageSize,
+        fetchPage: async ({ offset, limit }) => {
+          const url = new URL('https://www.googleapis.com/books/v1/volumes');
+          url.searchParams.set('q', q);
+          url.searchParams.set('maxResults', String(limit));
+          url.searchParams.set('startIndex', String(offset));
+          url.searchParams.set('printType', 'books');
+          url.searchParams.set('key', apiKey);
 
-      const data = await fetchJson(url, {
-        signal,
-        headers: { 'User-Agent': USER_AGENT },
-      });
+          const data = await fetchJson(url, {
+            signal,
+            headers: { 'User-Agent': USER_AGENT },
+          });
 
-      const results = (data.items || []).map((item) => {
-        const info = item.volumeInfo || {};
-        const seriesInfo = info.seriesInfo;
-        return {
-          id: `googlebooks:${item.id}`,
-          title: info.title || q,
-          series: seriesInfo?.shortSeriesBookTitle || info.subtitle || null,
-          volume: parseVolume(seriesInfo?.bookDisplayNumber),
-          author: Array.isArray(info.authors) ? info.authors[0] : null,
-          year: extractYear(info.publishedDate),
-          description: info.description
-            ? String(info.description).replace(/\s+/g, ' ').trim().slice(0, 600)
-            : null,
-          coverUrl: upgradeGoogleCover(
-            info.imageLinks?.thumbnail ||
-              info.imageLinks?.smallThumbnail ||
-              null,
-          ),
-          source: 'googlebooks',
-          confidence: 0.75,
-        };
+          const rows = data.items || [];
+          const totalRaw = data.totalItems;
+          const total =
+            totalRaw != null && Number.isFinite(Number(totalRaw))
+              ? Number(totalRaw)
+              : null;
+          return {
+            items: rows.map(mapItem),
+            total,
+            hasMore: total != null ? offset + rows.length < total : null,
+          };
+        },
       });
 
       return results.length ? results : stubProvider.search(q);
@@ -77,6 +77,29 @@ export const googleBooksProvider = {
     }
   },
 };
+
+function mapItem(item) {
+  const info = item.volumeInfo || {};
+  const seriesInfo = info.seriesInfo;
+  return {
+    id: `googlebooks:${item.id}`,
+    title: info.title || 'Book',
+    series: seriesInfo?.shortSeriesBookTitle || info.subtitle || null,
+    volume: parseVolume(seriesInfo?.bookDisplayNumber),
+    author: Array.isArray(info.authors) ? info.authors[0] : null,
+    year: extractYear(info.publishedDate),
+    description: info.description
+      ? String(info.description).replace(/\s+/g, ' ').trim().slice(0, 600)
+      : null,
+    coverUrl: upgradeGoogleCover(
+      info.imageLinks?.thumbnail ||
+        info.imageLinks?.smallThumbnail ||
+        null,
+    ),
+    source: 'googlebooks',
+    confidence: 0.75,
+  };
+}
 
 function upgradeGoogleCover(url) {
   if (!url) return null;

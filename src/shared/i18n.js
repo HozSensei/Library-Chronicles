@@ -329,6 +329,7 @@ export const MESSAGES = Object.freeze({
       enrichVolume: 'Tome {n}',
       enrichSynopsis: 'Synopsis',
       resultsLabel: 'Résultats',
+      resultsCount: '{n}',
     },
     book: {
       aria: 'Fiche livre',
@@ -689,6 +690,7 @@ export const MESSAGES = Object.freeze({
       enrichVolume: 'Vol. {n}',
       enrichSynopsis: 'Synopsis',
       resultsLabel: 'Results',
+      resultsCount: '{n}',
     },
     book: {
       aria: 'Book sheet',
