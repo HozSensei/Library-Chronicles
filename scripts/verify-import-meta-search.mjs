@@ -167,8 +167,11 @@ assert(
   'doc / garde anti-régression closeDetail',
 );
 assert(view.includes('openMetaSearch'), 'ImportView openMetaSearch');
+assert(view.includes("t('import.resultsCount"), 'compteur résultats méta');
 assert(view.includes('import__import-all'), 'bouton header Tout importer');
 assert(view.includes('doImportAll'), 'handler doImportAll');
+const i18nSrc = readFileSync(join(root, 'src/shared/i18n.js'), 'utf8');
+assert(i18nSrc.includes("resultsCount: '{n}'"), 'i18n resultsCount');
 assert(
   !view.includes("key: 'Y', label: 'Tout importer'"),
   'plus hint Y Tout importer sur liste',
