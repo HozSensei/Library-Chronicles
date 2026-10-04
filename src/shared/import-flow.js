@@ -2,22 +2,22 @@
  * Machine d’état du flux Import ↔ fiche ↔ recherche méta.
  *
  * États :
- * - `list`        — liste des fichiers à importer
- * - `sheet`       — fiche brouillon (onglet Infos, look BookDetail)
- * - `meta-search` — Recherche API (provider + query + résultats)
+ * - `list`        — liste des fichiers à importer (`/import`)
+ * - `sheet`       — fiche brouillon (`/import/item/:itemKey`)
+ * - `meta-search` — Recherche API (`…/meta`)
  *
- * Contexte de retour depuis meta-search / sheet :
- * - `list`  — B → bibliothèque (depuis liste) ; défaut
- * - `sheet` — B depuis meta-search → fiche brouillon
- * - `book`  — B depuis meta-search → BookDetail (`?from=import`)
- *
- * Bindings liste (rappel) :
- * - A = ouvrir fiche (BookDetail si ✓, sinon sheet) ; sur header = Tout importer
- * - X = importer ce tome / retirer de la bibliothèque si déjà importé (toggle)
- * - Y = libre sur liste (méta / recherche seulement en fiche)
- * - Tout importer = bouton header (pas binding Y)
- * - B = retour biblio
+ * Le retour B est porté par la hiérarchie de routes (`app-routes.js`) :
+ * meta → fiche parent · sheet → liste · liste → biblio.
+ * `META_RETURN` reste pour dériver le flow depuis l’URL / tests.
  */
+
+import {
+  ROUTE,
+  isImportListRoute,
+  isImportSheetRoute,
+  isMetaSearchRoute,
+  resolveParentLocation,
+} from './app-routes.js';
 
 export const IMPORT_FLOW = Object.freeze({
   LIST: 'list',
@@ -25,16 +25,16 @@ export const IMPORT_FLOW = Object.freeze({
   META_SEARCH: 'meta-search',
 });
 
+/**
+ * @deprecated Préférer la hiérarchie de routes (`resolveParentLocation`).
+ * Conservé pour dériver le flow / tests rétrocompat.
+ */
 export const META_RETURN = Object.freeze({
   LIST: 'list',
   SHEET: 'sheet',
   BOOK: 'book',
 });
 
-/**
- * @param {string|null|undefined} flow
- * @returns {'list'|'sheet'|'meta-search'}
- */
 export function normalizeImportFlow(flow) {
   if (flow === IMPORT_FLOW.SHEET || flow === IMPORT_FLOW.META_SEARCH) {
     return flow;
@@ -42,28 +42,23 @@ export function normalizeImportFlow(flow) {
   return IMPORT_FLOW.LIST;
 }
 
-/**
- * @param {string|null|undefined} ret
- * @returns {'list'|'sheet'|'book'}
- */
 export function normalizeMetaReturn(ret) {
   if (ret === META_RETURN.SHEET || ret === META_RETURN.BOOK) return ret;
   return META_RETURN.LIST;
 }
 
-/**
- * Dérive le flow depuis l’ancien couple viewMode + detailTab.
- * @param {{ viewMode?: string, detailTab?: string }} state
- */
 export function flowFromViewState({ viewMode, detailTab } = {}) {
   if (viewMode !== 'detail') return IMPORT_FLOW.LIST;
   return detailTab === 'search' ? IMPORT_FLOW.META_SEARCH : IMPORT_FLOW.SHEET;
 }
 
-/**
- * @param {string} flow
- * @returns {{ viewMode: 'list'|'detail', detailTab: 'infos'|'search' }}
- */
+export function flowFromRouteName(routeName) {
+  if (isMetaSearchRoute(routeName)) return IMPORT_FLOW.META_SEARCH;
+  if (isImportSheetRoute(routeName)) return IMPORT_FLOW.SHEET;
+  if (isImportListRoute(routeName)) return IMPORT_FLOW.LIST;
+  return null;
+}
+
 export function viewStateFromFlow(flow) {
   const f = normalizeImportFlow(flow);
   if (f === IMPORT_FLOW.META_SEARCH) {
@@ -75,13 +70,6 @@ export function viewStateFromFlow(flow) {
   return { viewMode: 'list', detailTab: 'infos' };
 }
 
-/**
- * Intent d’entrée consommé au mount d’ImportView.
- * Évite la régression : onMounted ne doit pas écraser meta-search → list.
- *
- * @param {string|null|undefined} intent
- * @returns {'list'|'sheet'|'meta-search'|null}
- */
 export function normalizeEntryIntent(intent) {
   if (
     intent === IMPORT_FLOW.LIST ||
@@ -93,23 +81,21 @@ export function normalizeEntryIntent(intent) {
   return null;
 }
 
-/**
- * Résout B / back selon le flow + contexte de retour.
- *
- * @param {{
- *   flow?: string,
- *   metaReturn?: string,
- *   isDetail?: boolean,
- *   detailTab?: string,
- * }} opts
- * @returns {'library'|'to-list'|'to-sheet'|'to-book'}
- */
 export function resolveImportFlowBack({
   flow,
   metaReturn = META_RETURN.LIST,
   isDetail,
   detailTab,
+  routeName,
 } = {}) {
+  if (routeName && resolveParentLocation({ name: routeName })) {
+    if (routeName === ROUTE.LIBRARY_BOOK_META) return 'to-book';
+    if (routeName === ROUTE.IMPORT_BOOK_META) return 'to-book';
+    if (routeName === ROUTE.IMPORT_ITEM_META) return 'to-sheet';
+    if (routeName === ROUTE.IMPORT_ITEM) return 'to-list';
+    if (routeName === ROUTE.IMPORT) return 'library';
+  }
+
   const f =
     flow != null
       ? normalizeImportFlow(flow)

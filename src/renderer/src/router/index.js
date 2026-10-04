@@ -8,60 +8,105 @@ import SetupView from '../views/SetupView.vue';
 import ImportView from '../views/ImportView.vue';
 import SettingsView from '../views/SettingsView.vue';
 import ProfilesView from '../views/ProfilesView.vue';
+import { ROUTE } from '../../../shared/app-routes.js';
 
 const router = createRouter({
   history: createWebHashHistory(),
   routes: [
     {
       path: '/profiles',
-      name: 'profiles',
+      name: ROUTE.PROFILES,
       component: ProfilesView,
       meta: { transition: 'fade-slide', profiles: true },
     },
     {
       path: '/setup',
-      name: 'setup',
+      name: ROUTE.SETUP,
       component: SetupView,
       meta: { transition: 'fade-slide', public: true },
     },
     {
       path: '/',
-      name: 'boot',
+      name: ROUTE.BOOT,
       component: BootView,
     },
     {
       path: '/library',
-      name: 'library',
+      name: ROUTE.LIBRARY,
       component: LibraryView,
       meta: { transition: 'fade-slide' },
     },
     {
-      path: '/book/:id',
-      name: 'book',
+      path: '/library/book/:id',
+      name: ROUTE.LIBRARY_BOOK,
       component: BookDetailView,
-      meta: { transition: 'fade-slide' },
+      meta: { transition: 'fade-slide', parent: ROUTE.LIBRARY },
     },
     {
-      path: '/series/:seriesId',
-      name: 'series',
+      path: '/library/book/:id/meta',
+      name: ROUTE.LIBRARY_BOOK_META,
+      component: ImportView,
+      meta: { transition: 'fade-slide', parent: ROUTE.LIBRARY_BOOK },
+    },
+    {
+      path: '/library/series/:seriesId',
+      name: ROUTE.LIBRARY_SERIES,
       component: SeriesDetailView,
-      meta: { transition: 'fade-slide' },
+      meta: { transition: 'fade-slide', parent: ROUTE.LIBRARY },
     },
     {
       path: '/import',
-      name: 'import',
+      name: ROUTE.IMPORT,
       component: ImportView,
       meta: { transition: 'fade-slide' },
     },
     {
+      path: '/import/item/:itemKey',
+      name: ROUTE.IMPORT_ITEM,
+      component: ImportView,
+      meta: { transition: 'fade-slide', parent: ROUTE.IMPORT },
+    },
+    {
+      path: '/import/item/:itemKey/meta',
+      name: ROUTE.IMPORT_ITEM_META,
+      component: ImportView,
+      meta: { transition: 'fade-slide', parent: ROUTE.IMPORT_ITEM },
+    },
+    {
+      path: '/import/book/:id',
+      name: ROUTE.IMPORT_BOOK,
+      component: BookDetailView,
+      meta: { transition: 'fade-slide', parent: ROUTE.IMPORT },
+    },
+    {
+      path: '/import/book/:id/meta',
+      name: ROUTE.IMPORT_BOOK_META,
+      component: ImportView,
+      meta: { transition: 'fade-slide', parent: ROUTE.IMPORT_BOOK },
+    },
+    {
+      path: '/book/:id',
+      redirect: (to) => ({
+        name: ROUTE.LIBRARY_BOOK,
+        params: { id: String(to.params.id) },
+      }),
+    },
+    {
+      path: '/series/:seriesId',
+      redirect: (to) => ({
+        name: ROUTE.LIBRARY_SERIES,
+        params: { seriesId: String(to.params.seriesId) },
+      }),
+    },
+    {
       path: '/settings',
-      name: 'settings',
+      name: ROUTE.SETTINGS,
       component: SettingsView,
       meta: { transition: 'fade-slide' },
     },
     {
       path: '/reader',
-      name: 'reader',
+      name: ROUTE.READER,
       component: ReaderView,
       meta: { transition: 'reader-in' },
     },
@@ -89,7 +134,6 @@ export async function ensureSetupGate() {
   if (setupGateChecked) return setupCompleted;
   try {
     const active = await window.vdr.profiles.getActive();
-    // Setup par profil — prefs.setupCompleted prioritaire
     if (active?.prefs) {
       setupCompleted = Boolean(active.prefs.setupCompleted);
     } else {
@@ -126,33 +170,27 @@ export function clearSetupGate() {
   setupGateChecked = false;
 }
 
-/**
- * Flux : Profils (1er) → Setup (par profil) → app.
- */
 router.beforeEach(async (to) => {
-  // 1) Toujours choisir un profil en premier
   const hasProfile = await ensureProfileGate();
   if (!hasProfile) {
-    if (to.name !== 'profiles') return { name: 'profiles' };
+    if (to.name !== ROUTE.PROFILES) return { name: ROUTE.PROFILES };
     return true;
   }
 
-  // Gestion profils depuis Paramètres (?manage=1)
-  if (to.name === 'profiles' && to.query.manage === '1') {
+  if (to.name === ROUTE.PROFILES && to.query.manage === '1') {
     return true;
   }
-  if (to.name === 'profiles') {
+  if (to.name === ROUTE.PROFILES) {
     const done = await ensureSetupGate();
-    return { name: done ? 'library' : 'setup' };
+    return { name: done ? ROUTE.LIBRARY : ROUTE.SETUP };
   }
 
-  // 2) Setup du profil actif
   const done = await ensureSetupGate();
-  if (!done && to.name !== 'setup') {
-    return { name: 'setup' };
+  if (!done && to.name !== ROUTE.SETUP) {
+    return { name: ROUTE.SETUP };
   }
-  if (done && to.name === 'setup') {
-    return { name: 'library' };
+  if (done && to.name === ROUTE.SETUP) {
+    return { name: ROUTE.LIBRARY };
   }
 
   return true;
