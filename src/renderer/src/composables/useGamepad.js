@@ -218,9 +218,18 @@ function createLoop(ctx) {
 
     // Champ texte focusé : A/confirm n’envoie pas de submit global — clavier seulement.
     // Exception : CTA Valider (bouton) focusé → isTextInputFocused = false.
+    // Exception import méta-search : zone results — A doit appliquer même si
+    // le champ query a encore le focus DOM (sinon apply flaky 1 fois sur 2).
+    const importApplyResultPending =
+      route === 'import' &&
+      imp.isDetail &&
+      imp.flow === IMPORT_FLOW.META_SEARCH &&
+      ui.importFocusZone === 'results' &&
+      imp.enrichResults.length > 0;
     if (
       (action === 'confirm' || action === 'open-book') &&
-      shouldBlockGamepadConfirmForText()
+      shouldBlockGamepadConfirmForText() &&
+      !importApplyResultPending
     ) {
       void showVirtualKeyboard(document.activeElement);
       vibe('light');
@@ -759,6 +768,11 @@ function createLoop(ctx) {
             if (ui.importFocusIndex < fieldMax) {
               ui.setImportFocus(clampField(ui.importFocusIndex + 1));
             } else if (tab === IMPORT_DETAIL_TABS.SEARCH && resultCount > 0) {
+              try {
+                /** @type {HTMLElement|null} */ (document.activeElement)?.blur?.();
+              } catch {
+                /* ignore */
+              }
               ui.setImportFocusZone('results');
               ui.setImportFocus(0);
               imp.enrichResultCursor = 0;
@@ -785,14 +799,33 @@ function createLoop(ctx) {
           });
 
           if (intent === 'apply-result') {
+            // Libérer le focus DOM query (évite course clavier / double-fire)
+            try {
+              /** @type {HTMLElement|null} */ (document.activeElement)?.blur?.();
+            } catch {
+              /* ignore */
+            }
+            const idx = ui.importFocusIndex;
             vibe('confirm');
-            imp.enrichResultCursor = ui.importFocusIndex;
-            imp.applyEnrichCursor();
+            ui.setImportFocusZone('results');
+            ui.setImportFocus(idx);
+            imp.enrichResultCursor = idx;
+            // applyEnrichCursor(idx) : index UI explicite, pas de toggle
+            const applied = imp.applyEnrichCursor(idx);
+            if (!applied) {
+              // Fallback : cursor store si focusIndex désynchronisé
+              imp.applyEnrichCursor(imp.enrichResultCursor);
+            }
             afterFocusMove();
           } else if (intent === 'run-search') {
             void (async () => {
               await imp.enrich();
               if (imp.enrichResults.length) {
+                try {
+                  /** @type {HTMLElement|null} */ (document.activeElement)?.blur?.();
+                } catch {
+                  /* ignore */
+                }
                 ui.setImportFocusZone('results');
                 ui.setImportFocus(0);
                 imp.enrichResultCursor = 0;
@@ -863,6 +896,11 @@ function createLoop(ctx) {
             }
             await imp.enrich();
             if (imp.enrichResults.length) {
+              try {
+                /** @type {HTMLElement|null} */ (document.activeElement)?.blur?.();
+              } catch {
+                /* ignore */
+              }
               ui.setImportFocusZone('results');
               ui.setImportFocus(0);
               imp.enrichResultCursor = 0;

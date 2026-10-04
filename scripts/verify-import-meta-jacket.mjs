@@ -6,6 +6,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   META_SOURCE,
+  metadataPatchFromEnrichResult,
   normalizeImportMetadata,
   resolveItemMetadata,
 } from '../src/shared/import-meta.js';
@@ -69,6 +70,33 @@ assert(
 );
 
 assert(META_SOURCE.SELECTED === 'selected', 'META_SOURCE.selected');
+
+// --- apply API : série API > title API ; jamais draft filename/folder ---
+const fromApiNullSeries = metadataPatchFromEnrichResult(
+  {
+    title: 'Akira',
+    series: null,
+    volume: 6,
+    author: 'Otomo',
+    coverUrl: 'https://example.com/a.jpg',
+    source: 'openlibrary',
+  },
+  { title: 'file-name', series: 'ParentFolder', volume: 1 },
+);
+assert(fromApiNullSeries.series === 'Akira', 'API sans series → title API');
+assert(fromApiNullSeries.series !== 'ParentFolder', 'pas de fallback folder');
+assert(fromApiNullSeries.volume === 1, 'volume fichier conservé');
+assert(
+  fromApiNullSeries.coverUrl === 'https://example.com/a.jpg',
+  'coverUrl API dans patch',
+);
+
+const fromApiSeries = metadataPatchFromEnrichResult(
+  { title: 'Tome title', series: 'One Piece', volume: 100, source: 'anilist' },
+  { title: 'op-t03', series: 'op-t03', volume: 3 },
+);
+assert(fromApiSeries.series === 'One Piece', 'API series prioritaire');
+assert(fromApiSeries.volume === 3, 'volume détecté > total série API');
 
 // --- normalisation URL jacket ---
 assert(
@@ -187,8 +215,12 @@ assert(importStore.includes('previewCoverFromUrl'), 'store appelle previewCoverF
 assert(importStore.includes('enrichCoverPreviews'), 'store previews résultats search');
 assert(importStore.includes('loadEnrichCoverPreviews'), 'store charge jackets search');
 assert(
-  importStore.includes('this.draft.volume != null'),
-  'applyEnrich garde volume détecté (pas total série API)',
+  importStore.includes('metadataPatchFromEnrichResult'),
+  'applyEnrich via metadataPatchFromEnrichResult (série API)',
+);
+assert(
+  importStore.includes('applyEnrichCursor(focusIndex)'),
+  'applyEnrichCursor accepte index UI',
 );
 const importView = readFileSync(
   join(root, 'src/renderer/src/views/ImportView.vue'),

@@ -174,6 +174,20 @@ assert(
   gamepad.includes('libre sur liste'),
   'Y n’importe plus tout depuis la liste',
 );
+assert(
+  gamepad.includes('importApplyResultPending') ||
+    (gamepad.includes('META_SEARCH') &&
+      gamepad.includes("importFocusZone === 'results'")),
+  'A sur résultats ignore blocage focus texte',
+);
+assert(
+  store.includes('metadataPatchFromEnrichResult'),
+  'apply méta via patch série API',
+);
+assert(
+  store.includes('return true') && store.includes('applyEnrichResult'),
+  'applyEnrichResult retourne booléen',
+);
 
 assert(channels.includes('LIBRARY_DELETE_BOOK'), 'IPC channel delete');
 assert(ipc.includes('LIBRARY_DELETE_BOOK'), 'IPC handler delete');

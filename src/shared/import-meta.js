@@ -84,6 +84,38 @@ export function normalizeImportMetadata(meta, fallbackItem = null) {
 }
 
 /**
+ * Patch draft depuis un résultat API (apply A / clic).
+ *
+ * Priorité série après apply : **API series → API title** — jamais
+ * filename / dossier parent (draft.series local). Les providers qui
+ * omettent `series` (ex. Open Library) ne doivent pas laisser le parse
+ * fichier écraser le choix utilisateur.
+ *
+ * @param {object|null|undefined} result
+ * @param {object|null|undefined} [draft] draft courant (autres champs)
+ * @returns {object} patch pour draft / selectedMeta
+ */
+export function metadataPatchFromEnrichResult(result, draft = null) {
+  const prev = draft && typeof draft === 'object' ? draft : {};
+  const title = String(result?.title || '').trim() || String(prev.title || '').trim();
+  const apiSeries = String(result?.series || '').trim();
+  const apiTitle = String(result?.title || '').trim();
+  // Volume fichier (tome N) > volume API (souvent total de la série)
+  const volume =
+    prev.volume != null ? prev.volume : (result?.volume ?? null);
+  return {
+    title: title || String(prev.title || ''),
+    series: apiSeries || apiTitle || '',
+    volume,
+    author: result?.author || prev.author || '',
+    year: result?.year ?? prev.year ?? null,
+    description: result?.description || prev.description || '',
+    coverUrl: result?.coverUrl || prev.coverUrl || null,
+    source: result?.source || prev.source || null,
+  };
+}
+
+/**
  * Résout les méta d’un item pour commit (X un tome / Y tous).
  * Priorité : draft forcé → selectedMeta → détectées.
  *

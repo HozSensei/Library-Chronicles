@@ -31,6 +31,7 @@ import {
   computeMetaSource,
   hasDetectedMeta,
   metaSourceLabel,
+  metadataPatchFromEnrichResult,
   resolveItemMetadata,
 } from '../src/shared/import-meta.js';
 
@@ -297,6 +298,29 @@ assert(
 assert(metaSourceLabel('selected').includes('API'), 'label selected');
 assert(metaSourceLabel('empty').includes('Aucune'), 'label empty');
 
+// Apply résultat : priorité série API (pas filename/folder draft)
+assert(
+  metadataPatchFromEnrichResult(
+    { title: 'API Title', series: 'API Series' },
+    { series: 'FilenameSeries', title: 'file.cbz' },
+  ).series === 'API Series',
+  'patch série = API',
+);
+assert(
+  metadataPatchFromEnrichResult(
+    { title: 'API Title', series: null },
+    { series: 'FilenameSeries', title: 'file.cbz' },
+  ).series === 'API Title',
+  'patch série vide API → title API (pas filename)',
+);
+assert(
+  metadataPatchFromEnrichResult(
+    { title: 'API Title', series: '' },
+    { series: 'FolderName', title: 'file.cbz' },
+  ).series === 'API Title',
+  'patch série "" → title API (pas folder)',
+);
+
 assert(store.includes("viewMode: 'list'"), 'store viewMode');
 assert(store.includes("detailTab: 'infos'"), 'store detailTab');
 assert(store.includes('setDetailTab'), 'store setDetailTab');
@@ -410,8 +434,24 @@ assert(gamepad.includes('imp.commitAll'), 'gamepad A header → commitAll');
 assert(gamepad.includes('imp.isDetail'), 'branche détail');
 assert(gamepad.includes('imp.enrich()'), 'recherche API détail');
 assert(gamepad.includes('applyEnrichCursor'), 'appliquer résultat');
+assert(
+  gamepad.includes('importApplyResultPending') ||
+    gamepad.includes('zone results'),
+  'A résultats non bloqué par focus texte query',
+);
+assert(
+  gamepad.includes('activeElement') && gamepad.includes('blur'),
+  'blur query avant apply / après search',
+);
 assert(gamepad.includes('resolveImportConfirmAction'), 'guards confirm A');
 assert(gamepad.includes('resolveImportBackAction'), 'guards back B');
+assert(store.includes('metadataPatchFromEnrichResult'), 'store patch API série');
+assert(store.includes('applyEnrichCursor(focusIndex)'), 'cursor index explicite');
+assert(view.includes('applyEnrichCursor'), 'clic résultat → applyEnrichCursor');
+assert(
+  view.includes('blur') && view.includes('shouldBlockGamepadConfirmForText'),
+  'ImportView blur query après search (anti A flaky)',
+);
 assert(gamepad.includes('IMPORT_DETAIL_TABS'), 'onglets manette');
 assert(gamepad.includes('IMPORT_FLOW'), 'machine flow manette');
 assert(gamepad.includes("action === 'tab-prev'"), 'LB/RB tab-prev handler');
