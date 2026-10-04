@@ -23,9 +23,20 @@ npm run dist:win
 
 ### Cloud Agent / Linux
 
-Le cross-build Linux → Windows **échoue souvent** à cause de `better-sqlite3` (module natif).  
-Ne pas inventer d’artefact `.exe` : builder sur **PC Windows** ou sur l’**Ally**.  
-Documenter l’échec éventuel dans le log CI / agent ; la procédure Win reste la source de vérité.
+Le cross-build Linux → Windows **n’est pas fiable** :
+
+1. `better-sqlite3` est reconstruit en **ELF Linux** même dans `dist/win-unpacked` (ABI incompatible Ally).
+2. La finalisation NSIS exige **Wine** (`spawn wine ENOENT` si absent) → l’`.exe` produit peut être un stub incomplet (~200 Ko), **pas** un installeur réel.
+3. Ne **jamais** publier / installer ces artefacts cloud sur l’Ally.
+
+**Source de vérité :** builder sur **PC Windows x64** ou sur l’**Ally** (`npm run dist:win`), puis Release GitHub.
+
+Exemple d’échec observé (agent Linux, 2026-10) :
+
+```
+⨯ wine process failed ENOENT
+file better_sqlite3.node: ELF 64-bit LSB shared object (Linux)
+```
 
 ## Scripts
 
