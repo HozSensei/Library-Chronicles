@@ -3,6 +3,10 @@
 Document de cadrage opérationnel pour **Library Chronicles / Vertical Deck Reader**.  
 Lecteur BD · Comics · Manga en mode portrait, optimisé manette (ROG Ally X).
 
+> **Suite post-v0.1 (Ally ship)** — actions urgentes, distribution et plus tard :  
+> **[`docs/PLAN-v0.1.md`](./docs/PLAN-v0.1.md)**  
+> Enchaînement : Packaged Ally smoke → tag `v0.1.0` → auto-update + migrations SQL.
+
 ---
 
 ## Vision
