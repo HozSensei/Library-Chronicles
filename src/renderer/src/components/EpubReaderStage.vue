@@ -69,14 +69,24 @@ function stageSize() {
   };
 }
 
-function applyTheme() {
+function applyTheme({ reflow = false } = {}) {
   if (!rendition) return;
+  const pct = reader.fontSize || 100;
   // Inclut break-before:page sur titres/blocs chapitre (buildEpubJsThemeRules).
-  const rules = buildEpubJsThemeRules({ fontPct: reader.fontSize || 100 });
+  const rules = buildEpubJsThemeRules({ fontPct: pct });
   rendition.themes.default(rules);
-  rendition.themes.fontSize(`${reader.fontSize || 100}%`);
+  // !important : beaucoup d’EPUB fixent font-size sur p/div — sinon ↑↓ « morts ».
+  rendition.themes.override('font-size', `${pct}%`, true);
   rendition.themes.override('color', EPUB_INK, true);
   rendition.themes.override('background-color', EPUB_PAPER_BG, true);
+  if (!reflow) return;
+  // Forcer la re-pagination viewport après changement de police.
+  try {
+    const { w, h } = stageSize();
+    if (typeof rendition.resize === 'function') rendition.resize(w, h);
+  } catch {
+    // ignore
+  }
 }
 
 function destroyEngine() {
@@ -281,7 +291,7 @@ watch(
   () => reader.fontSize,
   () => {
     if (!rendition) return;
-    applyTheme();
+    applyTheme({ reflow: true });
   },
 );
 

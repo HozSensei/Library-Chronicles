@@ -91,15 +91,28 @@ Changement de taille police → **re-pagination** (reflow). Contenu isolé des f
 
 **Contrôles manette minimaux** — seulement flèches (page) + zoom police :
 
-| Contrôle | Action |
+| Contrôle (logique écran) | Action |
 |----------|--------|
 | D-Pad ← / → | **Page-écran** ±1 (rendition next/prev ; en bout → spine voisin) |
-| D-Pad **↑** / **↓** | Taille police ±10 % (70–200 %) → reflow |
+| D-Pad **↑** / **↓** | Taille police ±10 % (70–200 %) → reflow epub.js |
 | Stick L | **No-op** |
 | L3 / R3 | **No-op** |
 | LT / RT | **No-op** (pas de saut chapitre dédié) |
 | LB Fit Width | **No-op** (pas d’image à fitter) |
 | A / B / X / Y / Select | Sens, quitter, signet, HUD, pause (comme page) |
+
+**Ally portrait-ccw** (D-Pad en bas, plan +90° CW) — mapping *physique* :
+
+| Physique (XInput) | Logique écran | EPUB |
+|-------------------|---------------|------|
+| D-Pad ↑ | ← | page prev |
+| D-Pad ↓ | → | page next |
+| D-Pad ← | ↓ | **zoom police −** (axe libre) |
+| D-Pad → | ↑ | **zoom police +** (axe libre) |
+
+Les 4 directions sont utilisées : ←→ logiques = page, ↑↓ logiques = font
+(phys ←→ après remap). Zoom = `adjustFontSize` → `themes.override('font-size', …, true)`
++ `rendition.resize` pour reflow.
 
 | Feature | CBZ/PDF page | EPUB |
 |---------|--------------|------|
